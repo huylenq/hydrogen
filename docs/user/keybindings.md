@@ -193,8 +193,8 @@ through the pages you have visited, like a browser's back and forward buttons.
 [new-thread defaults](./thread-sidebar.md#start-a-thread). `chat.newWithoutProject`
 (`mod+alt+n`) starts a thread [without a project](./thread-sidebar.md#start-without-a-project).
 
-`flow.toggle` toggles Flow mode, which replaces the chat title bar with the Flow bar. Its default shortcut
-is `ctrl+shift+f`, and it does not run while the terminal has focus. Enabling Flow hides the left
+`flow.toggle` toggles Flow mode, which replaces the chat title bar with the Flow bar. It has no default
+shortcut; in Vim Normal mode use `F` or `w q`, or bind it yourself. Enabling Flow hides the left
 sidebar if it is open. The Flow bar places threads waiting on you from oldest to newest and
 compacts running threads onto the right-side bench.
 

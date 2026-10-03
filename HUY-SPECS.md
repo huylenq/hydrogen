@@ -19,7 +19,7 @@ Opt-in modal keyboard profile for web and desktop (not native mobile). Full comm
 
 ## Shortcuts
 
-Huy's Mac defaults for Flow and Grok Bot use Control rather than Command+Option, and don't fire while a terminal is focused. They must not take over upstream defaults; when upstream adds defaults, check for conflicts across platforms (`mod` is Control off Mac).
+Flow has no default modified shortcut; Vim Normal mode toggles it. Grok Bot's Mac default uses Control rather than Command+Option and doesn't fire while a terminal is focused. Custom defaults must not take over upstream defaults; when upstream adds defaults, check for conflicts across platforms (`mod` is Control off Mac).
 
 ## Flow
 

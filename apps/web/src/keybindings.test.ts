@@ -1505,26 +1505,26 @@ describe("modal profile shortcuts", () => {
 });
 
 describe("Mac workspace mode shortcuts", () => {
-  it.each([
-    ["g", "crew.toggle"],
-    ["f", "flow.toggle"],
-  ] as const)("resolves Ctrl+Shift+%s without intercepting terminal input", (key, command) => {
-    const input = event({ key, ctrlKey: true, shiftKey: true });
-    assert.equal(
-      resolveShortcutCommand(input, DEFAULT_RESOLVED_KEYBINDINGS, {
-        platform: "MacIntel",
-        context: { terminalFocus: false },
-      }),
-      command,
-    );
-    assert.equal(
-      resolveShortcutCommand(input, DEFAULT_RESOLVED_KEYBINDINGS, {
-        platform: "MacIntel",
-        context: { terminalFocus: true },
-      }),
-      null,
-    );
-  });
+  it.each([["g", "crew.toggle"]] as const)(
+    "resolves Ctrl+Shift+%s without intercepting terminal input",
+    (key, command) => {
+      const input = event({ key, ctrlKey: true, shiftKey: true });
+      assert.equal(
+        resolveShortcutCommand(input, DEFAULT_RESOLVED_KEYBINDINGS, {
+          platform: "MacIntel",
+          context: { terminalFocus: false },
+        }),
+        command,
+      );
+      assert.equal(
+        resolveShortcutCommand(input, DEFAULT_RESOLVED_KEYBINDINGS, {
+          platform: "MacIntel",
+          context: { terminalFocus: true },
+        }),
+        null,
+      );
+    },
+  );
 });
 
 describe("Usage shortcuts", () => {
