@@ -1881,6 +1881,14 @@ export default function ChatView(props: ChatViewProps) {
     grokBotChatOpen,
     grokBotFocused,
   } = useHuyWorkspaceGeometry();
+  // Both refs store the node in state, so an inline callback would re-attach every render and loop.
+  const attachWorkspaceRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      workspaceLayoutRef(node);
+      workspaceRef(node);
+    },
+    [workspaceLayoutRef, workspaceRef],
+  );
   // Tracks whether the user explicitly dismissed the sidebar for the active turn.
   // When set, the thread-change reset effect will open the sidebar instead of closing it.
   // Used by "Implement in a new thread" to carry the sidebar-open intent across navigation.
@@ -9482,7 +9490,14 @@ export default function ChatView(props: ChatViewProps) {
       if (result._tag === "Success") jumpAfterResponse.succeeded({ requestId, kind: "approval" });
       return result;
     },
-    [activeThreadId, environmentId, pendingApprovals, respondToThreadApproval, setThreadError, actionLifecycle],
+    [
+      activeThreadId,
+      environmentId,
+      pendingApprovals,
+      respondToThreadApproval,
+      setThreadError,
+      actionLifecycle,
+    ],
   );
 
   const onRespondToUserInput = useCallback(
@@ -9551,7 +9566,14 @@ export default function ChatView(props: ChatViewProps) {
       if (result._tag === "Success") jumpAfterResponse.succeeded({ requestId, kind: "user-input" });
       return result;
     },
-    [activeThreadId, environmentId, pendingUserInputs, respondToThreadUserInput, setThreadError, actionLifecycle],
+    [
+      activeThreadId,
+      environmentId,
+      pendingUserInputs,
+      respondToThreadUserInput,
+      setThreadError,
+      actionLifecycle,
+    ],
   );
 
   // Closes an async question without messaging the agent. The server records
@@ -9754,9 +9776,9 @@ export default function ChatView(props: ChatViewProps) {
       text: trimmed,
     });
 
-      const jumpAfterFollowUp = actionLifecycle.prepare({
-        threadRef: scopeThreadRef(environmentId, threadIdForSend),
-      });
+    const jumpAfterFollowUp = actionLifecycle.prepare({
+      threadRef: scopeThreadRef(environmentId, threadIdForSend),
+    });
     sendInFlightRef.current = true;
     beginLocalDispatch({ preparingWorktree: false });
     setThreadError(threadIdForSend, null);
@@ -10598,10 +10620,7 @@ export default function ChatView(props: ChatViewProps) {
 
   return (
     <div
-      ref={(node) => {
-        workspaceLayoutRef(node);
-        workspaceRef(node);
-      }}
+      ref={attachWorkspaceRef}
       className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
     >
       <Dialog
@@ -10663,17 +10682,17 @@ export default function ChatView(props: ChatViewProps) {
           <HuyChatHeader flowOpen={flowOpen}>
             {inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
             <ChatHeader
-            activeThreadEnvironmentId={activeThread.environmentId}
-            activeThreadId={activeThread.id}
-            isServerThread={isServerThread}
-            activeThreadTitle={activeThread.title}
-            activeProject={activeProject ?? null}
-            rightPanelOpen={inlineRightPanelOwnsTitleBar}
-            onNewThreadInProject={handleNewThreadInActiveProject}
-            {...(activeDraftLogicalProjectKey
-              ? { onOpenProjectSettings: handleOpenDraftProjectSettings }
-              : {})}
-          />
+              activeThreadEnvironmentId={activeThread.environmentId}
+              activeThreadId={activeThread.id}
+              isServerThread={isServerThread}
+              activeThreadTitle={activeThread.title}
+              activeProject={activeProject ?? null}
+              rightPanelOpen={inlineRightPanelOwnsTitleBar}
+              onNewThreadInProject={handleNewThreadInActiveProject}
+              {...(activeDraftLogicalProjectKey
+                ? { onOpenProjectSettings: handleOpenDraftProjectSettings }
+                : {})}
+            />
           </HuyChatHeader>
         </header>
 
