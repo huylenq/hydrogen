@@ -189,7 +189,7 @@ describe("working-session grid navigation", () => {
     expect(modalGridTargetIndex(rects, 3, "next")).toBeNull();
   });
 
-  it("hands the left edge to the sidebar and keeps the right edge in the grid", () => {
+  it("stops at both grid edges instead of leaving the grid", () => {
     const boxes = [rect(0, 0), rect(120, 0)];
     const items = boxes.map((box) => ({
       matches: () => false,
@@ -215,10 +215,10 @@ describe("working-session grid navigation", () => {
     moveModalFocus("right");
     expect(items[1]?.focus).toHaveBeenCalledOnce();
 
+    documentState.activeElement = items[0];
     moveModalFocus("left");
-    expect(useModalKeyboardStore.getState().focusRequest).toBe("sidebar");
+    expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
 
-    useModalKeyboardStore.setState({ focusRequest: null });
     documentState.activeElement = items[1];
     moveModalFocus("right");
     expect(useModalKeyboardStore.getState().focusRequest).toBeNull();

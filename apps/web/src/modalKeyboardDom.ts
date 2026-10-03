@@ -218,10 +218,8 @@ export function moveModalFocus(motion: ModalMotion): void {
       current,
       motion,
     );
-    if (index === null) {
-      if (motion === "left") requestModalFocus("sidebar");
-      return;
-    }
+    // Grid edges are hard stops; the sidebar is reachable only via its own binding.
+    if (index === null) return;
     const target = items[index];
     target?.focus({ preventScroll: true });
     target?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
