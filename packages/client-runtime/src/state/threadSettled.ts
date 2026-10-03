@@ -345,6 +345,17 @@ export function resolveCustomSnooze(input: CustomSnoozeInput, now: Date): string
     : null;
 }
 
+/** Parse a positive duration with an optional s/m/h/d suffix; bare numbers are minutes. */
+export function resolveSnoozeDuration(text: string, now: Date): string | null {
+  const match = /^(\d+(?:\.\d+)?|\.\d+)\s*([smhd]?)$/i.exec(text.trim());
+  if (!match) return null;
+  const amount = Number(match[1]);
+  const suffix = match[2]?.toLowerCase();
+  const minutes =
+    amount * (suffix === "s" ? 1 / 60 : suffix === "h" ? 60 : suffix === "d" ? 1440 : 1);
+  return resolveCustomSnooze({ mode: "duration", amount: String(minutes), unit: "minutes" }, now);
+}
+
 export function localSnoozeDate(date: Date): string {
   return `${String(date.getFullYear()).padStart(4, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }

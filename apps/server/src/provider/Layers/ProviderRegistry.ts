@@ -1,3 +1,4 @@
+import { normalizeHermesModelLabels } from "../HermesModelLabels.ts";
 /**
  * ProviderRegistryLive — aggregates per-instance snapshot streams into a
  * single materialized list.
@@ -181,9 +182,35 @@ const mergeProviderModels = (
     };
   });
   const nextSlugs = new Set(nextModels.map((model) => model.slug));
-  return shouldRetainMissingModels
+  const result = shouldRetainMissingModels
     ? [...mergedModels, ...retainablePreviousModels.filter((model) => !nextSlugs.has(model.slug))]
     : mergedModels;
+  // Hermes session controls also apply to models retained from the instance cache.
+  const controls =
+    provider.driver === "hermes"
+      ? Array.from(
+          new Map(
+            nextModels
+              .flatMap((model) => model.capabilities?.optionDescriptors ?? [])
+              .filter((option) => option.id === "hermesProfile" || option.id === "reasoningEffort")
+              .map((option) => [option.id, option]),
+          ).values(),
+        )
+      : [];
+  return controls.length
+    ? result.map((model) => ({
+        ...model,
+        capabilities: {
+          ...model.capabilities,
+          optionDescriptors: [
+            ...controls,
+            ...(model.capabilities?.optionDescriptors ?? []).filter(
+              (option) => !controls.some((control) => control.id === option.id),
+            ),
+          ],
+        },
+      }))
+    : result;
 };
 
 /**
@@ -223,7 +250,10 @@ export const mergeProviderSnapshot = (
   nextProvider: ServerProvider,
 ): ServerProvider => {
   if (!previousProvider) {
-    return nextProvider;
+    return {
+      ...nextProvider,
+      models: normalizeHermesModelLabels(nextProvider.driver, nextProvider.models),
+    };
   }
   const savedAccount = carrySavedAntigravityAccount(previousProvider, nextProvider);
   // "Google account access is not checked yet" describes the probe, not the
@@ -232,7 +262,10 @@ export const mergeProviderSnapshot = (
   return {
     ...(savedAccount?.status === "ready" ? nextWithoutMessage : nextProvider),
     ...savedAccount,
-    models: mergeProviderModels(nextProvider, previousProvider.models, nextProvider.models),
+    models: normalizeHermesModelLabels(
+      nextProvider.driver,
+      mergeProviderModels(nextProvider, previousProvider.models, nextProvider.models),
+    ),
     ...(nextProvider.workspaceSnapshots !== undefined
       ? { workspaceSnapshots: nextProvider.workspaceSnapshots }
       : previousProvider.workspaceSnapshots !== undefined

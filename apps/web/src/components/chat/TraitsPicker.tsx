@@ -15,7 +15,7 @@ import {
   isClaudeUltrathinkPrompt,
   normalizeModelSlug,
 } from "@t3tools/shared/model";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useEffect } from "react";
 import { BrainIcon, ZapIcon } from "lucide-react";
 import { UltrafastIcon } from "../Icons";
 import {
@@ -38,6 +38,7 @@ import {
   ComposerControlIcon,
   type ComposerControlSize,
 } from "./ComposerControl";
+import { modalPickerFinalFocus } from "../../modalKeyboardDom";
 import { useComposerMenuProps } from "./composerEventScope";
 import { useComposerMenuState } from "./useComposerMenuState";
 
@@ -278,6 +279,7 @@ export interface TraitsMenuContentProps {
   planModeEnabled: boolean;
   triggerClassName?: string;
   isComposerOwned?: boolean;
+  openRequest?: number;
 }
 
 export const TraitsMenuContent = memo(function TraitsMenuContentImpl({
@@ -549,6 +551,7 @@ export const TraitsPicker = memo(function TraitsPicker({
   planModeEnabled,
   triggerClassName,
   isComposerOwned,
+  openRequest,
   size = "sm",
   hidden = false,
   ...persistence
@@ -559,6 +562,10 @@ export const TraitsPicker = memo(function TraitsPicker({
   }) {
   const composerFloatingLayerProps = useComposerMenuProps();
   const [isMenuOpen, setIsMenuOpen] = useComposerMenuState(hidden);
+  useEffect(() => {
+    if (openRequest === undefined || openRequest === 0) return;
+    setIsMenuOpen(true);
+  }, [openRequest, setIsMenuOpen]);
   const { descriptors, primarySelectDescriptor, ultrathinkPromptControlled } =
     getTraitsSectionVisibility({
       provider,
@@ -677,7 +684,14 @@ export const TraitsPicker = memo(function TraitsPicker({
         </TooltipTrigger>
         <TooltipPopup side="top">{accessibleLabel}</TooltipPopup>
       </Tooltip>
-      <MenuPopup align="start" {...(isComposerOwned ? composerFloatingLayerProps : {})}>
+      <MenuPopup
+        align="start"
+        {...(isComposerOwned ? composerFloatingLayerProps : {})}
+        finalFocus={() =>
+          modalPickerFinalFocus(document.documentElement.hasAttribute("data-modal-keyboard")) ??
+          (isComposerOwned ? (composerFloatingLayerProps.finalFocus?.() ?? true) : true)
+        }
+      >
         <TraitsMenuContent
           provider={provider}
           {...(instanceId ? { instanceId } : {})}

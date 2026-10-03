@@ -1458,6 +1458,75 @@ describe("composer and pull request shortcuts", () => {
   }
 });
 
+describe("modal profile shortcuts", () => {
+  it("leaves plain terminal Escape alone and resolves a configurable reclaim key", () => {
+    const options = { platform: "MacIntel", context: { terminalFocus: true, terminalOpen: true } };
+    assert.equal(
+      resolveShortcutCommand(event({ key: "Escape" }), DEFAULT_RESOLVED_KEYBINDINGS, options),
+      null,
+    );
+    assert.equal(
+      resolveShortcutCommand(
+        event({ key: " ", ctrlKey: true, shiftKey: true }),
+        DEFAULT_RESOLVED_KEYBINDINGS,
+        options,
+      ),
+      "keyboard.normal",
+    );
+    const custom = compileResolvedKeybindingsConfig([
+      { key: "ctrl+alt+m", command: "keyboard.normal", when: "terminalFocus" },
+    ]);
+    assert.equal(
+      resolveShortcutCommand(event({ key: "m", ctrlKey: true, altKey: true }), custom, options),
+      "keyboard.normal",
+    );
+    assert.equal(
+      resolveShortcutCommand(event({ key: "m", ctrlKey: true, altKey: true }), custom, {
+        platform: "MacIntel",
+      }),
+      null,
+    );
+  });
+
+  it("does not reserve the profile toggle inside a terminal", () => {
+    const key = event({ key: "v", metaKey: true, altKey: true });
+    assert.equal(
+      resolveShortcutCommand(key, DEFAULT_RESOLVED_KEYBINDINGS, { platform: "MacIntel" }),
+      "keyboard.toggleModal",
+    );
+    assert.equal(
+      resolveShortcutCommand(key, DEFAULT_RESOLVED_KEYBINDINGS, {
+        platform: "MacIntel",
+        context: { terminalFocus: true },
+      }),
+      null,
+    );
+  });
+});
+
+describe("Mac workspace mode shortcuts", () => {
+  it.each([
+    ["g", "crew.toggle"],
+    ["f", "flow.toggle"],
+  ] as const)("resolves Ctrl+Shift+%s without intercepting terminal input", (key, command) => {
+    const input = event({ key, ctrlKey: true, shiftKey: true });
+    assert.equal(
+      resolveShortcutCommand(input, DEFAULT_RESOLVED_KEYBINDINGS, {
+        platform: "MacIntel",
+        context: { terminalFocus: false },
+      }),
+      command,
+    );
+    assert.equal(
+      resolveShortcutCommand(input, DEFAULT_RESOLVED_KEYBINDINGS, {
+        platform: "MacIntel",
+        context: { terminalFocus: true },
+      }),
+      null,
+    );
+  });
+});
+
 describe("Usage shortcuts", () => {
   it("scopes letter shortcuts to Usage", () => {
     assert.strictEqual(

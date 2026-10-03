@@ -1,0 +1,53 @@
+/* A steady focus outline remains visible after programmatic modal navigation. */
+[data-modal-keyboard] [data-modal-surface]:focus,
+[data-modal-keyboard] [data-modal-surface] :focus:not(input):not(textarea):not([contenteditable]) {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+
+/* Flow keeps layout commands on the keyboard and in the command palette. */
+[data-flow-mode="true"] [data-sidebar-control],
+[data-flow-mode="true"] [data-sidebar="trigger"],
+[data-flow-mode="true"] [data-panel-layout-controls],
+[data-flow-mode="true"] [data-workspace-titlebar-controls] {
+  display: none;
+}
+
+/* The Huy workspace reserves only the controls outside the Crew rail and chat. */
+[data-right-panel-tabbar][data-panel-mode="inline"][data-has-layout-controls="false"] {
+  padding-right: max(0.75rem, calc(9rem - var(--crew-panel-inline-inset, 0px)));
+}
+[data-right-panel-tabbar][data-controls-overlay="true"] {
+  padding-right: calc(8rem - var(--crew-rail-width, 56px));
+}
+@media (min-width: 640px) {
+  [data-right-panel-tabbar][data-controls-overlay="true"] {
+    padding-right: calc(7rem - var(--crew-rail-width, 56px));
+  }
+}
+.wco [data-right-panel-tabbar][data-owns-titlebar="true"][data-has-layout-controls="false"] {
+  padding-right: max(
+    0.75rem,
+    calc(var(--workspace-native-controls-inset) + 8rem - var(--crew-panel-inline-inset, 0px))
+  );
+}
+
+.wco [data-right-panel-tabbar][data-owns-titlebar="true"][data-has-layout-controls="true"] {
+  padding-right: var(--workspace-native-controls-inset);
+}
+[data-modal-right-panel-sheet] {
+  width: min(42vw, 28rem);
+  min-width: 20rem;
+  max-width: 28rem;
+}
+@media (max-width: 760px) {
+  [data-modal-right-panel-sheet] {
+    width: min(88vw, 24rem);
+    min-width: 0;
+  }
+}
+.wco [data-modal-right-panel-sheet] {
+  margin-top: env(titlebar-area-height);
+  height: calc(100% - env(titlebar-area-height));
+  max-height: calc(100% - env(titlebar-area-height));
+}

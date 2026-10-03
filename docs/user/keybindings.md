@@ -3,6 +3,67 @@
 Customize shortcuts in **Settings → Keybindings** on web and desktop. That page
 also lists the command IDs and defaults available in your version.
 
+## Vim navigation
+
+See [Using Vim navigation](./modal-keyboard.md) for a walkthrough,
+examples, and troubleshooting.
+
+Turn on **Vim navigation** in **Settings** → **Keybindings**. This preference
+applies to the current web or desktop client. You can also toggle it with `mod+alt+v`.
+
+In **Normal** mode, direct keys run common actions and `w`, `t`, and `f` open command
+groups. Space focuses the active right-panel content; `?` shows the shortcut reference.
+
+| Keys                         | Action                                                                 |
+| ---------------------------- | ---------------------------------------------------------------------- |
+| `1`–`9`                      | Select thread as with `Cmd+1`–`Cmd+9`                                  |
+| `q` / `F` / `i` / `A`        | Focus Flow bar / toggle Flow mode / composer / pending question        |
+| `n` or `a` / `m` / `e` / `r` | New-thread chooser / model / reasoning effort / open and focus changes |
+| `/` / `,`                    | Switch thread / keyboard settings                                      |
+| `j` / `k`                    | Next/previous Flow card or sidebar item; scroll the conversation       |
+| `[` / `]`                    | Open previous/next Flow session in Normal mode                         |
+| `gg` / `G`                   | First/last item; top/bottom of conversation                            |
+| `Enter`                      | Enter Insert mode in the conversation, or open focused item            |
+| `w w`                        | Alternate between the previous two navigation areas                    |
+| `w s` / `w q` / `w Space`    | Toggle sidebar / Flow mode / right panel visibility                    |
+| `w t` / `w m`                | Toggle terminal / maximize or restore open right panel                 |
+| `t p` / `t s`                | Pin/unpin / settle/unsettle the open thread                            |
+| `f f` / `f s`                | Find file / search project contents                                    |
+| `g k`                        | Commit changes                                                         |
+| `H` / `L`                    | Toggle sidebar / right panel visibility                                |
+| `h` / `l`                    | Navigate within Flow cards or panel tabs; otherwise between panes      |
+| `Esc`                        | Focus conversation, or return from Flow inspection                     |
+
+`?` opens the complete shortcut reference. Help shows current toggle states, thread-action targets, and reasons for unavailable
+commands. Panel labels identify the active area. In the right-panel tab strip, h/l or Left/Right arrow keys
+select tabs and Enter enters their controls; `ctrl+shift+space` returns to the selected tab.
+Pickers restore the control you left when dismissed. Enter on a model or reasoning effort from Normal mode stays in Normal mode.
+
+Use `[` / `]` to open the previous/next Flow session immediately, staying in Normal mode.
+Press `s`, type a duration such as `30s`, `15m`, `24h`, or `2d`, and press Enter to snooze the open thread.
+A bare number means minutes. The duration field receives focus immediately; Escape cancels. If the thread is already
+snoozed, `s` wakes it instead.
+Snooze requires support from the connected environment.
+
+`q` opens Flow and focuses its bar when visible; the working-session grid keeps the bar hidden.
+`F` or `w q` toggles Flow mode. Prefixes have no typing
+deadline. Escape dismisses help or cancels a sequence first, then focuses the main
+content on the next press. During Flow session inspection, that next press returns to the
+working-session grid. Escape closes an open picker first; otherwise it returns from text fields to navigation.
+
+Press `A` to expand and focus a question without answering it. Its numbered answers work
+only while the expanded question has focus. Escape returns to conversation navigation.
+The `?` reference keeps shortcuts active and stays visible until you close it with `?` or
+Escape in Normal mode. Thread actions apply to the open thread; moving focus over another row does not change
+the target.
+
+Text fields and embedded editors keep their editing behavior. Terminals keep plain Escape;
+use `ctrl+shift+space` to return to T3's Normal mode. Existing modified shortcuts, Tab
+navigation, and mouse controls remain available. Native mobile does not offer this profile.
+
+The toggle and return shortcuts can be customized by editing **Keyboard: Toggle Modal**
+and **Keyboard: Normal** below. The navigation keys and sequences are fixed in this version.
+
 ## Composer controls
 
 In **Settings → General → Send shortcut**, choose whether Enter sends, requires
@@ -131,6 +192,23 @@ through the pages you have visited, like a browser's back and forward buttons.
 `chat.newLocal` skips that chooser. Both use your
 [new-thread defaults](./thread-sidebar.md#start-a-thread). `chat.newWithoutProject`
 (`mod+alt+n`) starts a thread [without a project](./thread-sidebar.md#start-without-a-project).
+
+`flow.toggle` toggles Flow mode, which replaces the chat title bar with the Flow bar. Its default shortcut
+is `ctrl+shift+f`, and it does not run while the terminal has focus. Enabling Flow hides the left
+sidebar if it is open. The Flow bar places threads waiting on you from oldest to newest and
+compacts running threads onto the right-side bench.
+
+The Flow bar is hidden in the working-session grid and returns when you open a session.
+When the attention queue is empty, the working-session grid uses `h`/`l` within a row and
+`j`/`k` between rows. At the left edge, `h` moves to the sidebar. The other grid edges keep
+focus on the current preview.
+
+While Flow mode is active, sending a message, finishing the current thread's approval
+or input requests, or settling, snoozing, or archiving it advances to the oldest
+available thread waiting on you. Starting a plan implementation advances too.
+The next destination is marked **Next**. If nothing else needs attention, an open
+session returns to the working-session grid. New activity never switches threads by itself. Typing or navigating
+while an action is pending cancels its jump; leaving Flow mode turns auto-jump off.
 
 ## Reserved shortcuts
 

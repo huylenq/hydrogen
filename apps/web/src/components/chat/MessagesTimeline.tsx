@@ -105,6 +105,8 @@ import {
 } from "../../lib/diffRendering";
 import { PREFERRED_HIGHLIGHTER } from "../../lib/syntaxHighlighting";
 import ChatMarkdown, { ChatMarkdownAssetImage } from "../ChatMarkdown";
+import { readLexiconPrompt } from "../../customizations/huy/lexiconPrompt";
+import { LexiconContext } from "../../customizations/huy/LexiconContext";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Root, RootContent } from "mdast";
@@ -4303,8 +4305,10 @@ const CollapsibleUserMessageBody = memo(function CollapsibleUserMessageBody(prop
   footer?: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const hasVisibleBody = props.text.trim().length > 0;
-  const canCollapse = hasVisibleBody && shouldCollapseUserMessage(props.text);
+  const lexiconPrompt = readLexiconPrompt(props.text);
+  const messageText = lexiconPrompt?.message ?? props.text;
+  const hasVisibleBody = messageText.trim().length > 0;
+  const canCollapse = hasVisibleBody && shouldCollapseUserMessage(messageText);
   const isCollapsed = canCollapse && !expanded;
 
   return (
@@ -4326,13 +4330,14 @@ const CollapsibleUserMessageBody = memo(function CollapsibleUserMessageBody(prop
           }
         >
           <UserMessageBody
-            text={props.text}
+            text={messageText}
             renderContextReference={props.renderContextReference}
             skills={props.skills}
             markdownCwd={props.markdownCwd}
           />
         </div>
       ) : null}
+      {lexiconPrompt ? <LexiconContext key={props.text} prompt={lexiconPrompt} /> : null}
       {canCollapse || props.footer ? (
         <div
           className={cn(

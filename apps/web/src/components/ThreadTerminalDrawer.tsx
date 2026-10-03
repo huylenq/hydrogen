@@ -1,3 +1,8 @@
+import { registerAppCommands } from "../appCommands";
+import { getTerminalFocusOwner } from "../lib/terminalFocus";
+import { getClientSettings } from "../hooks/useSettings";
+import { requestModalFocus, useModalKeyboardStore } from "../modalKeyboardStore";
+import { resolveShortcutCommand } from "../keybindings";
 import { useAtomValue } from "@effect/atom-react";
 import {
   isAtomCommandInterrupted,
@@ -354,6 +359,21 @@ export function TerminalViewport({
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<GhosttyTerminalSurface | null>(null);
   const visibleRef = useRef(visible);
+  useEffect(
+    () =>
+      registerAppCommands((command) => {
+        if (
+          command !== "rightPanel.enter" ||
+          !autoFocus ||
+          !terminalRef.current ||
+          !containerRef.current?.closest('[data-terminal-owner="right-panel"]')
+        )
+          return false;
+        terminalRef.current.focus();
+        return true;
+      }),
+    [autoFocus],
+  );
   const environmentId = threadRef.environmentId;
   const serverConfig = useAtomValue(serverEnvironment.configValueAtom(environmentId));
   const openInPreferredEditor = useOpenInPreferredEditor(
@@ -547,6 +567,10 @@ export function TerminalViewport({
       if (visibleRef.current && mount.contains(document.activeElement)) {
         terminal.focus();
       }
+      if (autoFocus)
+        window.requestAnimationFrame(() => {
+          if (shouldAutoFocusTerminal()) terminal.focus();
+        });
 
       const dismissSelectionAction = (supersede = false) => {
         const ownsMenu =
@@ -745,6 +769,21 @@ export function TerminalViewport({
       function handleBeforeKey(event: KeyboardEvent): boolean {
         const currentKeybindings = keybindingsRef.current;
         const options = { context: { terminalFocus: true, terminalOpen: true } };
+        if (
+          getClientSettings().modalKeyboardEnabled &&
+          !event.isComposing &&
+          event.keyCode !== 229 &&
+          resolveShortcutCommand(event, currentKeybindings, options) === "keyboard.normal"
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!event.repeat)
+            requestModalFocus(
+              getTerminalFocusOwner() === "right-panel" ? "rightPanel" : "conversation",
+              true,
+            );
+          return false;
+        }
         if (preventTerminalCloseShortcut(event, currentKeybindings)) {
           return false;
         }
@@ -950,14 +989,29 @@ export function TerminalViewport({
       writeSystemMessage(terminal, current.error);
     }
 
+    if (previous.version === 0 && autoFocus) {
+      window.requestAnimationFrame(() => {
+        if (shouldAutoFocusTerminal()) terminal.focus();
+      });
+    }
     previousSessionRef.current = current;
   }, [terminalOutput, terminalError, terminalStatus, terminalVersion]);
 
   useEffect(() => {
     if (!autoFocus || !visible) return;
-    // Claim focus when requested, then hand it to the terminal once ready only
-    // if the user has not focused something else in the meantime.
-    (terminalRef.current ?? containerRef.current)?.focus();
+    const terminal = terminalRef.current;
+    if (!terminal) {
+      // Claim focus when requested, then hand it to the terminal once ready only
+      // if the user has not focused something else in the meantime.
+      containerRef.current?.focus();
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      if (shouldAutoFocusTerminal()) terminal.focus();
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
   }, [autoFocus, focusRequestId, visible]);
 
   useEffect(() => {
@@ -1712,5 +1766,15 @@ export default function ThreadTerminalDrawer({
         </div>
       </div>
     </aside>
+  );
+}
+
+/** Opening a panel for navigation must not let its terminal steal the panel's focus. */
+function shouldAutoFocusTerminal(): boolean {
+  if (!getClientSettings().modalKeyboardEnabled) return true;
+  return (
+    useModalKeyboardStore.getState().focusRequest !== "rightPanel" &&
+    !document.activeElement?.matches('[data-modal-surface="rightPanel"]') &&
+    !document.activeElement?.closest("[data-right-panel-tab-list]")
   );
 }

@@ -1105,3 +1105,38 @@ describe("branch naming settings", () => {
     },
   );
 });
+
+describe("ServerSettings agent access", () => {
+  it("decodes older settings with Crew access independent of browser access", () => {
+    const settings = decodeServerSettings({ enableAgentBrowserAccess: false });
+    expect(settings.enableAgentBrowserAccess).toBe(false);
+    expect(settings.enableAgentCrewAccess).toBe(true);
+  });
+
+  it.each(["enableAgentBrowserAccess", "enableAgentCrewAccess"] as const)(
+    "patches %s without changing the other permission",
+    (key) => {
+      const patch = decodeServerSettingsPatch({ [key]: false });
+      expect(patch).toEqual({ [key]: false });
+      const settings = decodeServerSettings({
+        ...encodeServerSettings(DEFAULT_SERVER_SETTINGS),
+        ...patch,
+      });
+      expect(settings[key]).toBe(false);
+      const otherKey =
+        key === "enableAgentBrowserAccess" ? "enableAgentCrewAccess" : "enableAgentBrowserAccess";
+      expect(settings[otherKey]).toBe(true);
+      expect(encodeServerSettings(settings)[key]).toBe(false);
+    },
+  );
+});
+
+describe("ClientSettings modal keyboard", () => {
+  it("is opt-in and accepts a client-local toggle", () => {
+    expect(decodeClientSettings({}).modalKeyboardEnabled).toBe(false);
+    expect(decodeClientSettingsPatch({ modalKeyboardEnabled: true }).modalKeyboardEnabled).toBe(
+      true,
+    );
+    expect(() => decodeClientSettingsPatch({ modalKeyboardEnabled: "vim" })).toThrow();
+  });
+});

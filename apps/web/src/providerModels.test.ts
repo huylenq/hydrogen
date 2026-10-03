@@ -75,3 +75,23 @@ describe("getProviderModelCapabilities", () => {
     });
   });
 });
+
+it("offers Hermes agent profiles for a retained model without capabilities", () => {
+  const profiles: ModelCapabilities = {
+    optionDescriptors: [
+      {
+        id: "hermesProfile",
+        label: "Agent profile",
+        type: "select",
+        options: [{ id: "curie", label: "curie" }],
+      },
+    ],
+  };
+  const models = [
+    model({ slug: "hermes-default", capabilities: profiles }),
+    model({ slug: "grok-4.6", capabilities: { optionDescriptors: [] } }),
+  ];
+  expect(
+    getProviderModelCapabilities(models, "grok-4.6", ProviderDriverKind.make("hermes")),
+  ).toEqual(profiles);
+});

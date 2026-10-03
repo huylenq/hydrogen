@@ -21,6 +21,7 @@ export type PreviewPanelMode = "inline" | "sheet" | "sidebar" | "embedded";
  */
 interface PreviewPanelShellProps {
   mode: PreviewPanelMode;
+  modalSurface?: "rightPanel";
   maximized?: boolean;
   inlineSize?: PreviewPanelInlineSize;
   open?: boolean;
@@ -128,6 +129,9 @@ function PreviewPanelShellFrame(
             }
           : undefined
       }
+      data-modal-surface={props.modalSurface}
+      tabIndex={props.modalSurface ? -1 : undefined}
+      aria-label={props.modalSurface ? "Right panel" : undefined}
       data-preview-panel-mode={props.mode}
       data-preview-panel-maximized={maximized ? "true" : "false"}
     >

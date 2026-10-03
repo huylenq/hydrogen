@@ -3,6 +3,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import {
@@ -16,6 +17,7 @@ import {
 } from "@t3tools/contracts";
 
 import * as ServerConfig from "../config.ts";
+import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
 import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
 
@@ -33,6 +35,8 @@ export class ReviewService extends Context.Service<
 
 /** @public Service construction is part of the canonical Effect module API. */
 export const make = Effect.gen(function* () {
+  // Absent in the CLI, which only reviews its startup directory.
+  const projects = yield* Effect.serviceOption(ProjectStore.ProjectStoreV2);
   const config = yield* ServerConfig.ServerConfig;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -76,6 +80,22 @@ export const make = Effect.gen(function* () {
     if (isWithinRoot(candidate, workspaceRoot) || isWithinRoot(candidate, worktreesRoot)) {
       return;
     }
+
+    // An environment can host projects outside its startup directory.
+    const project = Option.isNone(projects)
+      ? Option.none()
+      : yield* projects.value.findActiveByWorkspaceRoot(cwd).pipe(
+          Effect.mapError(
+            (cause) =>
+              new VcsRepositoryDetectionError({
+                operation,
+                cwd,
+                detail: "Failed to validate the review project workspace.",
+                cause,
+              }),
+          ),
+        );
+    if (Option.isSome(project)) return;
 
     return yield* new VcsRepositoryDetectionError({
       operation,

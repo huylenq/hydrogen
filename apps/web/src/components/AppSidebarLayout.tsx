@@ -1,3 +1,9 @@
+import {
+  HuyWorkspace,
+  useHuyWorkspace,
+  useHuyWorkspaceCommands,
+} from "../customizations/huy/HuyWorkspace";
+import { resolveThreadRouteTarget } from "../threadRoutes";
 import { useAtomValue } from "@effect/atom-react";
 import * as Schema from "effect/Schema";
 import {
@@ -79,7 +85,7 @@ function readInitialThreadSidebarWidth(): number {
   }
 }
 
-function SidebarControl() {
+function SidebarControl({ flowAvailable }: { readonly flowAvailable: boolean }) {
   const usagePageOpen = useLocation({ select: (location) => location.pathname === "/usage" });
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const { toggleSidebar } = useSidebar();
@@ -92,6 +98,7 @@ function SidebarControl() {
     context: { usagePageOpen },
   });
 
+  useHuyWorkspaceCommands(keybindings, flowAvailable);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
@@ -110,11 +117,10 @@ function SidebarControl() {
         // available everywhere else, including the plain-text composer.
         return;
       }
-      if (
-        resolveShortcutCommand(event, keybindings, { context: { usagePageOpen } }) !==
-        "sidebar.toggle"
-      )
-        return;
+      const command = resolveShortcutCommand(event, keybindings, {
+        context: { terminalFocus: isTerminalFocused(), usagePageOpen },
+      });
+      if (command !== "sidebar.toggle") return;
 
       event.preventDefault();
       event.stopPropagation();
@@ -228,6 +234,11 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const panelAnimationsSuppressed = usePanelNavigationSuppression(pathname);
   const routePanelAnimationsActive = panelAnimationsActive && !panelAnimationsSuppressed;
   const isOnSettings = pathname === "/settings" || pathname.startsWith("/settings/");
+  const routeTarget = useParams({
+    strict: false,
+    select: (params) => resolveThreadRouteTarget(params),
+  });
+  const flowAvailable = !isOnSettings && routeTarget !== null;
   const isMacosDesktop = isElectron && isMacPlatform(navigator.platform);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialThreadSidebarWidth);
   // Subscribed rather than read once: the clamp must track live window size,
@@ -249,10 +260,21 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
       ? getWindowFullscreenState()
       : false;
   });
+  const { flowOpen, hideWindowButtons, workspaceStyle } = useHuyWorkspace({
+    flowAvailable,
+    viewportWidth,
+    isMacosDesktop,
+    isWindowFullscreen,
+  });
+
   const sidebarProviderStyle = {
     "--sidebar-width": `${sidebarWidth}px`,
+    ...workspaceStyle,
     "--panel-animation-duration": `${panelAnimationDurationMs}ms`,
-    ...(isMacosDesktop && !isWindowFullscreen
+    ...(hideWindowButtons
+      ? { "--workspace-titlebar-content-left": "calc(env(safe-area-inset-left) + 0.75rem)" }
+      : {}),
+    ...(isMacosDesktop && !isWindowFullscreen && !hideWindowButtons
       ? { "--workspace-controls-left": MACOS_TRAFFIC_LIGHTS_LEFT_INSET }
       : {}),
   } as CSSProperties;
@@ -299,6 +321,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
       <SidebarProvider
         className="h-dvh! min-h-0!"
         data-panel-animations={routePanelAnimationsActive ? "true" : "false"}
+        data-flow-mode={flowAvailable && flowOpen ? "true" : undefined}
         defaultOpen
         style={sidebarProviderStyle}
       >
@@ -307,6 +330,8 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           side="left"
           collapsible="offcanvas"
           data-app-sidebar=""
+          data-modal-surface="sidebar"
+          tabIndex={-1}
           role="navigation"
           aria-label={isOnSettings ? "Settings" : "Threads"}
           resizable={{
@@ -331,8 +356,14 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           )}
           <SidebarRail onDoubleClick={resetSidebarWidth} />
         </Sidebar>
-        {children}
-        <SidebarControl />
+        <HuyWorkspace
+          hasThread={routeTarget !== null}
+          pathname={pathname}
+          viewportWidth={viewportWidth}
+        >
+          {children}
+        </HuyWorkspace>
+        <SidebarControl flowAvailable={flowAvailable} />
         <NavigationHistoryShortcuts />
         <MainAppLocationTracker />
       </SidebarProvider>

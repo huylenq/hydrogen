@@ -1,3 +1,5 @@
+import { useClientSettings, useUpdateClientSettings } from "../../hooks/useSettings";
+import { Switch } from "../ui/switch";
 import {
   ChevronDownIcon,
   CircleXIcon,
@@ -1325,6 +1327,8 @@ function BrowserKeybindingNotice() {
 }
 
 export function KeybindingsSettingsPanel() {
+  const modalKeyboardEnabled = useClientSettings((settings) => settings.modalKeyboardEnabled);
+  const updateClientSettings = useUpdateClientSettings();
   // The representative environment supplies the displayed bindings; edits
   // fan out to every connected environment in the selection, so one
   // shortcut change reaches each machine the user runs T3 Code on.
@@ -1511,6 +1515,25 @@ export function KeybindingsSettingsPanel() {
 
   return (
     <SettingsPageContainer>
+      <SettingsSection title="Keyboard navigation">
+        <SettingsRow
+          {...searchableSetting("modal-keyboard")}
+          description="Use q for the queue, i to write, and w for layout commands. H/L toggle the sidebar/right panel. h/l navigate within the current area or between panes. Space focuses the right panel. Esc returns to the conversation, or to the working-session grid from Flow inspection. Applies to this web or desktop client."
+          control={
+            <Switch
+              checked={modalKeyboardEnabled}
+              onCheckedChange={(checked) =>
+                updateClientSettings({ modalKeyboardEnabled: Boolean(checked) })
+              }
+              aria-label="Vim navigation"
+            />
+          }
+        />
+        <p className="text-xs text-muted-foreground">
+          Press ? in Normal mode for help. Customize Keyboard: Toggle Modal and Keyboard: Normal
+          below to change the profile and return-to-T3 shortcuts.
+        </p>
+      </SettingsSection>
       <SettingsSection
         {...searchableSetting("keybindings")}
         headerAction={

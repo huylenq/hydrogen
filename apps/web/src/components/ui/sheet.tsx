@@ -77,11 +77,10 @@ function SheetPopup({
   return (
     <SheetPortal keepMounted={keepMounted}>
       <SheetBackdrop
-        className={
-          instant
-            ? "transition-none! data-ending-style:opacity-100! data-starting-style:opacity-100!"
-            : undefined
-        }
+        className={cn(
+          instant &&
+            "transition-none! data-ending-style:opacity-100! data-starting-style:opacity-100!",
+        )}
         style={transitionStyle}
       />
       <SheetViewport side={side} variant={variant}>

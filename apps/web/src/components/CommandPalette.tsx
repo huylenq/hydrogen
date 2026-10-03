@@ -1,5 +1,12 @@
 "use client";
 
+import { GrokBotIcon } from "./GrokBotIcon";
+import { restoreModalReturnFocus } from "../modalKeyboardDom";
+import { useCrewStore } from "../crewStore";
+
+import { registerAppCommands } from "../appCommands";
+import { getClientSettings } from "../hooks/useSettings";
+import { requestModalFocus, useModalKeyboardStore } from "../modalKeyboardStore";
 import { threadPullRequestLinkMode } from "@t3tools/client-runtime/thread-pull-request-compatibility";
 import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
 
@@ -427,6 +434,7 @@ function errorMessage(error: unknown): string {
 
 const OVERLAY_MODE_BY_COMMAND = {
   "commandPalette.toggle": "command",
+  "threadSwitcher.toggle": "threads",
   "filePicker.toggle": "files",
   "projectSearch.toggle": "content",
 } as const satisfies Partial<Record<string, SearchOverlayMode>>;
@@ -493,7 +501,7 @@ export function CommandPalette({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (!state.open || state.mode === "command") return;
+    if (!state.open || state.mode === "command" || state.mode === "threads") return;
     const onEscapeKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.isComposing || event.key !== "Escape") return;
       event.preventDefault();
@@ -603,12 +611,32 @@ export function CommandPalette({ children }: { children: ReactNode }) {
     [openAddProject, openNewThreadIn, setOpen],
   );
 
+  useEffect(
+    () =>
+      registerAppCommands((command) => {
+        if (command === "chat.new") {
+          openNewThreadIn();
+          return true;
+        }
+        const mode = overlayModeForCommand(command);
+        if (mode === null) return false;
+        toggleMode(mode);
+        return true;
+      }),
+    [openNewThreadIn, toggleMode],
+  );
+
   return (
     <ComposerHandleContext value={composerHandleRef}>
       <CommandDialog
         open={state.open}
         onOpenChange={(open, eventDetails) => {
-          if (!open && eventDetails.reason === "escape-key" && state.mode !== "command") {
+          if (
+            !open &&
+            eventDetails.reason === "escape-key" &&
+            state.mode !== "command" &&
+            state.mode !== "threads"
+          ) {
             eventDetails.cancel();
             toggleMode("command");
             return;
@@ -648,13 +676,21 @@ function CommandPaletteDialog(props: {
           ? "File picker"
           : props.mode === "content"
             ? "Search project contents"
-            : "Command palette"
+            : props.mode === "threads"
+              ? "Switch thread"
+              : "Command palette"
       }
       className={cn("overflow-hidden", props.mode === "content" && "h-105")}
       data-command-palette="true"
       data-palette-mode={props.mode}
       data-testid="command-palette"
       finalFocus={() => {
+        if (getClientSettings().modalKeyboardEnabled) {
+          if (!restoreModalReturnFocus()) {
+            requestModalFocus(useModalKeyboardStore.getState().surface);
+          }
+          return false;
+        }
         composerHandleRef?.current?.focusAtEnd();
         return false;
       }}
@@ -668,6 +704,8 @@ function CommandPaletteDialog(props: {
         <ProjectContentSearchDialog onOpenChange={props.setOpen} />
       ) : (
         <OpenCommandPaletteDialog
+          key={props.mode}
+          threadsOnly={props.mode === "threads"}
           openIntent={props.openIntent}
           setOpen={props.setOpen}
           openOverlayMode={props.openOverlayMode}
@@ -679,6 +717,7 @@ function CommandPaletteDialog(props: {
 }
 
 function OpenCommandPaletteDialog(props: {
+  readonly threadsOnly: boolean;
   readonly openIntent: CommandPaletteOpenIntent | null;
   readonly setOpen: (open: boolean) => void;
   readonly openOverlayMode: (mode: SearchOverlayMode) => void;
@@ -692,7 +731,7 @@ function OpenCommandPaletteDialog(props: {
     openIntent?.kind === "search" ? openIntent : null,
   );
   const deferredQuery = useDeferredValue(query);
-  const isActionsOnly = deferredQuery.startsWith(">");
+  const isActionsOnly = !props.threadsOnly && deferredQuery.startsWith(">");
   const [highlightedItemValue, setHighlightedItemValue] = useState<string | null>(null);
   const clientSettings = useClientSettings();
   const createProject = useAtomCommand(projectEnvironment.create, {
@@ -1085,7 +1124,7 @@ function OpenCommandPaletteDialog(props: {
       query,
     ],
   );
-  const isBrowsing = browsePath.isBrowsing;
+  const isBrowsing = !props.threadsOnly && browsePath.isBrowsing;
   const browseDirectoryPath = browsePath.directoryPath;
   const paletteMode = getCommandPaletteMode({ currentView, isBrowsing });
   const getAddProjectInitialQueryForEnvironment = useCallback(
@@ -1139,7 +1178,9 @@ function OpenCommandPaletteDialog(props: {
     [currentProjectCwd, currentProjectEnvironmentId],
   );
   const relativePathNeedsActiveProject =
-    isExplicitRelativeProjectPath(query.trim()) && currentProjectCwdForBrowse === null;
+    !props.threadsOnly &&
+    isExplicitRelativeProjectPath(query.trim()) &&
+    currentProjectCwdForBrowse === null;
   const browseQuery = useEnvironmentQuery(
     isBrowsing &&
       browsePath.directoryPath.length > 0 &&
@@ -1864,6 +1905,35 @@ function OpenCommandPaletteDialog(props: {
 
   const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [];
 
+  actionItems.push({
+    kind: "action",
+    value: "action:toggle-crew",
+    searchTerms: ["crew", "grok", "bots", "panel", "show", "hide"],
+    title: "Toggle Grok Bot panel",
+    icon: <GrokBotIcon className={ITEM_ICON_CLASS} />,
+    shortcutCommand: "crew.toggle",
+    run: async () => {
+      useCrewStore.getState().toggle();
+    },
+  });
+  if (activeThread) {
+    actionItems.push({
+      kind: "action",
+      value: "action:ask-bot",
+      searchTerms: ["crew", "grok", "ask", "bot", "handoff", "delegate"],
+      title: "Ask a bot from this task",
+      description: "Write a question and choose the context to send",
+      icon: <GrokBotIcon className={ITEM_ICON_CLASS} />,
+      run: async () => {
+        useCrewStore.getState().askFrom({
+          environmentId: activeThread.environmentId,
+          threadId: activeThread.id,
+          title: activeThread.title,
+        });
+      },
+    });
+  }
+
   if (projects.length > 0) {
     const activeProjectTitle =
       projectPickerEntries.find((entry) => entry.isPreferred)?.group.displayName ??
@@ -2001,6 +2071,19 @@ function OpenCommandPaletteDialog(props: {
       },
     });
   }
+
+  actionItems.push({
+    kind: "action",
+    value: "action:switch-thread",
+    searchTerms: ["switch thread", "find thread", "search threads"],
+    title: "Switch thread",
+    icon: <TextSearchIcon className={ITEM_ICON_CLASS} />,
+    keepOpen: true,
+    shortcutCommand: "threadSwitcher.toggle",
+    run: async () => {
+      openOverlayMode("threads");
+    },
+  });
 
   actionItems.push({
     kind: "action",
@@ -2315,6 +2398,7 @@ function OpenCommandPaletteDialog(props: {
 
   const filteredGroups = filterCommandPaletteGroups({
     activeGroups,
+    threadsOnly: props.threadsOnly,
     query: deferredQuery,
     isInSubmenu: currentView !== null,
     projectSearchItems: projectSearchItems,
@@ -2939,8 +3023,9 @@ function OpenCommandPaletteDialog(props: {
     displayedGroups = relativePathNeedsActiveProject ? [] : browseGroups;
   }
 
-  const inputPlaceholder =
-    newProjectFlow !== null
+  const inputPlaceholder = props.threadsOnly
+    ? "Search threads…"
+    : newProjectFlow !== null
       ? "Project name"
       : (remoteProjectInputPlaceholder(addProjectCloneFlow) ??
         getCommandPaletteInputPlaceholder(paletteMode));
@@ -3348,7 +3433,7 @@ function OpenCommandPaletteDialog(props: {
   return (
     <CommandPaletteContent
       key={`${viewStack.length}-${browseGeneration}-${isBrowsing}-${newProjectFlow ? "new-project" : (addProjectCloneFlow?.step ?? "none")}`}
-      aria-label="Command palette"
+      aria-label={props.threadsOnly ? "Switch thread" : "Command palette"}
       autoHighlight={
         isBrowsing || isRemoteProjectCloneFlow || newProjectFlow !== null ? false : "always"
       }

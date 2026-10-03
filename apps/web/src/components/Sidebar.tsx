@@ -8,6 +8,10 @@ import {
   moveThreadContextDrag as moveThreadContextDragGhost,
 } from "./chat/threadContextDrag";
 import { releaseComposerDraftUploads } from "../lib/composerDraftUploads";
+import { useFlowStore } from "../flowStore";
+import { registerAppCommands, type AppCommand } from "../appCommands";
+import { getClientSettings } from "../hooks/useSettings";
+import { showModalFeedback, useModalKeyboardStore } from "../modalKeyboardStore";
 import { requestCustomSnooze } from "./CustomSnoozeDialog";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
@@ -621,7 +625,7 @@ function SnoozeMenuButton(props: {
             if (choice) onSnooze(choice);
           }}
         >
-          Custom…
+          Custom duration…
         </MenuItem>
       </MenuPopup>
     </Menu>
@@ -879,6 +883,7 @@ const SidebarDraftRow = memo(function SidebarDraftRow(props: {
         aria-label={accessibility.label}
         aria-current={accessibility.current}
         data-testid="sidebar-draft-row"
+        data-modal-key={draftId}
         className={cn(
           "group/sidebar-row relative w-full cursor-pointer overflow-hidden rounded-md text-left text-sidebar-foreground outline-none select-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
           props.isActive ? "bg-sidebar-row-active" : draftSurfaceClassName,
@@ -1724,6 +1729,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
     return (
       <li
         data-thread-item
+        data-modal-key={threadKey}
         {...sortableRootProps}
         {...(fileDropHandlers ?? {})}
         className={cn(
@@ -1880,6 +1886,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   return (
     <li
       data-thread-item
+      data-modal-key={threadKey}
       {...sortableRootProps}
       {...(fileDropHandlers ?? {})}
       className={cn(
@@ -3048,6 +3055,8 @@ export default function Sidebar() {
       if (isMobile) {
         setOpenMobile(false);
       }
+      if (useFlowStore.getState().open)
+        useFlowStore.getState().inspectSession(scopedThreadKey(threadRef));
       return router.navigate({
         to: "/$environmentId/$threadId",
         params: buildThreadRouteParams(threadRef),
@@ -3218,6 +3227,8 @@ export default function Sidebar() {
   // mutates the partition; background parks never navigate (null plan).
   const planForwardNavigation = useCallback(
     (threadKey: string, coParkingKeys?: ReadonlySet<string>): (() => void) | null => {
+      // Flow owns forward navigation after parking a thread.
+      if (useFlowStore.getState().open) return null;
       if (routeThreadKeyRef.current !== threadKey) return null;
       const shell = threadByKeyRef.current.get(threadKey);
       const orderedKeys = orderedThreadKeysRef.current;
@@ -4102,7 +4113,7 @@ export default function Sidebar() {
                         id: `snooze:${preset.id}`,
                         label: `${preset.label} (${preset.whenLabel})`,
                       })),
-                      { id: "snooze:custom", label: "Custom…", separatorBefore: true },
+                      { id: "snooze:custom", label: "Custom duration…", separatorBefore: true },
                     ],
                   },
                 ]
@@ -4553,6 +4564,36 @@ export default function Sidebar() {
     ],
   );
 
+  useEffect(() => {
+    return registerAppCommands((command) => {
+      if (command !== "thread.snooze") return false;
+      const thread = routeThreadKey ? threadByKey.get(routeThreadKey) : undefined;
+      if (!thread || !routeThreadRef) {
+        showModalFeedback("Open an existing thread first");
+        return true;
+      }
+      if (serverConfigs.get(thread.environmentId)?.environment.capabilities.threadSnooze !== true) {
+        showModalFeedback("This environment does not support snoozing");
+        return true;
+      }
+      const now = new Date();
+      const snoozeOptions = { now: now.toISOString() };
+      if (effectiveSnoozed(thread, snoozeOptions)) {
+        attemptUnsnooze(routeThreadRef);
+        return true;
+      }
+      if (!canSnooze(thread, snoozeOptions)) {
+        showModalFeedback("This thread cannot be snoozed in its current state");
+        return true;
+      }
+      const threadRef = routeThreadRef;
+      void requestCustomSnooze(true).then((choice) => {
+        if (choice) attemptSnooze(threadRef, choice);
+      });
+      return true;
+    });
+  }, [routeThreadKey, routeThreadRef, threadByKey, serverConfigs, attemptSnooze, attemptUnsnooze]);
+
   // Thread jump (cmd+1..9) and prev/next traversal reuse the same commands as
   // v1 — the keybinding layer is shared, only the ordered list differs.
   const routeTerminalOpen = useTerminalUiStateStore((state) =>
@@ -4561,6 +4602,30 @@ export default function Sidebar() {
       : false,
   );
   useEffect(() => {
+    const executeNavigation = (command: AppCommand) => {
+      if (
+        getClientSettings().modalKeyboardEnabled &&
+        useModalKeyboardStore.getState().surface === "flow"
+      )
+        return false;
+      const direction = threadTraversalDirectionFromCommand(command);
+      const index = threadJumpIndexFromCommand(command);
+      const targetKey =
+        direction !== null
+          ? resolveAdjacentThreadId({
+              threadIds: orderedThreadKeys,
+              currentThreadId: routeThreadKey,
+              direction,
+            })
+          : index !== null
+            ? orderedThreadKeys[index]
+            : null;
+      const thread = targetKey ? threadByKey.get(targetKey) : undefined;
+      if (!thread) return false;
+      navigateToThread(scopeThreadRef(thread.environmentId, thread.id));
+      return true;
+    };
+    const unregisterCommands = registerAppCommands(executeNavigation);
     const onWindowKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat || isCommandPaletteOpen() || isModelPickerOpen()) {
         return;
@@ -4575,32 +4640,16 @@ export default function Sidebar() {
           isDesktop: isElectron,
         },
       });
-      const navigateToThreadKey = (targetThreadKey: string | null) => {
-        if (!targetThreadKey) return false;
-        const targetThread = threadByKey.get(targetThreadKey);
-        if (!targetThread) return false;
+      if (command && executeNavigation(command)) {
         event.preventDefault();
         event.stopPropagation();
-        navigateToThread(scopeThreadRef(targetThread.environmentId, targetThread.id));
-        return true;
-      };
-      const traversalDirection = threadTraversalDirectionFromCommand(command);
-      if (traversalDirection !== null) {
-        navigateToThreadKey(
-          resolveAdjacentThreadId({
-            threadIds: orderedThreadKeys,
-            currentThreadId: routeThreadKey,
-            direction: traversalDirection,
-          }),
-        );
-        return;
       }
-      const jumpIndex = threadJumpIndexFromCommand(command ?? "");
-      if (jumpIndex === null) return;
-      navigateToThreadKey(orderedThreadKeys[jumpIndex] ?? null);
     };
     window.addEventListener("keydown", onWindowKeyDown);
-    return () => window.removeEventListener("keydown", onWindowKeyDown);
+    return () => {
+      unregisterCommands();
+      window.removeEventListener("keydown", onWindowKeyDown);
+    };
   }, [
     keybindings,
     navigateToThread,

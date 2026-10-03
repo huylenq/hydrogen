@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
-import { Path, Svg } from "react-native-svg";
+import { Circle, Defs, Image as SvgImage, Mask, Path, Svg } from "react-native-svg";
+import { useId } from "react";
 import { View } from "react-native";
 import { providerInstanceInitials } from "@t3tools/client-runtime/state/provider-instance-display";
 import { useState } from "react";
@@ -79,6 +80,10 @@ export function ProviderIcon(props: ProviderIconProps) {
   }
   if (props.provider === "acpRegistry") {
     return <AcpRegistryProviderIcon color={mono} iconUrl={props.iconUrl} size={size} />;
+  }
+
+  if (props.provider === "hermes") {
+    return <HermesIcon size={size} color={isDarkMode ? mono : "#f5f5f5"} />;
   }
 
   if (props.provider === "claudeAgent") {
@@ -208,5 +213,29 @@ export function ProviderInstanceIcon(props: {
         </View>
       ) : null}
     </View>
+  );
+}
+
+/** Keep the portrait's original contrast while tinting its light areas for the theme. */
+function HermesIcon({ size, color }: { size: number; color: string }) {
+  const id = useId();
+  return (
+    <Svg width={size} height={size} viewBox="3 3 174 174">
+      <Defs>
+        <Mask
+          id={`${id}-mask`}
+          maskType="luminance"
+          maskUnits="userSpaceOnUse"
+          x={3}
+          y={3}
+          width={174}
+          height={174}
+        >
+          <SvgImage href={require("../../assets/hermes.png")} width={180} height={180} />
+        </Mask>
+      </Defs>
+      <Circle cx={90} cy={90} r={87} fill="#171717" />
+      <Circle cx={90} cy={90} r={87} fill={color} mask={`url(#${id}-mask)`} />
+    </Svg>
   );
 }

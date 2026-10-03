@@ -49,6 +49,7 @@ import { useClientSettings } from "./useSettings";
 import * as ThreadUndo from "./threadUndo";
 import { showThreadUndoNotice } from "./showThreadUndoNotice";
 import { useAtomCommand } from "../state/use-atom-command";
+import { useHuyActionLifecycle } from "../customizations/huy/useHuyActionLifecycle";
 
 export class ThreadArchiveBlockedError extends Schema.TaggedError<ThreadArchiveBlockedError>()(
   "ThreadArchiveBlockedError",
@@ -220,6 +221,7 @@ function useMarkThreadUnread() {
 }
 
 export function useThreadActions() {
+  const actionLifecycle = useHuyActionLifecycle();
   const closeTerminal = useAtomCommand(terminalEnvironment.close);
   const archiveThreadMutation = useAtomCommand(threadEnvironment.archive, {
     reportFailure: false,
@@ -342,6 +344,7 @@ export function useThreadActions() {
       const shouldNavigateToDraft =
         currentRouteThreadRef?.threadId === threadRef.threadId &&
         currentRouteThreadRef.environmentId === threadRef.environmentId;
+      const jumpAfterArchive = actionLifecycle.prepare({ threadRef });
       const action = ThreadUndo.begin("archive", scopedThreadKey(threadRef));
       const archiveResult = await archiveThreadMutation({
         environmentId: threadRef.environmentId,
@@ -365,6 +368,11 @@ export function useThreadActions() {
         failureTitle: "Failed to undo archive",
       });
 
+      if (jumpAfterArchive.ownsNavigation) {
+        jumpAfterArchive.succeeded();
+        return archiveResult;
+      }
+
       if (shouldNavigateToDraft) {
         const navigationResult = await settlePromise(() =>
           handleNewThreadRef.current(scopeProjectRef(thread.environmentId, thread.projectId)),
@@ -382,6 +390,7 @@ export function useThreadActions() {
       getCurrentRouteThreadRef,
       markThreadVisited,
       resolveThreadTarget,
+      actionLifecycle,
       unarchiveThread,
     ],
   );
@@ -698,7 +707,7 @@ export function useThreadActions() {
   );
 
   const settleThread = useCallback(
-    async (target: ScopedThreadRef) => {
+    async (target: ScopedThreadRef, excludedThreadKeys?: ReadonlySet<string>) => {
       // Version skew: never send the command to a server that predates it —
       // the raw protocol rejection would read as a random failure.
       if (!readEnvironmentSupportsSettlement(target.environmentId)) {
@@ -724,6 +733,7 @@ export function useThreadActions() {
       // treats either as a promotion that un-settles; settling supersedes them.
       ThreadUndo.invalidate("pin", scopedThreadKey(target));
       ThreadUndo.invalidate("snooze", scopedThreadKey(target));
+      const jumpAfterSettle = actionLifecycle.prepare({ threadRef: target, excludedThreadKeys });
       const action = ThreadUndo.begin("settle", scopedThreadKey(target));
       const result = await settleThreadMutation({
         environmentId: target.environmentId,
@@ -759,6 +769,7 @@ export function useThreadActions() {
         },
         failureTitle: "Failed to undo settle",
       });
+      jumpAfterSettle.succeeded();
       return result;
     },
     [
@@ -766,6 +777,7 @@ export function useThreadActions() {
       pinThread,
       resolveThreadTarget,
       settleThreadMutation,
+      actionLifecycle,
       snoozeThreadMutation,
       unsettleThread,
     ],
@@ -857,7 +869,11 @@ export function useThreadActions() {
   );
 
   const snoozeThread = useCallback(
-    async (target: ScopedThreadRef, snoozedUntil: string) => {
+    async (
+      target: ScopedThreadRef,
+      snoozedUntil: string,
+      excludedThreadKeys?: ReadonlySet<string>,
+    ) => {
       // Version skew: never send the command to a server that predates it.
       if (!readEnvironmentSupportsSnooze(target.environmentId)) {
         return AsyncResult.failure(
@@ -883,6 +899,7 @@ export function useThreadActions() {
           ),
         );
       }
+      const jumpAfterSnooze = actionLifecycle.prepare({ threadRef: target, excludedThreadKeys });
       const action = ThreadUndo.begin("snooze", scopedThreadKey(target));
       const result = await snoozeThreadMutation({
         environmentId: target.environmentId,
@@ -899,9 +916,10 @@ export function useThreadActions() {
         undo: () => unsnoozeThread(target),
         failureTitle: "Failed to wake thread",
       });
+      jumpAfterSnooze.succeeded();
       return result;
     },
-    [resolveThreadTarget, snoozeThreadMutation, unsnoozeThread],
+    [resolveThreadTarget, snoozeThreadMutation, unsnoozeThread, actionLifecycle],
   );
 
   const confirmAndDeleteThread = useCallback(

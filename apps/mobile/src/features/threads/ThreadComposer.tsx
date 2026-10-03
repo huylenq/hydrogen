@@ -63,12 +63,14 @@ import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 
 import { AppText as Text } from "../../components/AppText";
 import { ComposerAttachmentButton } from "../../components/ComposerAttachmentButton";
+import { CrewSheet } from "../crew/CrewSheet";
 import {
   ComposerAttachmentStrip,
   ComposerAttachmentThumbnail,
 } from "../../components/ComposerAttachmentStrip";
 import { VideoPreviewModal, type VideoPreviewSource } from "../../components/VideoPreviewModal";
 import { GlassSurface } from "../../components/GlassSurface";
+import { GrokBotIcon } from "../../components/GrokBotIcon";
 import { ComposerEditor, type ComposerEditorHandle } from "../../components/ComposerEditor";
 import { fileRoutePathSegments } from "../files/filePath";
 import {
@@ -377,6 +379,7 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
   const fallbackInputRef = useRef<ComposerEditorHandle>(null);
   const inputRef = props.editorRef ?? fallbackInputRef;
   const [isFocused, setIsFocused] = useState(false);
+  const [crewOpen, setCrewOpen] = useState(false);
   const pendingPastedTextAttachmentCountRef = useRef(0);
   const [pendingPastedTextAttachmentCount, setPendingPastedTextAttachmentCount] = useState(0);
   const settingsSheetPresentation = useThreadSettingsSheetPresentation({
@@ -1125,6 +1128,17 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
                         onPress={openSettings}
                       />
                     </View>
+                    {props.serverConfig?.environment.capabilities.crew ? (
+                      <ComposerInlineControl
+                        label="Grok Bot"
+                        renderIcon={(size) => <GrokBotIcon size={size} />}
+                        accessibilityLabel="Ask a Grok Bot"
+                        accessibilityHint="Choose a bot and the task context to share"
+                        selected={crewOpen}
+                        showChevron={false}
+                        onPress={() => setCrewOpen(true)}
+                      />
+                    ) : null}
                   </View>
                 )}
                 <View className="shrink-0 flex-row items-center">
@@ -1156,6 +1170,31 @@ export const ThreadComposer = memo(function ThreadComposer(props: ThreadComposer
             </ComposerDictationToolbar>
           </Animated.View>
         </ComposerSurface>
+
+        {crewOpen ? (
+          <CrewSheet
+            key={`${props.environmentId}:${props.selectedThread.id}`}
+            environmentId={props.environmentId}
+            environmentLabel={props.environmentLabel}
+            threadId={props.selectedThread.id}
+            onClose={() => setCrewOpen(false)}
+            onUseReply={(text) =>
+              props.onChangeDraftMessage(
+                `${props.draftMessage}${props.draftMessage.trim() ? "\n\n" : ""}${text}`,
+              )
+            }
+          />
+        ) : null}
+
+        {/* Queue count */}
+        {props.queueCount > 0 ? (
+          <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)}>
+            <Text className="pt-2 text-xs text-foreground-muted">
+              {props.queueCount} queued message{props.queueCount === 1 ? "" : "s"} will send
+              automatically.
+            </Text>
+          </Animated.View>
+        ) : null}
       </Animated.View>
 
       <VideoPreviewModal source={previewVideo} onRequestClose={closePreview} />

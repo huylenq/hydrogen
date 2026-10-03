@@ -9,6 +9,8 @@ import { memo, type ReactElement } from "react";
 
 import type { ThreadPanelPresentation } from "../../rightPanelLayout";
 import { PopoverCreateHandle, PopoverTrigger } from "../ui/popover";
+import { GrokBotIcon } from "../GrokBotIcon";
+import { useCrewStore } from "../../crewStore";
 import { Toggle } from "../ui/toggle";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
@@ -28,6 +30,7 @@ export interface PanelLayoutControlsProps {
   rightPanelOpen: boolean;
   rightPanelShortcutLabel: string | null;
   rightPanelUnavailableLabel?: string;
+  grokBotShortcutLabel?: string | null;
   onToggleTerminal: () => void;
   onToggleThreadPanel: () => void;
   onToggleRightPanel: () => void;
@@ -49,6 +52,7 @@ export const PanelLayoutControls = memo(function PanelLayoutControls({
   rightPanelOpen,
   rightPanelShortcutLabel,
   rightPanelUnavailableLabel = "Right panel is unavailable",
+  grokBotShortcutLabel,
   onToggleTerminal,
   onToggleThreadPanel,
   onToggleRightPanel,
@@ -139,9 +143,34 @@ export const PanelLayoutControls = memo(function PanelLayoutControls({
           </TooltipPopup>
         </Tooltip>
       ) : null}
+      <GrokBotToggle shortcutLabel={grokBotShortcutLabel} />
     </div>
   );
 });
+
+export function GrokBotToggle({ shortcutLabel }: { shortcutLabel?: string | null | undefined }) {
+  const open = useCrewStore((state) => state.open);
+  const toggle = useCrewStore((state) => state.toggle);
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span className="flex shrink-0" />}>
+        <Toggle
+          className="shrink-0 [-webkit-app-region:no-drag]"
+          pressed={open}
+          onPressedChange={toggle}
+          aria-label="Toggle Grok Bot"
+          variant="ghost"
+          size="sm"
+        >
+          <GrokBotIcon className="size-4" />
+        </Toggle>
+      </TooltipTrigger>
+      <TooltipPopup side="bottom">
+        Toggle Grok Bot{shortcutLabel ? ` (${shortcutLabel})` : ""}
+      </TooltipPopup>
+    </Tooltip>
+  );
+}
 
 export const RightPanelMaximizeControl = memo(function RightPanelMaximizeControl({
   maximized,

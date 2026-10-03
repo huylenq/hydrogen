@@ -19,7 +19,11 @@ type WhenToken =
   | { type: "rparen" };
 
 export const DEFAULT_KEYBINDINGS: ReadonlyArray<KeybindingRule> = [
+  { key: "mod+alt+v", command: "keyboard.toggleModal", when: "!terminalFocus" },
+  { key: "ctrl+shift+space", command: "keyboard.normal" },
   { key: "mod+b", command: "sidebar.toggle" },
+  { key: "ctrl+shift+f", command: "flow.toggle", when: "!terminalFocus" },
+  { key: "ctrl+shift+g", command: "crew.toggle", when: "!terminalFocus" },
   { key: "mod+[", command: "navigation.back", when: "!terminalFocus" },
   { key: "mod+]", command: "navigation.forward", when: "!terminalFocus" },
   { key: "mod+j", command: "terminal.toggle" },

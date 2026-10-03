@@ -239,6 +239,8 @@ function Sidebar({
               "w-(--sidebar-width) max-w-none bg-sidebar surface-grain p-0 text-sidebar-foreground",
               className,
             )}
+            data-modal-surface="sidebar"
+            tabIndex={-1}
             data-mobile="true"
             data-sidebar="sidebar"
             data-slot="sidebar"

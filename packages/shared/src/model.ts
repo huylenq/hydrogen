@@ -173,6 +173,26 @@ function withDescriptorCurrentValue(
     }
     return descriptor;
   }
+  // Migrate the old implicit profile choice to the required default profile.
+  if (descriptor.id === "hermesProfile" && rawCurrentValue === "__configured__") {
+    rawCurrentValue = "default";
+  }
+  // A missing Hermes profile must fail at launch, not silently switch credentials.
+  if (
+    descriptor.id === "hermesProfile" &&
+    typeof rawCurrentValue === "string" &&
+    rawCurrentValue.length > 0 &&
+    !descriptor.options.some((option) => option.id === rawCurrentValue)
+  ) {
+    return {
+      ...descriptor,
+      currentValue: rawCurrentValue,
+      options: [
+        ...descriptor.options,
+        { id: rawCurrentValue, label: `${rawCurrentValue} (Unavailable)` },
+      ],
+    };
+  }
   const currentValue =
     typeof rawCurrentValue === "string"
       ? resolveDescriptorChoiceValue(descriptor, rawCurrentValue)

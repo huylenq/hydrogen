@@ -1720,7 +1720,7 @@ function PullRequestsRouteView() {
       threadPanelShortcutLabel={null}
       threadPanelHasAttention={false}
       onToggleThreadPanel={() => undefined}
-      rightPanelAvailable={rightPanelAvailable}
+      rightPanelAvailable={pullRequestsSupported && rightPanelAvailable}
       rightPanelOpen={rightPanelState.isOpen}
       rightPanelShortcutLabel={shortcutLabelForCommand(keybindings, "rightPanel.toggle")}
       rightPanelUnavailableLabel="Select a pull request first"
@@ -1734,7 +1734,7 @@ function PullRequestsRouteView() {
       // anchor the thread view's controls and the sidebar trigger use, so
       // every titlebar cluster in the app sits one shared inset from its
       // edge.
-      className="absolute top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] z-50 mr-px flex h-[var(--workspace-topbar-height)] items-center gap-1 [-webkit-app-region:no-drag]"
+      className="fixed top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] z-70 mr-px flex h-[var(--workspace-topbar-height)] items-center gap-1 [-webkit-app-region:no-drag]"
       data-workspace-titlebar-controls
     >
       {panelToggleControls}
@@ -1952,42 +1952,41 @@ function PullRequestsRouteView() {
     searchInput,
     sortMenu,
     filtersMenu,
-    rightPanelControl:
+    rightPanelControl: (
       // Footprint reserve while the panel is closed: the toggle itself stays
       // mounted at the fixed titlebar inset in both states so it cannot move
       // on toggle, and this spacer keeps refresh from sliding underneath it
       // (sized per header padding so refresh ends a normal gap short of it).
-      !pullRequestsSupported ? null : (
-        <span
-          aria-hidden
-          className={cn(
-            "shrink-0",
-            rightPanelState.isOpen ? "-ml-3 w-0" : "w-7 sm:w-5",
-            panelAnimationsActive && "transition-[width,margin] ease-out",
-          )}
-          style={
-            panelAnimationsActive
-              ? { transitionDuration: `${panelAnimationDurationMs}ms` }
-              : undefined
-          }
-        />
-      ),
+      <span
+        aria-hidden
+        className={cn(
+          "shrink-0",
+          rightPanelState.isOpen
+            ? "-ml-3 w-0"
+            : "w-[max(0px,calc(3.75rem-var(--crew-panel-inline-inset,0px)))] sm:w-[max(0px,calc(3.25rem-var(--crew-panel-inline-inset,0px)))]",
+          panelAnimationsActive && "transition-[width,margin] ease-out",
+        )}
+        style={
+          panelAnimationsActive
+            ? { transitionDuration: `${panelAnimationDurationMs}ms` }
+            : undefined
+        }
+      />
+    ),
     titlebarControls:
       // While the panel is closed the strip lives inside the header: a no-drag
       // descendant beats the header's desktop drag-region, where a floating
       // sibling loses (app-region hit-testing ignores z-index). While the
       // floating strip crosses the header during motion, the narrow extension
       // keeps that overlap non-draggable without moving the toggle.
-      pullRequestsSupported ? (
-        rightPanelPresent ? (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 left-full w-7 [-webkit-app-region:no-drag]"
-          />
-        ) : (
-          openPanelControls
-        )
-      ) : null,
+      rightPanelPresent ? (
+        <span
+          aria-hidden
+          className="pointer-events-none fixed top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] h-[var(--workspace-topbar-height)] w-20 [-webkit-app-region:no-drag]"
+        />
+      ) : (
+        openPanelControls
+      ),
     rightPanelOpen: rightPanelState.isOpen,
     listBody,
     scrollRef,
@@ -2078,7 +2077,7 @@ function PullRequestsRouteView() {
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
       <div className="relative flex min-h-0 flex-1">
-        {pullRequestsSupported && rightPanelPresent ? openPanelControls : null}
+        {rightPanelPresent ? openPanelControls : null}
         <PullRequestsColumn {...columnProps} />
 
         {rightPanelPresent && renderedPullRequestSurface && panelEnvironmentId !== null ? (

@@ -302,3 +302,44 @@ describe("readCustomModelEntries", () => {
     });
   });
 });
+
+it("preserves a missing Hermes profile instead of switching to configured credentials", () => {
+  const selections = [{ id: "hermesProfile", value: "removed-profile" }];
+  const descriptors = getProviderOptionDescriptors({
+    caps: {
+      optionDescriptors: [
+        {
+          id: "hermesProfile",
+          label: "Profile",
+          type: "select",
+          currentValue: "default",
+          options: [{ id: "default", label: "default" }],
+        },
+      ],
+    },
+    selections,
+  });
+  expect(descriptors[0]?.currentValue).toBe("removed-profile");
+  expect(buildExplicitProviderOptionSelectionsFromDescriptors(descriptors, selections)).toEqual(
+    selections,
+  );
+});
+
+it("migrates the former automatic Hermes profile to default", () => {
+  const descriptors = getProviderOptionDescriptors({
+    caps: {
+      optionDescriptors: [
+        {
+          id: "hermesProfile",
+          label: "Agent profile",
+          type: "select",
+          currentValue: "default",
+          options: [{ id: "default", label: "default", isDefault: true }],
+        },
+      ],
+    },
+    selections: [{ id: "hermesProfile", value: "__configured__" }],
+  });
+  expect(descriptors[0]?.currentValue).toBe("default");
+  if (descriptors[0]?.type === "select") expect(descriptors[0].options).toHaveLength(1);
+});

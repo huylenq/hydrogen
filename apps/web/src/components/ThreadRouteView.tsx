@@ -1,6 +1,6 @@
 import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import type { ScopedThreadRef } from "@t3tools/contracts";
-import { useNavigate } from "@tanstack/react-router";
+import { useRouter, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import ChatView from "./ChatView";
@@ -38,6 +38,7 @@ import {
  */
 export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const draftId = target.kind === "draft" ? target.draftId : null;
   const draftSession = useComposerDraftStore((store) =>
     draftId === null ? null : store.getDraftSession(draftId),
@@ -119,20 +120,22 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
       return;
     }
     let cancelled = false;
+    const promotionSource = router.state.location.state.__TSR_key;
     void waitForDraftHeroTransition().then(() => {
-      if (cancelled) {
+      if (cancelled || router.state.location.state.__TSR_key !== promotionSource) {
         return;
       }
       void navigate({
         to: "/$environmentId/$threadId",
         params: buildThreadRouteParams(canonicalThreadRef),
         replace: true,
+        state: promotionSource ? { flowPromotionSource: promotionSource } : {},
       });
     });
     return () => {
       cancelled = true;
     };
-  }, [canonicalThreadRef, navigate]);
+  }, [canonicalThreadRef, navigate, router]);
 
   useEffect(() => {
     if (target.kind !== "draft" || draftSession || canonicalThreadRef) {

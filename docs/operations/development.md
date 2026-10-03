@@ -199,3 +199,19 @@ passed as `--wsl-runtime`; see the
 Add `--signed` after configuring the platform credentials in the
 [release runbook](./release.md). macOS passkeys need a signed, provisioned app; follow the
 [Connect setup](./connect-setup.md#desktop-passkeys) for local signing and renderer HMR.
+
+## Hermes runtime smoke test
+
+From `apps/server`, run the opt-in test against the Hermes executable you intend
+to support:
+
+```sh
+T3_HERMES_TEST_BINARY=/absolute/path/to/hermes vp test run src/provider/Layers/HermesAdapter.live.test.ts
+```
+
+This exercises the real ACP process with a temporary Hermes home and a local
+OpenAI-compatible inference fixture, including streaming, session reload, model
+switching, a file write through the permission flow, rejected credentials, and
+repeated recovery turns. It does not use production credentials. It verifies the runtime integration; backend-specific OAuth expiry,
+rate limits, and remote-device behavior still need acceptance testing with the
+intended deployment.

@@ -1,6 +1,18 @@
 {
   "customNotices": [
     {
+      "bundles": ["assets", "desktop", "web", "mobile"],
+      "license": "MIT",
+      "name": "Hermes Agent logo",
+      "sourceUrl": "https://github.com/NousResearch/hermes-agent/blob/main/website/static/img/apple-touch-icon.png",
+      "generatedNotices": [
+        {
+          "licenseId": "MIT",
+          "copyrights": ["Copyright (c) 2025 Nous Research"]
+        }
+      ]
+    },
+    {
       "bundles": ["assets", "desktop", "web"],
       "license": "CC0-1.0",
       "name": "Notification Sound 1 by deadrobotmusic",

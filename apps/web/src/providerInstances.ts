@@ -98,7 +98,14 @@ export function resolveProviderCatalogAvailability(input: {
  * `ready` probe status can remain in the streamed snapshot until reconciliation.
  */
 export function isProviderInstancePickerReady(entry: ProviderInstanceEntry): boolean {
-  return entry.enabled && entry.isAvailable && entry.status === "ready";
+  // Hermes can only verify backend credentials during a turn. Keep configured
+  // instances reachable for that first turn and for retries after backend errors.
+  const canTryHermes =
+    entry.driverKind === "hermes" &&
+    entry.installed &&
+    entry.status === "warning" &&
+    entry.snapshot.auth.status === "unknown";
+  return entry.enabled && entry.isAvailable && (entry.status === "ready" || canTryHermes);
 }
 
 /** Picker rails contain configured, enabled instances only. */

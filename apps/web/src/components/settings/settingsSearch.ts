@@ -517,6 +517,12 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["project thread tree old flat list"],
   },
   {
+    id: "modal-keyboard",
+    title: "Vim navigation",
+    to: "/settings/keybindings",
+    searchTerms: ["modal keyboard normal insert vim navigation"],
+  },
+  {
     id: "keybindings",
     title: "Keybindings",
     to: "/settings/keybindings",

@@ -20,7 +20,29 @@ const decode = <S extends Schema.Top>(
   >;
 
 const decodeResolvedRule = Schema.decodeUnknownEffect(ResolvedKeybindingRule as never);
+const encodeKeybindingRule = Schema.encodeEffect(KeybindingRule);
 const encodeResolvedKeybindings = Schema.encodeEffect(ResolvedKeybindingsConfig);
+
+it.effect("preserves the terminal reclaim Space key across the wire", () =>
+  Effect.gen(function* () {
+    const rules = [
+      {
+        command: "keyboard.normal" as const,
+        shortcut: {
+          key: " ",
+          metaKey: false,
+          ctrlKey: true,
+          shiftKey: true,
+          altKey: false,
+          modKey: false,
+        },
+      },
+    ];
+    const encoded = yield* encodeResolvedKeybindings(rules);
+    const decoded = yield* decode(ResolvedKeybindingsConfig, encoded);
+    assert.deepStrictEqual(decoded, rules);
+  }),
+);
 
 it.effect("parses keybinding rules", () =>
   Effect.gen(function* () {
@@ -35,6 +57,13 @@ it.effect("parses keybinding rules", () =>
       command: "sidebar.toggle",
     });
     assert.strictEqual(parsedSidebarToggle.command, "sidebar.toggle");
+
+    const parsedFlowToggle = yield* decode(KeybindingRule, {
+      key: "mod+shift+l",
+      command: "flow.toggle",
+      when: "!terminalFocus",
+    });
+    assert.strictEqual(parsedFlowToggle.command, "flow.toggle");
 
     const parsedRightPanelToggle = yield* decode(KeybindingRule, {
       key: "mod+alt+b",
@@ -319,4 +348,21 @@ it.effect("drops unknown fields in resolved keybinding rules", () =>
       assert.strictEqual(view.command, "terminal.toggle");
     }),
   ),
+);
+
+it.effect("migrates saved queue bindings and writes the canonical Flow command", () =>
+  Effect.gen(function* () {
+    const parsed = yield* decode(KeybindingRule, {
+      key: "alt+l",
+      command: "workQueue.toggle",
+      when: "!terminalFocus",
+    });
+    assert.deepStrictEqual(parsed, {
+      key: "alt+l",
+      command: "flow.toggle",
+      when: "!terminalFocus",
+    });
+    const encoded = yield* encodeKeybindingRule(parsed);
+    assert.deepStrictEqual(encoded, parsed);
+  }),
 );

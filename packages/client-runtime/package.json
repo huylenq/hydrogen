@@ -35,6 +35,22 @@
       "types": "./src/userMessage.ts",
       "default": "./src/userMessage.ts"
     },
+    "./crew-conversation": {
+      "types": "./src/crewConversation.ts",
+      "default": "./src/crewConversation.ts"
+    },
+    "./crew-draft": {
+      "types": "./src/crewDraft.ts",
+      "default": "./src/crewDraft.ts"
+    },
+    "./grok-bot-avatar": {
+      "types": "./src/grokBotAvatar.ts",
+      "default": "./src/grokBotAvatar.ts"
+    },
+    "./keyboard": {
+      "types": "./src/keyboard.ts",
+      "default": "./src/keyboard.ts"
+    },
     "./connection": {
       "types": "./src/connection/index.ts",
       "default": "./src/connection/index.ts"
@@ -138,6 +154,10 @@
     "./state/connections": {
       "types": "./src/state/connections.ts",
       "default": "./src/state/connections.ts"
+    },
+    "./state/crew": {
+      "types": "./src/state/crew.ts",
+      "default": "./src/state/crew.ts"
     },
     "./state/entities": {
       "types": "./src/state/entities.ts",

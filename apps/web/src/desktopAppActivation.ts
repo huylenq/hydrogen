@@ -1,4 +1,5 @@
 import type {
+  DesktopAppActivationPlatform,
   DesktopAppActivationFailure,
   DesktopAppActivationRequest,
   DesktopAppActivationResponse,
@@ -21,6 +22,10 @@ export interface DesktopAppActivationTarget {
 }
 
 export interface DesktopAppActivationDependencies {
+  readonly openExistingThread: (
+    environmentId: EnvironmentId,
+    threadId: ThreadId,
+  ) => Promise<ProjectId | null>;
   readonly getTarget: () => DesktopAppActivationTarget | null;
   readonly findProject: (
     environmentId: EnvironmentId,
@@ -45,7 +50,7 @@ function failure(
 }
 
 function desktopPlatformToEnvironmentOs(
-  platform: DesktopAppActivationRequest["platform"],
+  platform: DesktopAppActivationPlatform,
 ): ExecutionEnvironmentPlatformOs {
   return platform === "win32" ? "windows" : platform;
 }
@@ -58,6 +63,33 @@ export async function handleDesktopAppActivationRequest(
   request: DesktopAppActivationRequest,
   dependencies: DesktopAppActivationDependencies,
 ): Promise<DesktopAppActivationResponse> {
+  if (request.type === "open-thread") {
+    try {
+      const projectId = await dependencies.openExistingThread(
+        request.environmentId,
+        request.threadId,
+      );
+      if (projectId === null)
+        return failure(
+          request.requestId,
+          "thread-open-failed",
+          "The requested thread is not available in this desktop app.",
+        );
+      return {
+        version: 1,
+        requestId: request.requestId,
+        ok: true,
+        projectId,
+        threadId: request.threadId,
+      };
+    } catch (error) {
+      return failure(
+        request.requestId,
+        "thread-open-failed",
+        errorMessage(error, "Could not open the requested thread."),
+      );
+    }
+  }
   const target = dependencies.getTarget();
   if (target === null) {
     return failure(

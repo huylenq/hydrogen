@@ -53,12 +53,12 @@ export function browseInputEndPaddingClass(input: {
 }
 
 /**
- * The global search overlay hosts three mutually exclusive surfaces: the
- * command palette (⌘K), the project file picker (⌘P), and project content
+ * The global search overlay hosts mutually exclusive surfaces: the
+ * command palette (⌘K), thread switcher (⇧⌘K), project file picker (⌘P), and project content
  * search (⇧⌘F). One reducer owns open/mode state so the surfaces can never
  * stack and re-triggering a mode's shortcut toggles it closed.
  */
-export type SearchOverlayMode = "command" | "files" | "content";
+export type SearchOverlayMode = "command" | "threads" | "files" | "content";
 
 export type CommandPaletteOpenIntent =
   | { readonly kind: "add-project" | "new-thread-in" | "change-theme" }
@@ -383,11 +383,12 @@ export function filterCommandPaletteGroups(input: {
   activeGroups: ReadonlyArray<CommandPaletteGroup>;
   query: string;
   isInSubmenu: boolean;
+  threadsOnly?: boolean;
   projectSearchItems: ReadonlyArray<CommandPaletteActionItem>;
   settingsSearchItems?: ReadonlyArray<CommandPaletteActionItem>;
   threadSearchItems: ReadonlyArray<CommandPaletteActionItem>;
 }): CommandPaletteGroup[] {
-  const isActionsFilter = input.query.startsWith(">");
+  const isActionsFilter = !input.threadsOnly && input.query.startsWith(">");
   const searchQuery = isActionsFilter ? input.query.slice(1) : input.query;
   const normalizedQuery = normalizeSearchText(searchQuery);
 
@@ -395,11 +396,13 @@ export function filterCommandPaletteGroups(input: {
     if (isActionsFilter) {
       return input.activeGroups.filter((group) => group.value === "actions");
     }
-    return [...input.activeGroups];
+    return input.threadsOnly
+      ? input.activeGroups.filter((group) => group.value === "recent-threads")
+      : [...input.activeGroups];
   }
   const queryTokens = normalizedQuery.split(" ");
 
-  let baseGroups = [...input.activeGroups];
+  let baseGroups = input.threadsOnly ? [] : [...input.activeGroups];
   if (isActionsFilter) {
     baseGroups = baseGroups.filter((group) => group.value === "actions");
   } else if (!input.isInSubmenu) {
@@ -408,14 +411,14 @@ export function filterCommandPaletteGroups(input: {
 
   const searchableGroups = [...baseGroups];
   if (!input.isInSubmenu && !isActionsFilter) {
-    if (input.projectSearchItems.length > 0) {
+    if (!input.threadsOnly && input.projectSearchItems.length > 0) {
       searchableGroups.push({
         value: "projects-search",
         label: "Projects",
         items: input.projectSearchItems,
       });
     }
-    if (input.settingsSearchItems && input.settingsSearchItems.length > 0) {
+    if (!input.threadsOnly && input.settingsSearchItems && input.settingsSearchItems.length > 0) {
       searchableGroups.push({
         value: "settings-search",
         label: "Settings",

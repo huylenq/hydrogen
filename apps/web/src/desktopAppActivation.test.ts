@@ -22,6 +22,7 @@ function dependencies(
   overrides: Partial<DesktopAppActivationDependencies> = {},
 ): DesktopAppActivationDependencies {
   return {
+    openExistingThread: vi.fn(async () => existingProjectId),
     getTarget: () => ({ environmentId, platform: "linux" }),
     findProject: () => ({
       id: existingProjectId,
@@ -104,4 +105,34 @@ describe("desktop app activation", () => {
     });
     expect(openThread).not.toHaveBeenCalled();
   });
+});
+
+it("opens the exact existing thread without creating a project or draft", async () => {
+  const deps = dependencies();
+  const target = {
+    version: 1,
+    requestId: "existing",
+    type: "open-thread",
+    environmentId,
+    threadId,
+  } as const;
+  expect(await handleDesktopAppActivationRequest(target, deps)).toMatchObject({
+    ok: true,
+    threadId,
+    projectId: existingProjectId,
+  });
+  expect(deps.openExistingThread).toHaveBeenCalledWith(environmentId, threadId);
+  expect(deps.createProject).not.toHaveBeenCalled();
+  expect(deps.openThread).not.toHaveBeenCalled();
+});
+it("does not fall back to a new draft when the requested thread is missing", async () => {
+  const deps = dependencies({ openExistingThread: vi.fn(async () => null) });
+  expect(
+    await handleDesktopAppActivationRequest(
+      { version: 1, requestId: "missing", type: "open-thread", environmentId, threadId },
+      deps,
+    ),
+  ).toMatchObject({ ok: false, code: "thread-open-failed" });
+  expect(deps.createProject).not.toHaveBeenCalled();
+  expect(deps.openThread).not.toHaveBeenCalled();
 });

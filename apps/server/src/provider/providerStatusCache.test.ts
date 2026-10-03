@@ -1,3 +1,4 @@
+import { mergeProviderSnapshot } from "./Layers/ProviderRegistry.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
   defaultInstanceIdForDriver,
@@ -297,4 +298,47 @@ it.layer(NodeServices.layer)("providerStatusCache", (it) => {
       fallbackCodex,
     );
   });
+});
+
+it("keeps concise route-qualified Hermes labels on cache hydration and health-only refresh", () => {
+  const driver = ProviderDriverKind.make("hermes");
+  const cachedProvider = makeProvider(driver, {
+    models: [
+      {
+        slug: "hermes-default",
+        name: "Hermes configured model",
+        capabilities: emptyCapabilities,
+        isCustom: false,
+      },
+      {
+        slug: "openai-codex:gpt-6-astra",
+        name: "ChatGPT or Codex Subscription · gpt-6-astra",
+        capabilities: emptyCapabilities,
+        isCustom: false,
+      },
+      {
+        slug: "xai:grok-4.20",
+        name: "xAI Grok OAuth (SuperGrok / Premium+) · grok-4.20",
+        capabilities: emptyCapabilities,
+        isCustom: false,
+      },
+    ],
+  });
+  const fallbackProvider = makeProvider(driver, {
+    models: [
+      { slug: "hermes-default", name: "Default", capabilities: emptyCapabilities, isCustom: false },
+    ],
+  });
+  const hydrated = hydrateCachedProvider({ cachedProvider, fallbackProvider });
+  const refreshed = mergeProviderSnapshot(cachedProvider, fallbackProvider);
+  for (const snapshot of [hydrated, refreshed, mergeProviderSnapshot(undefined, cachedProvider)]) {
+    assert.deepStrictEqual(
+      snapshot.models.map((model) => model.name),
+      ["Default", "gpt-6-astra · Codex", "grok-4.20 · xAI OAuth"],
+    );
+    assert.deepStrictEqual(
+      snapshot.models.map((model) => model.slug),
+      cachedProvider.models.map((model) => model.slug),
+    );
+  }
 });

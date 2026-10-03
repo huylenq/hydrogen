@@ -1787,6 +1787,12 @@ describe("shouldRefocusComposerOnWindowFocus", () => {
     expect(shouldRefocusComposerOnWindowFocus(element("BUTTON"))).toBe(true);
   });
 
+  it("preserves Normal mode focus when returning to a window with Vim navigation", () => {
+    expect(shouldRefocusComposerOnWindowFocus(element("BUTTON"), true)).toBe(false);
+    expect(shouldRefocusComposerOnWindowFocus(element("BODY"), true)).toBe(false);
+    expect(shouldRefocusComposerOnWindowFocus(null, true)).toBe(false);
+  });
+
   it("leaves other text fields alone", () => {
     expect(shouldRefocusComposerOnWindowFocus(element("INPUT"))).toBe(false);
     expect(shouldRefocusComposerOnWindowFocus(element("TEXTAREA"))).toBe(false);

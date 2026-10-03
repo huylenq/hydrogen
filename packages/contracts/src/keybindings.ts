@@ -1,4 +1,5 @@
 import * as Schema from "effect/Schema";
+import * as SchemaTransformation from "effect/SchemaTransformation";
 import { ForwardCompatibleArray, TrimmedString } from "./baseSchemas.ts";
 
 export const MAX_KEYBINDING_VALUE_LENGTH = 64;
@@ -57,7 +58,11 @@ const MODEL_PICKER_KEYBINDING_COMMANDS = [
 export type ModelPickerKeybindingCommand = (typeof MODEL_PICKER_KEYBINDING_COMMANDS)[number];
 
 export const STATIC_KEYBINDING_COMMANDS = [
+  "keyboard.toggleModal",
+  "keyboard.normal",
   "sidebar.toggle",
+  "flow.toggle",
+  "crew.toggle",
   "navigation.back",
   "navigation.forward",
   "terminal.toggle",
@@ -78,6 +83,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "preview.zoomOut",
   "preview.resetZoom",
   "commandPalette.toggle",
+  "threadSwitcher.toggle",
   "filePicker.toggle",
   "projectSearch.toggle",
   "usage.open",
@@ -93,6 +99,8 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "composer.workspace",
   "composer.previousWorktree",
   "composer.branch",
+  "composer.reasoning",
+  "git.commit",
   "chat.new",
   "chat.newLocal",
   "chat.newWithoutProject",
@@ -120,6 +128,16 @@ export const SCRIPT_RUN_COMMAND_PATTERN = Schema.TemplateLiteral([
 export const KeybindingCommand = Schema.Union([
   Schema.Literals(STATIC_KEYBINDING_COMMANDS),
   SCRIPT_RUN_COMMAND_PATTERN,
+  // Existing keybindings.json files keep working after the Flow rename.
+  Schema.Literal("workQueue.toggle").pipe(
+    Schema.decodeTo(
+      Schema.Literal("flow.toggle"),
+      SchemaTransformation.transform({
+        decode: () => "flow.toggle" as const,
+        encode: () => "workQueue.toggle" as const,
+      }),
+    ),
+  ),
 ]);
 export type KeybindingCommand = typeof KeybindingCommand.Type;
 
@@ -145,7 +163,8 @@ export const KeybindingsConfig = Schema.Array(KeybindingRule).check(
 export type KeybindingsConfig = typeof KeybindingsConfig.Type;
 
 export const KeybindingShortcut = Schema.Struct({
-  key: KeybindingValue,
+  // Parsed Space shortcuts carry a literal space, which must survive the wire codec.
+  key: Schema.Union([Schema.Literal(" "), KeybindingValue]),
   metaKey: Schema.Boolean,
   ctrlKey: Schema.Boolean,
   shiftKey: Schema.Boolean,

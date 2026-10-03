@@ -1,4 +1,5 @@
 import { ThreadDetailsControl } from "./chat/ThreadDetailsControl";
+import { registerAppCommands, type AppCommand } from "../appCommands";
 import { useAtomValue } from "@effect/atom-react";
 import { type ScopedThreadRef } from "@t3tools/contracts";
 import {
@@ -1569,6 +1570,16 @@ export default function GitActionsControl({
     setIsEditingFiles(false);
     setIsCommitDialogOpen(true);
   };
+
+  // Vim `g k` reaches whichever git actions are mounted.
+  const handleGitCommand = useEffectEvent((command: AppCommand) => {
+    if (command !== "git.commit") return false;
+    const commitItem = gitActionMenuItems.find((item) => item.id === "commit");
+    if (!commitItem || commitItem.disabled) return false;
+    openDialogForMenuItem(commitItem);
+    return true;
+  });
+  useEffect(() => registerAppCommands((command) => handleGitCommand(command)), []);
 
   const runDialogAction = () => {
     if (!isCommitDialogOpen) return;

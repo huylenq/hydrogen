@@ -27,6 +27,7 @@ import * as DesktopAppSettings from "../../settings/DesktopAppSettings.ts";
 import {
   getLocalEnvironmentBootstraps,
   getWindowFullscreenState,
+  setWindowButtonVisibility,
   pasteAsText,
   pickProjectFavicon,
   probeRemoteEditors,
@@ -268,6 +269,55 @@ describe("pickProjectFavicon", () => {
   );
 });
 
+describe("setWindowButtonVisibility", () => {
+  it.effect("hides and restores the macOS window buttons", () => {
+    const setVisible = vi.fn();
+    const window = {
+      isDestroyed: () => false,
+      setWindowButtonVisibility: setVisible,
+    } as unknown as Electron.BrowserWindow;
+    return Effect.gen(function* () {
+      yield* setWindowButtonVisibility.handler(false);
+      yield* setWindowButtonVisibility.handler(true);
+      assert.deepEqual(setVisible.mock.calls, [[false], [true]]);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          Layer.succeed(HostProcessPlatform, "darwin"),
+          Layer.mock(ElectronWindow.ElectronWindow)({
+            currentMainOrFirst: Effect.succeed(Option.some(window)),
+          }),
+        ),
+      ),
+    );
+  });
+
+  it.effect("does nothing on other platforms", () =>
+    setWindowButtonVisibility.handler(false).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          Layer.succeed(HostProcessPlatform, "win32"),
+          Layer.mock(ElectronWindow.ElectronWindow)({
+            currentMainOrFirst: Effect.die("Must not access a window outside macOS"),
+          }),
+        ),
+      ),
+    ),
+  );
+
+  it.effect("tolerates a closed window", () =>
+    setWindowButtonVisibility.handler(false).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          Layer.succeed(HostProcessPlatform, "darwin"),
+          Layer.mock(ElectronWindow.ElectronWindow)({
+            currentMainOrFirst: Effect.succeed(Option.none()),
+          }),
+        ),
+      ),
+    ),
+  );
+});
 it.effect.skipIf(HostProcessPlatform.defaultValue() === "win32")(
   "finds remote editors installed without PATH launchers",
   () =>

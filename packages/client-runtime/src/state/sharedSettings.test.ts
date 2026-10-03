@@ -104,6 +104,7 @@ describe("splitSharedServerPatch", () => {
       enableAgentBrowserAccess: false,
       defaultThreadEnvMode: "worktree",
       newWorktreesStartFromOrigin: true,
+      enableAgentCrewAccess: false,
     });
     expect(sharedPatch).toEqual({
       sidebarAutoSettleAfterDays: 7,
@@ -113,6 +114,7 @@ describe("splitSharedServerPatch", () => {
     });
     expect(localPatch).toEqual({
       enableAgentBrowserAccess: false,
+      enableAgentCrewAccess: false,
       defaultThreadEnvMode: "worktree",
     });
   });

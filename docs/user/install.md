@@ -118,6 +118,7 @@ computer.
 | Cursor      | Install [Cursor CLI](https://cursor.com/cli), then run `agent login`.                                                                                     |
 | Grok Build  | Install [Grok Build CLI](https://x.ai/cli), then run `grok login`.                                                                                        |
 | OpenCode    | Install [OpenCode](https://opencode.ai), then run `opencode auth login`.                                                                                  |
+| Hermes      | Install [Hermes](https://hermes-agent.nousresearch.com), run `hermes model`, then verify `hermes acp --check`.                                            |
 | Antigravity | Install and sign in with Google from T3 Code's provider settings.                                                                                         |
 | Pi          | Install [Pi](https://pi.dev), then run `pi` once to finish its login or API-key setup.                                                                    |
 
@@ -156,3 +157,38 @@ For provider-specific setup and accounts, see [Codex](./providers-codex.md),
 - [Remote access](./remote-access.md): connect from another device.
 - [Running in the background](./background-service.md): keep a Linux or macOS host available.
 - [Updating T3 Code](./updating.md): update the app and connected servers.
+
+### Hermes
+
+Enable Hermes in **Settings → Providers** after configuring it on the environment's
+machine. Set **Hermes home** to use a specific Hermes configuration, credentials,
+memory, and skills; leaving it empty uses the environment default. Separate homes
+keep provider instances' Hermes state separate.
+
+With Hermes selected, open the profile control beside the model in the composer
+and pick a profile from the environment's machine. A profile is required and starts at
+`default`, the agent in the root Hermes home. Every conversation uses its selected
+profile explicitly, regardless of Hermes’s active-profile setting.
+On mobile, use the composer's provider options. Refresh Hermes in Settings → Providers
+if you create or delete profiles. Changing profiles starts a fresh Hermes session on
+your next message; the existing T3 conversation remains visible.
+
+**Reasoning effort** is available in the same composer menu. Choose a level or
+**Model default** to follow the profile’s model configuration. Changes apply on the
+next message and do not change other conversations. This requires a Hermes build
+with ACP reasoning-effort support; unsupported model levels may be adjusted by Hermes.
+
+The initial model choice uses Hermes's configured model. **Refresh models** loads
+its available models, and you can switch models within a conversation. Hermes
+sessions resume after a T3 restart.
+
+A configured Hermes instance shows **Available**, including after a T3 restart.
+T3 marks it **Authenticated** when a turn confirms backend access. Missing
+credentials and failed turns show recovery guidance; refreshing status or models
+does not clear a failed-turn warning. Status refreshes do not send model requests.
+If Stop cannot get a response from Hermes, T3 stops that process; send another turn
+to reload the saved conversation.
+
+Hermes is in early access. Plan mode, conversation rollback, background title/commit
+generation, and delegation controls are unavailable. **Auto** asks for approval like
+**Supervised**. **Allow for session** does not add a permanent Hermes permission.

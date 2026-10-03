@@ -503,4 +503,30 @@ describe("mobile model options", () => {
       }),
     ).toBeNull();
   });
+  it("keeps a configured remote Hermes instance selectable while backend access is unverified", () => {
+    const selection = {
+      instanceId: ProviderInstanceId.make("hermes-remote"),
+      model: "custom:local",
+    };
+    for (const [status, allowed] of [
+      ["unknown", true],
+      ["unauthenticated", false],
+    ] as const) {
+      const config = {
+        providers: [
+          {
+            instanceId: selection.instanceId,
+            driver: "hermes",
+            enabled: true,
+            installed: true,
+            status: "warning",
+            auth: { status },
+          },
+        ],
+      } as unknown as ServerConfig;
+      expect(resolveSelectableModelSelection(config, selection)).toEqual(
+        allowed ? selection : null,
+      );
+    }
+  });
 });

@@ -1,5 +1,19 @@
 import { OrchestrationDispatchCommandError } from "./orchestrationDispatch.ts";
 import {
+  CrewAvatar,
+  CrewAvatarInput,
+  CrewError,
+  CrewSnapshot,
+  CrewConnectInput,
+  CrewConversationInput,
+  CrewConversation,
+  CrewSendInput,
+  CrewHandoffInput,
+  CrewStopDeliveryInput,
+  CrewHandoff,
+  CrewChange,
+} from "./crew.ts";
+import {
   ChatGptReconnectProfileInput,
   ChatGptReconnectProfile,
   ChatGptImportProfileInput,
@@ -336,6 +350,15 @@ import { VcsError } from "./vcs.ts";
 import { Project, ProjectMutation, ProjectMutationError } from "./project.ts";
 
 export const WS_METHODS = {
+  crewGetSnapshot: "crew.getSnapshot",
+  crewGetAvatar: "crew.getAvatar",
+  crewConnect: "crew.connect",
+  crewDisconnect: "crew.disconnect",
+  crewGetConversation: "crew.getConversation",
+  crewSend: "crew.send",
+  crewGetHandoff: "crew.getHandoff",
+  crewStopDelivery: "crew.stopDelivery",
+  crewSubscribe: "crew.subscribe",
   // Project registry methods
   projectsList: "projects.list",
   projectsAdd: "projects.add",
@@ -1682,7 +1705,60 @@ const WsSubscribeResourceTelemetryRpc = Rpc.make(WS_METHODS.subscribeResourceTel
   stream: true,
 });
 
+export const WsCrewGetSnapshotRpc = Rpc.make(WS_METHODS.crewGetSnapshot, {
+  success: CrewSnapshot,
+  error: Schema.Union([CrewError, EnvironmentAuthorizationError]),
+});
+export const WsCrewGetAvatarRpc = Rpc.make(WS_METHODS.crewGetAvatar, {
+  payload: CrewAvatarInput,
+  success: CrewAvatar,
+  error: Schema.Union([CrewError, EnvironmentAuthorizationError]),
+});
+export const WsCrewConnectRpc = Rpc.make(WS_METHODS.crewConnect, {
+  payload: CrewConnectInput,
+  success: CrewSnapshot,
+  error: Schema.Union([CrewError, EnvironmentAuthorizationError]),
+});
+export const WsCrewDisconnectRpc = Rpc.make(WS_METHODS.crewDisconnect, {
+  success: CrewSnapshot,
+  error: Schema.Union([CrewError, EnvironmentAuthorizationError]),
+});
+export const WsCrewGetConversationRpc = Rpc.make(WS_METHODS.crewGetConversation, {
+  payload: CrewConversationInput,
+  success: CrewConversation,
+  error: Schema.Union([CrewError, EnvironmentAuthorizationError]),
+});
+export const WsCrewSendRpc = Rpc.make(WS_METHODS.crewSend, {
+  payload: CrewSendInput,
+  success: CrewHandoff,
+  error: Schema.Union([CrewError, EnvironmentAuthorizationError]),
+});
+export const WsCrewGetHandoffRpc = Rpc.make(WS_METHODS.crewGetHandoff, {
+  payload: CrewHandoffInput,
+  success: CrewHandoff,
+  error: Schema.Union([CrewError, EnvironmentAuthorizationError]),
+});
+export const WsCrewStopDeliveryRpc = Rpc.make(WS_METHODS.crewStopDelivery, {
+  payload: CrewStopDeliveryInput,
+  success: CrewHandoff,
+  error: Schema.Union([CrewError, EnvironmentAuthorizationError]),
+});
+export const WsCrewSubscribeRpc = Rpc.make(WS_METHODS.crewSubscribe, {
+  success: CrewChange,
+  error: Schema.Union([CrewError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+
 export const WsRpcGroup = RpcGroup.make(
+  WsCrewGetSnapshotRpc,
+  WsCrewGetAvatarRpc,
+  WsCrewConnectRpc,
+  WsCrewDisconnectRpc,
+  WsCrewGetConversationRpc,
+  WsCrewSendRpc,
+  WsCrewGetHandoffRpc,
+  WsCrewStopDeliveryRpc,
+  WsCrewSubscribeRpc,
   WsServerProbeRpc,
   WsServerGetConfigRpc,
   WsServerRefreshProvidersRpc,

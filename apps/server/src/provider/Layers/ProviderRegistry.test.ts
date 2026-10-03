@@ -2892,6 +2892,7 @@ it.layer(Layer.mergeAll(TestNodeServices, ServerSettingsModule.layerTest(), Test
                 "codex",
                 "cursor",
                 "grok",
+                "hermes",
                 "opencode",
                 "pi",
               ]);
@@ -3319,3 +3320,49 @@ it.layer(Layer.mergeAll(TestNodeServices, ServerSettingsModule.layerTest(), Test
     });
   },
 );
+
+it("propagates fresh Hermes profile choices to retained model entries", () => {
+  const profile = {
+    id: "hermesProfile",
+    label: "Agent profile",
+    type: "select" as const,
+    options: [{ id: "curie", label: "curie" }],
+  };
+  const previous: ServerProvider = {
+    instanceId: ProviderInstanceId.make("hermes"),
+    driver: ProviderDriverKind.make("hermes"),
+    enabled: true,
+    installed: true,
+    status: "ready",
+    auth: { status: "authenticated" },
+    checkedAt: "2026-09-17T00:00:00.000Z",
+    version: null,
+    slashCommands: [],
+    skills: [],
+    models: [
+      {
+        slug: "grok-4.6",
+        name: "grok-4.6",
+        isCustom: false,
+        capabilities: { optionDescriptors: [] },
+      },
+    ],
+  };
+  const next = {
+    ...previous,
+    models: [
+      {
+        slug: "hermes-default",
+        name: "Default",
+        isCustom: false,
+        capabilities: { optionDescriptors: [profile] },
+      },
+    ],
+  };
+  const merged = mergeProviderSnapshot(previous, next);
+  assert.equal(merged.models.length, 2);
+  assert.deepStrictEqual(
+    merged.models.find((model) => model.slug === "grok-4.6")?.capabilities?.optionDescriptors,
+    [profile],
+  );
+});

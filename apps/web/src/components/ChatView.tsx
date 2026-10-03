@@ -1,3 +1,14 @@
+import { focusModalSurface } from "../modalKeyboardDom";
+import { useHuyChatIntegration } from "../customizations/huy/useHuyChatIntegration";
+import { useHuyWorkspaceGeometry } from "../customizations/huy/useHuyWorkspaceGeometry";
+import { useHuyActionLifecycle } from "../customizations/huy/useHuyActionLifecycle";
+import { HuyChatHeader } from "../customizations/huy/HuyFlowHeader";
+import { ModalKeyboard } from "./ModalKeyboard";
+import { useHuyChatFocus } from "../customizations/huy/useHuyChatFocus";
+import { useChatCommands } from "../customizations/huy/useChatCommands";
+import { getClientSettings } from "../hooks/useSettings";
+import { requestModalFocus, useModalKeyboardStore } from "../modalKeyboardStore";
+import { useFlowStore } from "../flowStore";
 import { ChatCanvas } from "./chat/ChatCanvas";
 import { usageLimitRecoveryBannerItem } from "./chat/UsageLimitRecoveryBanner";
 import {
@@ -730,6 +741,11 @@ function eventPathContainsSelector(event: Event, selector: string): boolean {
  * paste-to-focus so both honour the same surfaces.
  */
 function shouldRedirectInputToComposer(event: Event): boolean {
+  if (
+    getClientSettings().modalKeyboardEnabled &&
+    useModalKeyboardStore.getState().mode === "normal"
+  )
+    return false;
   if (event.defaultPrevented) return false;
   if (eventPathContainsSelector(event, TYPE_TO_FOCUS_EDITABLE_SELECTOR)) return false;
   if (eventPathContainsSelector(event, TYPE_TO_FOCUS_INTERACTIVE_SELECTOR)) return false;
@@ -1500,6 +1516,8 @@ function releaseChatTimelineAnchor<T extends { readonly messageId: MessageId | n
 }
 
 export default function ChatView(props: ChatViewProps) {
+  const flowOpen = useFlowStore((state) => state.open);
+  const actionLifecycle = useHuyActionLifecycle();
   const {
     environmentId,
     threadId,
@@ -1690,6 +1708,9 @@ export default function ChatView(props: ChatViewProps) {
     (store) => store.setStickyModelSelection,
   );
   const timestampFormat = settings.timestampFormat;
+  const arrivedByFlowJump = useLocation({
+    select: (location) => location.state.flowAutoJump === true,
+  });
   const navigate = useNavigate();
   const citationLocation = useLocation({
     select: (location) => ({
@@ -1849,10 +1870,17 @@ export default function ChatView(props: ChatViewProps) {
   >({});
   const [pendingUserInputQuestionIndexByRequestId, setPendingUserInputQuestionIndexByRequestId] =
     useState<Record<string, number>>({});
-  const shouldUsePlanSidebarSheet = useMediaQuery(RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY);
   const isMobileViewport = useMediaQuery("max-sm");
   const [workspaceLayoutRef, workspaceLayoutWidth] = useElementWidth<HTMLDivElement>();
   const threadPanelPopoverAnchorRef = useRef<HTMLElement | null>(null);
+  const {
+    workspaceRef,
+    workspaceLayout,
+    shouldUseRightPanelSheet: shouldUsePlanSidebarSheet,
+    grokBotOpen,
+    grokBotChatOpen,
+    grokBotFocused,
+  } = useHuyWorkspaceGeometry();
   // Tracks whether the user explicitly dismissed the sidebar for the active turn.
   // When set, the thread-change reset effect will open the sidebar instead of closing it.
   // Used by "Implement in a new thread" to carry the sidebar-open intent across navigation.
@@ -2024,6 +2052,7 @@ export default function ChatView(props: ChatViewProps) {
   );
   const isServerThread = serverThread !== null;
   const activeThread = isServerThread ? serverThread : localDraftThread;
+  const hasActiveThread = activeThread != null;
   const serverLatestRun = useMemo(
     () => (serverProjection === null ? null : deriveLatestThreadRun(serverProjection)),
     [serverProjection],
@@ -2272,8 +2301,8 @@ export default function ChatView(props: ChatViewProps) {
   );
   const rightPanelPresent = rightPanelPresence.present;
   const rightPanelControlsInPanel =
-    shouldUsePlanSidebarSheet && rightPanelPresent && rightPanelOpen;
-  const rightPanelControlsAtRoot = rightPanelPresent && !shouldUsePlanSidebarSheet;
+    shouldUsePlanSidebarSheet && rightPanelPresent && rightPanelOpen && !grokBotOpen;
+  const rightPanelControlsAtRoot = rightPanelPresent && (!shouldUsePlanSidebarSheet || grokBotOpen);
   const renderedRightPanelSurface = rightPanelPresence.value?.activeSurface ?? null;
   const renderedRightPanelSurfaces = rightPanelPresence.value?.surfaces ?? [];
   const previewMiniPlayerVisible = shouldRenderPreviewMiniPlayer(
@@ -2294,6 +2323,15 @@ export default function ChatView(props: ChatViewProps) {
       threadPanelPresentation,
     ),
   );
+
+  useHuyChatFocus({
+    activeThreadRef,
+    rightPanelOpen,
+    rightPanelPresent,
+    shouldUseRightPanelSheet: shouldUsePlanSidebarSheet,
+    rightPanelMaximized,
+    revealConversation: () => setMaximizedRightPanelThreadKey(null),
+  });
 
   useEffect(() => {
     if (!activeThreadRef) return;
@@ -6316,19 +6354,31 @@ export default function ChatView(props: ChatViewProps) {
   }, [activeThreadKey]);
 
   useEffect(() => {
-    if (!activeThread?.id || terminalUiState.terminalOpen) return;
+    if (activeThread?.id && getClientSettings().modalKeyboardEnabled)
+      requestModalFocus("conversation");
+    else if (activeThread?.id && arrivedByFlowJump) focusModalSurface("conversation");
+  }, [activeThreadKey, activeThread?.id, arrivedByFlowJump]);
+
+  useEffect(() => {
+    if (
+      !activeThread?.id ||
+      terminalUiState.terminalOpen ||
+      arrivedByFlowJump ||
+      getClientSettings().modalKeyboardEnabled
+    )
+      return;
     const frame = window.requestAnimationFrame(() => {
       focusComposer();
     });
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [activeThread?.id, focusComposer, terminalUiState.terminalOpen]);
+  }, [activeThread?.id, arrivedByFlowJump, focusComposer, terminalUiState.terminalOpen]);
 
   // Tabbing back into the app lands focus wherever it last was, often the right panel or the
-  // body. Put it in the composer unless something that takes typing already holds it. The
-  // drawer terminal owns keyboard input while it is open, so it opts out here; a right panel
-  // terminal is a surface and is recognized by the predicate instead. Mobile is left alone so
+  // body. Outside Vim navigation, put it in the composer unless something that takes typing
+  // already holds it. The drawer terminal owns keyboard input while it is open, so it opts out
+  // here; a right panel terminal is recognized by the predicate. Mobile is left alone so
   // returning to the app does not raise the keyboard.
   useEffect(() => {
     if (!activeThread?.id || terminalUiState.terminalOpen || isMobileViewport) return;
@@ -6341,7 +6391,13 @@ export default function ChatView(props: ChatViewProps) {
       frame = window.requestAnimationFrame(() => {
         frame = window.requestAnimationFrame(() => {
           frame = null;
-          if (shouldRefocusComposerOnWindowFocus(document.activeElement)) focusComposer();
+          if (
+            shouldRefocusComposerOnWindowFocus(
+              document.activeElement,
+              getClientSettings().modalKeyboardEnabled,
+            )
+          )
+            focusComposer();
         });
       });
     };
@@ -7280,6 +7336,10 @@ export default function ChatView(props: ChatViewProps) {
       return;
     } else if (previous && !current) {
       terminalUiOpenByThreadRef.current[activeThreadKey] = current;
+      if (getClientSettings().modalKeyboardEnabled) {
+        requestModalFocus("conversation");
+        return;
+      }
       const frame = window.requestAnimationFrame(() => {
         focusComposer();
       });
@@ -7290,6 +7350,35 @@ export default function ChatView(props: ChatViewProps) {
 
     terminalUiOpenByThreadRef.current[activeThreadKey] = current;
   }, [activeThreadKey, focusComposer, terminalUiState.terminalOpen]);
+
+  useHuyChatIntegration(
+    {
+      title: activeThread?.title ?? "New thread",
+      isServer: isServerThread,
+      isGitRepo,
+      hasProject: activeProject != null,
+      canPin: supportsPinning,
+      pinned: activeThreadPinned,
+      canSettle: supportsSettlement,
+      settled: activeThreadSettled,
+      rightOpen: rightPanelOpen,
+      maximized: rightPanelMaximized,
+      canMaximize: canMaximizeRightPanel,
+      terminalOpen: terminalUiState.terminalOpen,
+      question: !activePendingUserInput
+        ? "none"
+        : activePendingIsResponding
+          ? "responding"
+          : "ready",
+    },
+    {
+      getScrollableNode: getTimelineScrollableNode,
+      beforeScroll: (direction) => {
+        cancelTimelineLiveFollowForUserNavigation();
+        timelineScrollIntentRef.current = direction;
+      },
+    },
+  );
 
   const getShortcutContext = useCallback(
     (eventTarget: EventTarget | null = document.activeElement) => ({
@@ -7308,6 +7397,161 @@ export default function ChatView(props: ChatViewProps) {
     [composerRef, previewPanelOpen, terminalUiState.terminalOpen, routeKind, phase],
   );
 
+  const handleChatCommand = (command: KeybindingCommand, repeat: boolean): boolean => {
+    const terminalFocusOwner = getTerminalFocusOwner();
+    if (command === "thread.copyReference") {
+      if (!repeat) copyActiveThreadReference();
+      return true;
+    }
+
+    if (command === "thread.settle") {
+      if (!isServerThread || !activeThreadRef || !supportsSettlement) return true;
+      if (activeThreadSettled) {
+        void handleUnsettleActiveThread();
+        return true;
+      }
+
+      void settleThread(activeThreadRef).then((result) => {
+        if (result._tag !== "Failure" || isAtomCommandInterrupted(result)) return;
+        const error = squashAtomCommandFailure(result);
+        toastManager.add(
+          stackedThreadToast({
+            type: "error",
+            title: "Failed to settle thread",
+            description: error instanceof Error ? error.message : "An error occurred.",
+          }),
+        );
+      });
+      return true;
+    }
+
+    if (command === "thread.pin") {
+      if (!isServerThread || !activeThreadRef || !supportsPinning) return true;
+      const pinned = activeThreadPinned;
+      void (pinned ? confirmAndUnpinThread(activeThreadRef) : pinThread(activeThreadRef)).then(
+        (result) => {
+          if (result._tag !== "Failure" || isAtomCommandInterrupted(result)) return;
+          const error = squashAtomCommandFailure(result);
+          toastManager.add(
+            stackedThreadToast({
+              type: "error",
+              title: pinned ? "Failed to unpin thread" : "Failed to pin thread",
+              description: error instanceof Error ? error.message : "An error occurred.",
+            }),
+          );
+        },
+      );
+      return true;
+    }
+
+    if (command === "terminal.toggle") {
+      toggleTerminalVisibility();
+      return true;
+    }
+
+    if (command === "rightPanel.toggle") {
+      toggleRightPanel();
+      return true;
+    }
+
+    if (command === "threadPanel.toggle") {
+      toggleThreadPanel();
+      return true;
+    }
+
+    if (command === "rightPanel.toggleMaximized") {
+      toggleRightPanelMaximized();
+      return true;
+    }
+
+    if (command === "rightPanel.close") {
+      // Nothing open: leave the event alone so the shortcut keeps its
+      // native meaning (close window on desktop, close tab in a browser).
+      if (!activeRightPanelSurface) return false;
+      if (!repeat) closeRightPanelSurface(activeRightPanelSurface);
+      return true;
+    }
+
+    if (command === "terminal.split") {
+      if (terminalFocusOwner === "right-panel") {
+        splitPanelTerminal();
+        return true;
+      }
+      if (!terminalUiState.terminalOpen) {
+        setTerminalOpen(true);
+      }
+      splitTerminal();
+      return true;
+    }
+
+    if (command === "terminal.splitVertical") {
+      if (terminalFocusOwner === "right-panel") {
+        splitPanelTerminal("vertical");
+        return true;
+      }
+      if (!terminalUiState.terminalOpen) {
+        setTerminalOpen(true);
+      }
+      splitTerminal("vertical");
+      return true;
+    }
+
+    if (command === "terminal.close") {
+      if (terminalFocusOwner === "right-panel" && activeRightPanelSurface?.kind === "terminal") {
+        requestClosePanelTerminal(activeRightPanelSurface.activeTerminalId);
+        return true;
+      }
+      if (!terminalUiState.terminalOpen) return true;
+      requestCloseTerminal(terminalUiState.activeTerminalId);
+      return true;
+    }
+
+    if (command === "terminal.new") {
+      if (terminalFocusOwner === "right-panel") {
+        addTerminalSurface();
+        return true;
+      }
+      if (!terminalUiState.terminalOpen) {
+        setTerminalOpen(true);
+      }
+      createNewTerminal();
+      return true;
+    }
+
+    if (command === "diff.toggle") {
+      onToggleDiff();
+      return true;
+    }
+
+    if (command === "modelPicker.toggle") {
+      if (!repeat) composerRef.current?.toggleModelPicker();
+      return true;
+    }
+
+    if (command === "composer.reasoning") {
+      if (!composerRef.current) return false;
+      composerRef.current.openControl("composer.effort");
+      return true;
+    }
+
+    if (command === "git.commit") {
+      return false;
+    }
+
+    const scriptId = projectScriptIdFromCommand(command);
+    if (!scriptId || !activeProject) return false;
+    const script = activeProjectScripts.find((entry) => entry.id === scriptId);
+    if (!script) return false;
+    void runProjectScript(script);
+    return true;
+  };
+
+  const executeChatCommand = useChatCommands(handleChatCommand, () => {
+    if (!activeThreadRef || !isServerThread || !isGitRepo) return false;
+    addDiffSurface();
+    requestModalFocus("rightPanel");
+    return true;
+  });
   useEffect(() => {
     const handler = (event: globalThis.KeyboardEvent) => {
       if (preventRepeatedTerminalCloseShortcut(event, keybindings)) {
@@ -7344,153 +7588,9 @@ export default function ChatView(props: ChatViewProps) {
       });
       if (!command) return;
 
-      if (command === "thread.copyReference") {
+      if (executeChatCommand(command, event.repeat)) {
         event.preventDefault();
         event.stopPropagation();
-        if (!event.repeat) copyActiveThreadReference();
-        return;
-      }
-
-      if (command === "thread.settle") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!isServerThread || !activeThreadRef || !supportsSettlement) return;
-        if (activeThreadSettled) {
-          void handleUnsettleActiveThread();
-          return;
-        }
-
-        void settleThread(activeThreadRef).then((result) => {
-          if (result._tag !== "Failure" || isAtomCommandInterrupted(result)) return;
-          const error = squashAtomCommandFailure(result);
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: "Failed to settle thread",
-              description: error instanceof Error ? error.message : "An error occurred.",
-            }),
-          );
-        });
-        return;
-      }
-
-      if (command === "thread.pin") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!isServerThread || !activeThreadRef || !supportsPinning) return;
-        const pinned = activeThreadPinned;
-        void (pinned ? confirmAndUnpinThread(activeThreadRef) : pinThread(activeThreadRef)).then(
-          (result) => {
-            if (result._tag !== "Failure" || isAtomCommandInterrupted(result)) return;
-            const error = squashAtomCommandFailure(result);
-            toastManager.add(
-              stackedThreadToast({
-                type: "error",
-                title: pinned ? "Failed to unpin thread" : "Failed to pin thread",
-                description: error instanceof Error ? error.message : "An error occurred.",
-              }),
-            );
-          },
-        );
-        return;
-      }
-
-      if (command === "terminal.toggle") {
-        event.preventDefault();
-        event.stopPropagation();
-        toggleTerminalVisibility();
-        return;
-      }
-
-      if (command === "rightPanel.toggle") {
-        event.preventDefault();
-        event.stopPropagation();
-        toggleRightPanel();
-        return;
-      }
-
-      if (command === "threadPanel.toggle") {
-        event.preventDefault();
-        event.stopPropagation();
-        toggleThreadPanel();
-        return;
-      }
-
-      if (command === "rightPanel.close") {
-        // Nothing open: leave the event alone so the shortcut keeps its
-        // native meaning (close window on desktop, close tab in a browser).
-        if (!activeRightPanelSurface) return;
-        event.preventDefault();
-        event.stopPropagation();
-        if (!event.repeat) closeRightPanelSurface(activeRightPanelSurface);
-        return;
-      }
-
-      if (command === "terminal.split") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (terminalFocusOwner === "right-panel") {
-          splitPanelTerminal();
-          return;
-        }
-        if (!terminalUiState.terminalOpen) {
-          setTerminalOpen(true);
-        }
-        splitTerminal();
-        return;
-      }
-
-      if (command === "terminal.splitVertical") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (terminalFocusOwner === "right-panel") {
-          splitPanelTerminal("vertical");
-          return;
-        }
-        if (!terminalUiState.terminalOpen) {
-          setTerminalOpen(true);
-        }
-        splitTerminal("vertical");
-        return;
-      }
-
-      if (command === "terminal.close") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (terminalFocusOwner === "right-panel" && activeRightPanelSurface?.kind === "terminal") {
-          requestClosePanelTerminal(activeRightPanelSurface.activeTerminalId);
-          return;
-        }
-        if (!terminalUiState.terminalOpen) return;
-        requestCloseTerminal(terminalUiState.activeTerminalId);
-        return;
-      }
-
-      if (command === "terminal.new") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (terminalFocusOwner === "right-panel") {
-          addTerminalSurface();
-          return;
-        }
-        if (!terminalUiState.terminalOpen) {
-          setTerminalOpen(true);
-        }
-        createNewTerminal();
-        return;
-      }
-
-      if (command === "diff.toggle") {
-        event.preventDefault();
-        event.stopPropagation();
-        onToggleDiff();
-        return;
-      }
-
-      if (command === "modelPicker.toggle") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!event.repeat) composerRef.current?.toggleModelPicker();
         return;
       }
 
@@ -7548,53 +7648,18 @@ export default function ChatView(props: ChatViewProps) {
         void onInterrupt();
         return;
       }
-
-      const scriptId = projectScriptIdFromCommand(command);
-      if (!scriptId || !activeProject) return;
-      const script = activeProjectScripts.find((entry) => entry.id === scriptId);
-      if (!script) return;
-      event.preventDefault();
-      event.stopPropagation();
-      void runProjectScript(script);
     };
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
   }, [
-    activeProject,
-    activeRightPanelSurface,
-    activeProjectScripts,
-    addTerminalSurface,
-    activeThreadRef,
-    activeThreadPinned,
-    activeThreadSettled,
-    canInterruptRunningThread,
-    terminalUiState.terminalOpen,
-    terminalUiState.activeTerminalId,
+    executeChatCommand,
     activeThreadId,
-    closeRightPanelSurface,
-    requestCloseTerminal,
-    requestClosePanelTerminal,
-    createNewTerminal,
-    setTerminalOpen,
-    runProjectScript,
-    splitTerminal,
-    splitPanelTerminal,
+    activeThreadKey,
     keybindings,
-    handleUnsettleActiveThread,
-    isServerThread,
-    onInterrupt,
-    onToggleDiff,
-    pinThread,
-    settleThread,
-    supportsPinning,
-    supportsSettlement,
-    confirmAndUnpinThread,
-    copyActiveThreadReference,
     getShortcutContext,
-    toggleRightPanel,
-    toggleThreadPanel,
-    toggleTerminalVisibility,
     composerRef,
+    canInterruptRunningThread,
+    onInterrupt,
   ]);
 
   // Paste-to-focus: the resting composer blurs on a click into the timeline,
@@ -8055,6 +8120,7 @@ export default function ChatView(props: ChatViewProps) {
       annotation: PreviewAnnotationPayload;
       image: ComposerImageAttachment | null;
     },
+    onAccepted?: () => void,
   ) => {
     e?.preventDefault();
     // Typed out in full rather than picked from the menu. Attachments or contexts
@@ -8070,6 +8136,7 @@ export default function ChatView(props: ChatViewProps) {
         promptRef.current = "";
         setComposerDraftPrompt(composerDraftTarget, "");
         composerRef.current?.resetCursorState();
+        onAccepted?.();
       }
       return;
     }
@@ -8387,6 +8454,7 @@ export default function ChatView(props: ChatViewProps) {
           promptRef.current = "";
           clearComposerDraftContent(composerDraftTarget);
           composerRef.current?.resetCursorState();
+          onAccepted?.();
         },
         onUpdate: (submission) => {
           setFeedbackSubmissionsByThreadKey((current) => {
@@ -8444,6 +8512,7 @@ export default function ChatView(props: ChatViewProps) {
       promptRef.current = "";
       clearComposerDraftContent(composerDraftTarget);
       composerRef.current?.resetCursorState();
+      onAccepted?.();
       const followUpSent = await onSubmitPlanFollowUp({
         text: followUp.text,
         context: buildMessageContext({
@@ -8495,6 +8564,7 @@ export default function ChatView(props: ChatViewProps) {
       promptRef.current = "";
       clearComposerDraftContent(composerDraftTarget);
       composerRef.current?.resetCursorState();
+      onAccepted?.();
       return;
     }
     if (!hasSendableContent) {
@@ -8602,6 +8672,11 @@ export default function ChatView(props: ChatViewProps) {
       };
     };
 
+    const jumpAfterSend = actionLifecycle.prepare({
+      threadRef: scopeThreadRef(environmentId, threadIdForSend),
+      navigation:
+        submissionIntent === "background" && isLocalDraftThread ? "background" : "foreground",
+    });
     const multipleTargets = [];
     for (const selection of multipleModelSelections ?? []) {
       const provider = providerInstanceEntries.find(
@@ -8768,6 +8843,7 @@ export default function ChatView(props: ChatViewProps) {
         promptRef.current = "";
         clearComposerDraftContent(composerDraftTarget);
         composerRef.current?.resetCursorState();
+        onAccepted?.();
         clearedDraft = true;
         const clearedDraftSnapshot = useComposerDraftStore
           .getState()
@@ -9078,6 +9154,7 @@ export default function ChatView(props: ChatViewProps) {
     promptRef.current = "";
     clearComposerDraftContent(composerDraftTarget);
     composerRef.current?.resetCursorState();
+    onAccepted?.();
 
     let firstComposerImageName: string | null = null;
     if (composerImagesSnapshot.length > 0) {
@@ -9362,6 +9439,7 @@ export default function ChatView(props: ChatViewProps) {
       }
     }
     sendInFlightRef.current = false;
+    if (turnStartSucceeded) jumpAfterSend.succeeded({ kind: "turn", messageId: messageIdForSend });
     if (!turnStartSucceeded) {
       setDockedDraftHeroThreadKey((currentThreadKey) =>
         currentThreadKey === activeThreadKey ? null : currentThreadKey,
@@ -9379,6 +9457,9 @@ export default function ChatView(props: ChatViewProps) {
       )
         return;
 
+      const jumpAfterResponse = actionLifecycle.prepare({
+        threadRef: scopeThreadRef(environmentId, activeThreadId),
+      });
       setRespondingRequestIds((existing) =>
         existing.includes(requestId) ? existing : [...existing, requestId],
       );
@@ -9398,9 +9479,10 @@ export default function ChatView(props: ChatViewProps) {
         );
       }
       setRespondingRequestIds((existing) => existing.filter((id) => id !== requestId));
+      if (result._tag === "Success") jumpAfterResponse.succeeded({ requestId, kind: "approval" });
       return result;
     },
-    [activeThreadId, environmentId, pendingApprovals, respondToThreadApproval, setThreadError],
+    [activeThreadId, environmentId, pendingApprovals, respondToThreadApproval, setThreadError, actionLifecycle],
   );
 
   const onRespondToUserInput = useCallback(
@@ -9438,6 +9520,9 @@ export default function ChatView(props: ChatViewProps) {
           uploaded as import("@t3tools/contracts").UserInputAttachments[string],
         );
       }
+      const jumpAfterResponse = actionLifecycle.prepare({
+        threadRef: scopeThreadRef(environmentId, activeThreadId),
+      });
       userInputResponsesInFlight.current.add(responseKey);
 
       setRespondingUserInputRequestIds((existing) =>
@@ -9463,9 +9548,10 @@ export default function ChatView(props: ChatViewProps) {
       }
       userInputResponsesInFlight.current.delete(responseKey);
       setRespondingUserInputRequestIds((existing) => existing.filter((id) => id !== requestId));
+      if (result._tag === "Success") jumpAfterResponse.succeeded({ requestId, kind: "user-input" });
       return result;
     },
-    [activeThreadId, environmentId, pendingUserInputs, respondToThreadUserInput, setThreadError],
+    [activeThreadId, environmentId, pendingUserInputs, respondToThreadUserInput, setThreadError, actionLifecycle],
   );
 
   // Closes an async question without messaging the agent. The server records
@@ -9668,6 +9754,9 @@ export default function ChatView(props: ChatViewProps) {
       text: trimmed,
     });
 
+      const jumpAfterFollowUp = actionLifecycle.prepare({
+        threadRef: scopeThreadRef(environmentId, threadIdForSend),
+      });
     sendInFlightRef.current = true;
     beginLocalDispatch({ preparingWorktree: false });
     setThreadError(threadIdForSend, null);
@@ -9750,6 +9839,7 @@ export default function ChatView(props: ChatViewProps) {
     if (failure === null) {
       sendInFlightRef.current = false;
       resetLocalDispatch();
+      jumpAfterFollowUp.succeeded({ kind: "turn", messageId: messageIdForSend });
       return true;
     }
 
@@ -9796,6 +9886,7 @@ export default function ChatView(props: ChatViewProps) {
 
     const createdAt = new Date().toISOString();
     const nextThreadId = newThreadId();
+    const implementationMessageId = newMessageId();
     const planMarkdown = activeProposedPlan.planMarkdown;
     const implementationPrompt = buildPlanImplementationPrompt(planMarkdown);
     const outgoingImplementationPrompt = formatOutgoingPrompt({
@@ -9807,6 +9898,11 @@ export default function ChatView(props: ChatViewProps) {
     });
     const nextThreadTitle = truncate(buildPlanImplementationThreadTitle(planMarkdown));
     const nextThreadModelSelection: ModelSelection = ctxSelectedModelSelection;
+    const jumpAfterImplementation = actionLifecycle.prepare({
+      threadRef: scopeThreadRef(environmentId, activeThread.id),
+      excludedThreadKeys: new Set([scopedThreadKey(scopeThreadRef(environmentId, nextThreadId))]),
+      deliveryThreadRef: scopeThreadRef(environmentId, nextThreadId),
+    });
 
     sendInFlightRef.current = true;
     beginLocalDispatch({ preparingWorktree: false });
@@ -9838,7 +9934,7 @@ export default function ChatView(props: ChatViewProps) {
         input: {
           threadId: nextThreadId,
           message: {
-            messageId: newMessageId(),
+            messageId: implementationMessageId,
             role: "user",
             text: outgoingImplementationPrompt,
             attachments: [],
@@ -9864,6 +9960,11 @@ export default function ChatView(props: ChatViewProps) {
       failure = startedResult._tag === "Failure" ? startedResult : null;
     }
 
+    if (failure === null && jumpAfterImplementation.ownsNavigation) {
+      finish();
+      jumpAfterImplementation.succeeded({ kind: "turn", messageId: implementationMessageId });
+      return;
+    }
     if (failure === null) {
       const navigateResult = await settlePromise(() =>
         navigate({
@@ -9908,6 +10009,7 @@ export default function ChatView(props: ChatViewProps) {
   }, [
     activeProject,
     activeProposedPlan,
+    actionLifecycle,
     activeThreadBranch,
     activeThread,
     beginLocalDispatch,
@@ -10496,7 +10598,10 @@ export default function ChatView(props: ChatViewProps) {
 
   return (
     <div
-      ref={workspaceLayoutRef}
+      ref={(node) => {
+        workspaceLayoutRef(node);
+        workspaceRef(node);
+      }}
       className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background"
     >
       <Dialog
@@ -10545,6 +10650,7 @@ export default function ChatView(props: ChatViewProps) {
                 )
               : "flex h-[var(--workspace-topbar-height)] min-h-[var(--workspace-topbar-height)] shrink-0 items-center pl-(--workspace-gutter-start) pr-(--workspace-gutter-end)",
             COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
+            flowOpen && "h-20 min-h-20",
           )}
         >
           {isElectron && rightPanelControlsAtRoot ? (
@@ -10554,8 +10660,9 @@ export default function ChatView(props: ChatViewProps) {
             />
           ) : null}
           {!rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}
-          {inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
-          <ChatHeader
+          <HuyChatHeader flowOpen={flowOpen}>
+            {inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
+            <ChatHeader
             activeThreadEnvironmentId={activeThread.environmentId}
             activeThreadId={activeThread.id}
             isServerThread={isServerThread}
@@ -10567,6 +10674,7 @@ export default function ChatView(props: ChatViewProps) {
               ? { onOpenProjectSettings: handleOpenDraftProjectSettings }
               : {})}
           />
+          </HuyChatHeader>
         </header>
 
         {/* Main content area with optional plan sidebar */}
@@ -10616,7 +10724,12 @@ export default function ChatView(props: ChatViewProps) {
               />
             </div>
             {/* Messages Wrapper */}
-            <div className="relative flex min-h-0 flex-1 flex-col bg-background">
+            <div
+              className="relative flex min-h-0 flex-1 flex-col bg-background outline-none"
+              data-modal-surface="conversation"
+              tabIndex={-1}
+              aria-label="Conversation"
+            >
               {/* Messages — LegendList handles virtualization and scrolling internally */}
               <MessagesTimeline
                 citationRequest={paintOnlyDisplayedTimeline ? null : citationRequest}
@@ -10946,7 +11059,9 @@ export default function ChatView(props: ChatViewProps) {
                               onPageScrollKeyUp={onComposerPageScrollKeyUp}
                               onPageScrollRelease={onComposerPageScrollRelease}
                               onCompactContext={onCompactContext}
-                              onSend={onSend}
+                              onSend={(event, dispatchMode, intent, onAccepted) =>
+                                void onSend(event, dispatchMode, intent, undefined, onAccepted)
+                              }
                               onResume={onResume}
                               onInterrupt={onInterrupt}
                               onImplementPlanInNewThread={onImplementPlanInNewThread}
@@ -11045,6 +11160,7 @@ export default function ChatView(props: ChatViewProps) {
                         </div>
                       </div>
                     </ComposerSurface.Shell>
+                    <ModalKeyboard hasThread />
                     <div
                       aria-hidden
                       className="h-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-[calc(env(safe-area-inset-bottom)+1.25rem)]"
@@ -11184,6 +11300,7 @@ export default function ChatView(props: ChatViewProps) {
           onClose={closePreviewPanel}
         >
           <RightPanelTabs
+            controlsOverlay={grokBotOpen && !grokBotChatOpen}
             mode="sheet"
             inlineSize={previewPanelInlineSize}
             // Same effective inset as the closed-state titlebar controls

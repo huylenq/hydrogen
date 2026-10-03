@@ -1,3 +1,4 @@
+import { normalizeHermesModelLabels } from "./HermesModelLabels.ts";
 import {
   type ProviderInstanceId,
   type ServerProvider,
@@ -83,7 +84,10 @@ export const hydrateCachedProvider = (input: {
   const { message: _fallbackMessage, ...fallbackWithoutMessage } = input.fallbackProvider;
   const hydratedProvider: ServerProvider = {
     ...fallbackWithoutMessage,
-    models: mergeProviderModels(input.fallbackProvider.models, input.cachedProvider.models),
+    models: normalizeHermesModelLabels(
+      input.fallbackProvider.driver,
+      mergeProviderModels(input.fallbackProvider.models, input.cachedProvider.models),
+    ),
     installed: input.cachedProvider.installed,
     version: input.cachedProvider.version,
     status: input.cachedProvider.status,

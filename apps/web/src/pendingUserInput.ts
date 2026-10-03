@@ -200,3 +200,42 @@ export function derivePendingUserInputProgress(
     canAdvance: resolvedAnswer !== null,
   };
 }
+
+/** Numbered answers are global in the standard profile and focus-scoped in modal mode. */
+export function pendingUserInputOptionIndex(
+  event: Pick<
+    KeyboardEvent,
+    | "key"
+    | "defaultPrevented"
+    | "isComposing"
+    | "keyCode"
+    | "repeat"
+    | "metaKey"
+    | "ctrlKey"
+    | "altKey"
+    | "shiftKey"
+  >,
+  context: {
+    modalEnabled: boolean;
+    questionFocused: boolean;
+    editable: boolean;
+    optionCount: number;
+  },
+): number | null {
+  if (
+    event.defaultPrevented ||
+    event.isComposing ||
+    event.keyCode === 229 ||
+    event.repeat ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.altKey ||
+    event.shiftKey ||
+    context.editable ||
+    (context.modalEnabled && !context.questionFocused) ||
+    !/^[1-9]$/.test(event.key)
+  )
+    return null;
+  const index = Number(event.key) - 1;
+  return index < context.optionCount ? index : null;
+}

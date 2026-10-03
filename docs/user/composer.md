@@ -76,6 +76,18 @@ returns to the remembered selection.
 
 Leaving reasoning level or service tier unset uses the provider's own configuration.
 
+## Grok Bot
+
+Open **Grok Bot** using its icon beside the terminal and right-panel toggles, or the command palette, on web and desktop (`Ctrl+Shift+G`). On mobile, use **Grok Bot** in the expanded composer, or open an environment's details in Settings.
+
+On web and desktop, the rail shows all your bots. Select an avatar to open its chat to the left; select it again to collapse the chat. Hiding the rail or switching bots preserves your drafts.
+
+Choose **Connect** to use the Grok Bot account signed in on the environment's Mac. A remote client uses that Mac's connection. Open Grok Bot and sign in again if its saved connection has expired.
+
+To share context from a coding task, link the message to that task and choose **Attach task context**, then select excerpts from its messages and plans or paste code and logs. Review the outgoing preview before sending; full task history and file contents are never included automatically. **Use this reply** adds a response and its source to your coding draft.
+
+Coding agents cannot call Grok Bot, and replies are not delivered back to coding tasks automatically.
+
 ## Quote an assistant response
 
 On web and desktop, select text within one assistant response and choose

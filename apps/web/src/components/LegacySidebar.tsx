@@ -1,6 +1,9 @@
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
 import { Spinner } from "~/components/ui/spinner";
+import { registerAppCommands, type AppCommand } from "../appCommands";
+import { getClientSettings } from "../hooks/useSettings";
+import { useModalKeyboardStore } from "../modalKeyboardStore";
 import {
   ArchiveIcon,
   ArrowUpDownIcon,
@@ -707,6 +710,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       className="w-full"
       data-thread-item
       {...fileDropHandlers}
+      data-modal-key={threadKey}
       onMouseLeave={handleMouseLeave}
       onBlurCapture={handleBlurCapture}
     >
@@ -3560,6 +3564,30 @@ export default function LegacySidebar() {
   }, [shouldShowThreadJumpHintsNow, updateThreadJumpHintsVisibility]);
 
   useEffect(() => {
+    const executeNavigation = (command: AppCommand) => {
+      if (
+        getClientSettings().modalKeyboardEnabled &&
+        useModalKeyboardStore.getState().surface === "flow"
+      )
+        return false;
+      const direction = threadTraversalDirectionFromCommand(command);
+      const index = threadJumpIndexFromCommand(command);
+      const targetKey =
+        direction !== null
+          ? resolveAdjacentThreadId({
+              threadIds: orderedSidebarThreadKeys,
+              currentThreadId: routeThreadKey,
+              direction,
+            })
+          : index !== null
+            ? threadJumpThreadKeys[index]
+            : null;
+      const thread = targetKey ? sidebarThreadByKey.get(targetKey) : undefined;
+      if (!thread) return false;
+      navigateToThread(scopeThreadRef(thread.environmentId, thread.id));
+      return true;
+    };
+    const unregisterCommands = registerAppCommands(executeNavigation);
     const onWindowKeyDown = (event: globalThis.KeyboardEvent) => {
       const shortcutContext = getCurrentSidebarShortcutContext();
 
@@ -3571,49 +3599,16 @@ export default function LegacySidebar() {
         platform,
         context: shortcutContext,
       });
-      const traversalDirection = threadTraversalDirectionFromCommand(command);
-      if (traversalDirection !== null) {
-        const targetThreadKey = resolveAdjacentThreadId({
-          threadIds: orderedSidebarThreadKeys,
-          currentThreadId: routeThreadKey,
-          direction: traversalDirection,
-        });
-        if (!targetThreadKey) {
-          return;
-        }
-        const targetThread = sidebarThreadByKey.get(targetThreadKey);
-        if (!targetThread) {
-          return;
-        }
-
+      if (command && executeNavigation(command)) {
         event.preventDefault();
         event.stopPropagation();
-        navigateToThread(scopeThreadRef(targetThread.environmentId, targetThread.id));
-        return;
       }
-
-      const jumpIndex = threadJumpIndexFromCommand(command ?? "");
-      if (jumpIndex === null) {
-        return;
-      }
-
-      const targetThreadKey = threadJumpThreadKeys[jumpIndex];
-      if (!targetThreadKey) {
-        return;
-      }
-      const targetThread = sidebarThreadByKey.get(targetThreadKey);
-      if (!targetThread) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      navigateToThread(scopeThreadRef(targetThread.environmentId, targetThread.id));
     };
 
     window.addEventListener("keydown", onWindowKeyDown);
 
     return () => {
+      unregisterCommands();
       window.removeEventListener("keydown", onWindowKeyDown);
     };
   }, [

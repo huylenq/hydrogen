@@ -1,3 +1,5 @@
+import { getClientSettings } from "../../hooks/useSettings";
+import { modalPickerFinalFocus } from "../../modalKeyboardDom";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   type ProviderInstanceId,
@@ -286,6 +288,10 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
       </PopoverTrigger>
       <PopoverPopup
         {...(props.isComposerOwned ? composerFloatingLayerProps : {})}
+        finalFocus={() =>
+          modalPickerFinalFocus(getClientSettings().modalKeyboardEnabled) ??
+          (props.isComposerOwned ? (composerFloatingLayerProps.finalFocus?.() ?? true) : true)
+        }
         align="start"
         className="before:hidden"
         padding="none"

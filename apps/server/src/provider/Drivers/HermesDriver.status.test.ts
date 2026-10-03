@@ -1,0 +1,109 @@
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { expect, it } from "@effect/vitest";
+import { ProviderInstanceId } from "@t3tools/contracts";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Stream from "effect/Stream";
+import { vi } from "vite-plus/test";
+import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
+import { ServerConfig } from "../../config.ts";
+import { ServerSettingsService } from "../../serverSettings.ts";
+import { makeHermesAdapterV2 } from "../../orchestration-v2/Adapters/HermesAdapterV2.ts";
+import * as IdAllocator from "../../orchestration-v2/IdAllocator.ts";
+import { NoOpProviderEventLoggers, ProviderEventLoggers } from "../Layers/ProviderEventLoggers.ts";
+import { HermesDriver } from "./HermesDriver.ts";
+
+const probe = vi.hoisted(() => ({ configured: true }));
+vi.mock("../../orchestration-v2/Adapters/HermesAdapterV2.ts", () => ({
+  makeHermesAdapterV2: vi.fn(() => ({})),
+}));
+vi.mock("../acp/HermesAcpSupport.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../acp/HermesAcpSupport.ts")>()),
+  makeHermesAcpRuntime: () =>
+    Effect.succeed({
+      initialize: () =>
+        Effect.succeed({
+          protocolVersion: 1,
+          authMethods: probe.configured ? [{ id: "configured", name: "Configured" }] : [],
+        }),
+      start: () =>
+        Effect.succeed({ initializeResult: { protocolVersion: 1 }, sessionSetupResult: {} }),
+      handleRequestPermission: () => Effect.void,
+      getEvents: () => Stream.empty,
+      drainEvents: Effect.void,
+    }),
+}));
+
+const testLayer = ServerConfig.layerTest(process.cwd(), { prefix: "t3-hermes-status-" }).pipe(
+  Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(ServerSettingsService.layerTest()),
+  Layer.provideMerge(
+    Layer.mock(BackgroundPolicy.BackgroundPolicy)({
+      shouldRunScopeWork: () => Effect.succeed(false),
+    }),
+  ),
+  Layer.provideMerge(Layer.succeed(ProviderEventLoggers, NoOpProviderEventLoggers)),
+  Layer.provideMerge(IdAllocator.layer),
+);
+
+it.layer(testLayer)("Hermes verification", (it) => {
+  it.effect(
+    "keeps configured Hermes available and preserves verification and failures across refreshes",
+    () =>
+      Effect.gen(function* () {
+        probe.configured = true;
+        const config = yield* ServerConfig;
+        const instance = yield* HermesDriver.create({
+          instanceId: ProviderInstanceId.make("hermes-status"),
+          displayName: "Hermes",
+          enabled: true,
+          environment: [],
+          config: { ...HermesDriver.defaultConfig(), homePath: config.stateDir },
+        });
+        const callbacks = vi.mocked(makeHermesAdapterV2).mock.calls.at(-1)?.[0];
+        const onTurnResult = callbacks?.onTurnResult;
+        const onSessionStarted = callbacks?.onSessionStarted;
+        if (!onTurnResult || !onSessionStarted) throw new Error("Missing Hermes status callbacks");
+        const initial = yield* instance.snapshot.refresh;
+        expect(initial).toMatchObject({ status: "ready", auth: { status: "unknown" } });
+        expect(initial.message).toBeUndefined();
+        if (!instance.refreshModels) throw new Error("Missing model refresh");
+        yield* instance.refreshModels();
+        expect(yield* instance.snapshot.refresh).toMatchObject({
+          status: "ready",
+          auth: { status: "unknown" },
+        });
+        yield* onTurnResult(true);
+        expect(yield* instance.snapshot.refresh).toMatchObject({
+          status: "ready",
+          auth: { status: "authenticated" },
+        });
+        yield* onSessionStarted({
+          initializeResult: { protocolVersion: 1 },
+          sessionSetupResult: { sessionId: "next-session" },
+          sessionId: "next-session",
+          modelConfigId: undefined,
+        });
+        if (!instance.refreshModels) throw new Error("Missing model refresh");
+        yield* instance.refreshModels();
+        const refreshed = yield* instance.snapshot.refresh;
+        expect(refreshed).toMatchObject({ status: "ready", auth: { status: "authenticated" } });
+        expect(refreshed.message).toBeUndefined();
+
+        yield* onTurnResult(false);
+        yield* instance.refreshModels();
+        expect(yield* instance.snapshot.refresh).toMatchObject({
+          status: "warning",
+          auth: { status: "unknown" },
+          message: expect.stringContaining("The last Hermes turn"),
+        });
+        yield* onTurnResult(true);
+        probe.configured = false;
+        expect(yield* instance.snapshot.refresh).toMatchObject({
+          status: "warning",
+          auth: { status: "unauthenticated" },
+          message: expect.stringContaining("Run hermes model"),
+        });
+      }).pipe(Effect.scoped),
+  );
+});

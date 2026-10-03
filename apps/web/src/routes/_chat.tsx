@@ -1,3 +1,4 @@
+import { FlowOverviewBoundary } from "../components/FlowOverview";
 import { Outlet, createFileRoute, redirect, useParams } from "@tanstack/react-router";
 import { useAtomValue } from "@effect/atom-react";
 import { useEffect, useMemo } from "react";
@@ -216,7 +217,9 @@ function ChatRouteLayout() {
   return (
     <>
       <ChatRouteGlobalShortcuts />
-      {threadTarget ? <ThreadRouteView target={threadTarget} /> : <Outlet />}
+      <FlowOverviewBoundary>
+        {threadTarget ? <ThreadRouteView target={threadTarget} /> : <Outlet />}
+      </FlowOverviewBoundary>
     </>
   );
 }

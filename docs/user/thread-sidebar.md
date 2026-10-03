@@ -162,8 +162,9 @@ The linked pull request participates in automatic settlement.
 
 ## Find and reference work
 
-On web and desktop, open the command palette with `Cmd/Ctrl+K` to search threads
-across connected environments. Message search starts after two characters and
+On web and desktop, use `Cmd/Ctrl+Shift+K` or **Switch thread** in the command
+palette to search only threads across connected environments. In Vim normal mode,
+press `/`. `Cmd/Ctrl+K` still opens the full command palette. Message search starts after two characters and
 includes your messages and final agent responses.
 
 Use **Settings → Keybindings** to find or customize shortcuts for searching files
@@ -208,7 +209,8 @@ finishes; the call's own result shows its status.
 
 ## Snooze until later
 
-Choose **Snooze → Custom…** from a thread's menu to pick a date and time in your
-local time zone, or a duration in minutes, hours, or days. Durations start when
+Choose **Snooze → Custom duration…** from a thread's menu and enter any positive
+number of minutes. You can also choose hours, days, or a date and time in your
+local time zone. Durations start when
 you confirm; one day means 24 hours. On web and desktop, you can also snooze
 several selected threads together. Choose **Wake thread** to bring a thread back early.

@@ -14,6 +14,7 @@ import { CloudEnvironmentRows } from "../connection/CloudEnvironmentRows";
 import { LocalEnvironmentList } from "../connection/LocalEnvironmentList";
 import { GitHubRoutingSettings } from "../connection/GitHubRoutingSettings";
 import { splitEnvironmentSections } from "../connection/environmentSections";
+import { AgentToolAccessSettings } from "./components/AgentToolAccessSettings";
 import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import { useRemoteConnections } from "../../state/use-remote-environment-registry";
 import { relayEnvironmentDiscovery } from "../../state/relay";
@@ -188,6 +189,7 @@ export function SettingsEnvironmentsRouteScreen() {
               }
             : {})}
         />
+        <AgentToolAccessSettings />
         <GitHubRoutingSettings />
       </ScrollView>
     </SettingsScreen>

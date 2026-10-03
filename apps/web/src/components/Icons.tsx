@@ -1,4 +1,5 @@
 import React, { type SVGProps, useId } from "react";
+import hermesLogo from "~/assets/hermes.png";
 import { cn } from "~/lib/utils";
 export type Icon = React.FC<SVGProps<SVGSVGElement>>;
 
@@ -650,6 +651,35 @@ export const ForgejoIcon: Icon = (props) => (
   </svg>
 );
 
+/** Preserve the portrait's light face and dark hair in a theme-tinted circular badge. */
+export function HermesIcon(props: React.ComponentProps<"svg">) {
+  const id = useId();
+  return (
+    <svg viewBox="3 3 174 174" fill="none" {...props}>
+      <defs>
+        <mask
+          id={`${id}-mask`}
+          maskUnits="userSpaceOnUse"
+          x="3"
+          y="3"
+          width="174"
+          height="174"
+          style={{ maskType: "luminance" }}
+        >
+          <image href={hermesLogo} width="180" height="180" />
+        </mask>
+      </defs>
+      <circle cx="90" cy="90" r="87" fill="#171717" />
+      <circle
+        cx="90"
+        cy="90"
+        r="87"
+        className="fill-neutral-100 dark:fill-current"
+        mask={`url(#${id}-mask)`}
+      />
+    </svg>
+  );
+}
 // macOS System Settings > Privacy & Security pane marks, so the SnapShot setup
 // step points at the same icon the user is about to look for.
 export const MacScreenRecordingIcon: Icon = (props) => {

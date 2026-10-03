@@ -1,30 +1,18 @@
+import { useSnoozeForm, SnoozeDurationFields } from "../../customizations/huy/SnoozeForm.android";
 import { MaterialSegmentedButtons } from "../../components/MaterialSegmentedButtons.android";
 import {
   BasicAlertDialog,
   Column,
   DateTimePicker,
   Host,
-  FilledTonalIconButton,
   Row,
   Shape,
   Surface,
   Text,
   TextButton,
 } from "@expo/ui/jetpack-compose";
-import {
-  padding,
-  size,
-  width,
-  fillMaxWidth,
-  testID,
-  verticalScroll,
-} from "@expo/ui/jetpack-compose/modifiers";
-import {
-  localSnoozeDate,
-  localSnoozeTime,
-  resolveCustomSnooze,
-  type CustomSnoozeInput,
-} from "@t3tools/client-runtime/state/thread-settled";
+import { padding, width, fillMaxWidth, verticalScroll } from "@expo/ui/jetpack-compose/modifiers";
+
 import { requireNativeModule } from "expo";
 import { useEffect, useState } from "react";
 import { AppState, useWindowDimensions } from "react-native";
@@ -47,11 +35,6 @@ const modes = [
   { value: "date", label: "Date and time" },
   { value: "duration", label: "Duration" },
 ] as const;
-const units = [
-  { value: "minutes", label: "Minutes" },
-  { value: "hours", label: "Hours" },
-  { value: "days", label: "Days" },
-] as const;
 
 function systemUses24HourClock() {
   return requireNativeModule<{ is24HourFormat(): boolean }>("T3NativeControls").is24HourFormat();
@@ -69,24 +52,11 @@ export function CustomSnoozeSheet(props: Props) {
   const titleTypography = useScaledTextRole("title");
   const bodyTypography = useScaledTextRole("footnote");
   const { width: windowWidth } = useWindowDimensions();
-  const [mode, setMode] = useState<CustomSnoozeInput["mode"]>("date");
-  const [date, setDate] = useState(() => new Date(Date.now() + 3_600_000));
-  const [picker, setPicker] = useState<"date" | "time">("date");
-  const [amount, setAmount] = useState(2);
-  const [unit, setUnit] = useState<"minutes" | "hours" | "days">("hours");
-  const [error, setError] = useState<string | null>(null);
+  const form = useSnoozeForm();
+  const { mode, setMode, date, setDate, picker, setPicker, error, setError } = form;
   const submit = () => {
-    const input: CustomSnoozeInput =
-      mode === "date"
-        ? { mode, date: localSnoozeDate(date), time: localSnoozeTime(date) }
-        : { mode, amount: String(amount), unit };
-    const snoozedUntil = resolveCustomSnooze(input, new Date());
-    if (!snoozedUntil) {
-      setError(
-        mode === "date" ? "Choose a date and time in the future." : "Enter a positive duration.",
-      );
-      return;
-    }
+    const snoozedUntil = form.resolve();
+    if (snoozedUntil === null) return;
     props.onSnooze(snoozedUntil);
     props.onClose();
   };
@@ -189,43 +159,7 @@ export function CustomSnoozeSheet(props: Props) {
                   />
                 </Column>
               ) : (
-                <Column
-                  verticalArrangement={{ spacedBy: 16 }}
-                  modifiers={[fillMaxWidth(), padding(24, 8, 24, 16)]}
-                >
-                  <Row
-                    horizontalArrangement="spaceEvenly"
-                    verticalAlignment="center"
-                    modifiers={[fillMaxWidth()]}
-                  >
-                    <FilledTonalIconButton
-                      enabled={amount > 1}
-                      onClick={() => setAmount((current) => Math.max(1, current - 1))}
-                      colors={{
-                        containerColor: colors["--color-secondary"],
-                        contentColor: colors["--color-secondary-foreground"],
-                      }}
-                      modifiers={[size(48, 48), testID("snooze-decrease-duration")]}
-                    >
-                      <Text style={titleTypography}>−</Text>
-                    </FilledTonalIconButton>
-                    <Text style={titleTypography} modifiers={[testID("snooze-duration")]}>
-                      {String(amount)}
-                    </Text>
-                    <FilledTonalIconButton
-                      enabled={amount < 99}
-                      onClick={() => setAmount((current) => Math.min(99, current + 1))}
-                      colors={{
-                        containerColor: colors["--color-secondary"],
-                        contentColor: colors["--color-secondary-foreground"],
-                      }}
-                      modifiers={[size(48, 48), testID("snooze-increase-duration")]}
-                    >
-                      <Text style={titleTypography}>+</Text>
-                    </FilledTonalIconButton>
-                  </Row>
-                  <MaterialSegmentedButtons options={units} selected={unit} onSelect={setUnit} />
-                </Column>
+                <SnoozeDurationFields form={form} />
               )}
               <Column
                 verticalArrangement={{ spacedBy: 16 }}

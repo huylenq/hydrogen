@@ -1,3 +1,4 @@
+import { useRouter } from "@tanstack/react-router";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import type { DesktopAppActivationRequest } from "@t3tools/contracts";
 import { useEffect, useEffectEvent, useRef } from "react";
@@ -6,7 +7,7 @@ import { handleDesktopAppActivationRequest } from "../../desktopAppActivation";
 import { useNewThreadHandler } from "../../hooks/useHandleNewThread";
 import { findProjectByPath, inferProjectTitleFromPath } from "../../lib/projectPaths";
 import { newProjectId } from "../../lib/utils";
-import { readProjects, waitForProject } from "../../state/entities";
+import { readProjects, readThreadShell, waitForProject } from "../../state/entities";
 import { usePrimaryEnvironment } from "../../state/environments";
 import { projectEnvironment } from "../../state/projects";
 import { useEnvironmentQuery } from "../../state/query";
@@ -14,6 +15,7 @@ import { environmentShell } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 
 export function DesktopAppActivationCoordinator() {
+  const router = useRouter();
   const primaryEnvironment = usePrimaryEnvironment();
   const createProject = useAtomCommand(projectEnvironment.create, { reportFailure: false });
   const openThread = useNewThreadHandler();
@@ -32,6 +34,15 @@ export function DesktopAppActivationCoordinator() {
 
   const processRequest = useEffectEvent(async (request: DesktopAppActivationRequest) =>
     handleDesktopAppActivationRequest(request, {
+      openExistingThread: async (environmentId, threadId) => {
+        const thread = readThreadShell({ environmentId, threadId });
+        if (!thread) return null;
+        await router.navigate({
+          to: "/$environmentId/$threadId",
+          params: { environmentId, threadId },
+        });
+        return thread.projectId;
+      },
       getTarget: () => {
         if (
           primaryEnvironment?.connection.phase !== "connected" ||

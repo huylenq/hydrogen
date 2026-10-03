@@ -1,4 +1,5 @@
 import { OrchestrationDispatchCommandError } from "@t3tools/contracts";
+import * as CrewService from "./crew/CrewService.ts";
 import * as Crypto from "effect/Crypto";
 import * as Orchestrator from "./orchestration-v2/Orchestrator.ts";
 import * as NodeCrypto from "node:crypto";
@@ -1086,6 +1087,7 @@ const makeWsRpcLayer = (
   clientOrigin: OrchestrationClientOrigin,
   clientAnalyticsProps: Readonly<Record<string, unknown>>,
   previewAutomationBroker: PreviewAutomationBroker.PreviewAutomationBroker["Service"],
+  crew: CrewService.CrewService["Service"],
 ) =>
   ServerWsRpcGroup.toLayer(
     Effect.gen(function* () {
@@ -3402,6 +3404,22 @@ const makeWsRpcLayer = (
             ),
             { "rpc.aggregate": "terminal" },
           ),
+        [WS_METHODS.crewGetSnapshot]: () =>
+          observeRpcEffect(WS_METHODS.crewGetSnapshot, crew.getSnapshot),
+        [WS_METHODS.crewGetAvatar]: (input) =>
+          observeRpcEffect(WS_METHODS.crewGetAvatar, crew.getAvatar(input)),
+        [WS_METHODS.crewConnect]: (input) =>
+          observeRpcEffect(WS_METHODS.crewConnect, crew.connect(input)),
+        [WS_METHODS.crewDisconnect]: () =>
+          observeRpcEffect(WS_METHODS.crewDisconnect, crew.disconnect),
+        [WS_METHODS.crewGetConversation]: (input) =>
+          observeRpcEffect(WS_METHODS.crewGetConversation, crew.getConversation(input)),
+        [WS_METHODS.crewSend]: (input) => observeRpcEffect(WS_METHODS.crewSend, crew.send(input)),
+        [WS_METHODS.crewGetHandoff]: (input) =>
+          observeRpcEffect(WS_METHODS.crewGetHandoff, crew.getHandoff(input)),
+        [WS_METHODS.crewStopDelivery]: (input) =>
+          observeRpcEffect(WS_METHODS.crewStopDelivery, crew.stopDelivery(input)),
+        [WS_METHODS.crewSubscribe]: () => observeRpcStream(WS_METHODS.crewSubscribe, crew.changes),
         [WS_METHODS.previewOpen]: (input) =>
           observeRpcEffect(WS_METHODS.previewOpen, previewManager.open(input), {
             "rpc.aggregate": "preview",
@@ -3720,6 +3738,7 @@ const makeWsRpcLayer = (
 
 export const websocketRpcRouteLayer = Layer.unwrap(
   Effect.gen(function* () {
+    const crew = yield* CrewService.CrewService;
     const previewAutomationBroker = yield* PreviewAutomationBroker.PreviewAutomationBroker;
     const serverSelfUpdate = yield* ServerSelfUpdate.ServerSelfUpdate;
     const pullRequests = yield* PullRequestService.PullRequestService;
@@ -3773,6 +3792,7 @@ export const websocketRpcRouteLayer = Layer.unwrap(
               clientOrigin,
               clientAnalyticsProps,
               previewAutomationBroker,
+              crew,
             ).pipe(
               Layer.provideMerge(RpcSerialization.layerJson),
               Layer.provide(Layer.succeed(SqlClient.SqlClient, sql)),

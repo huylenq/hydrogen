@@ -367,6 +367,10 @@
       "types": "./src/cliRelease.ts",
       "import": "./src/cliRelease.ts"
     },
+    "./crewContext": {
+      "types": "./src/crewContext.ts",
+      "import": "./src/crewContext.ts"
+    },
     "./gitPatchPath": {
       "types": "./src/gitPatchPath.ts",
       "import": "./src/gitPatchPath.ts"

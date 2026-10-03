@@ -546,6 +546,46 @@ describe("MessagesTimeline", () => {
     },
   );
 
+  it("shows Lexicon requests normally and independently reveals the complete context", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    const context = "Full execution context\n".repeat(100);
+    const attachments = '[{"reason":"expired"}]';
+    const text = `## User message\n\n\`\`\`text\nWhat about **architecture**?\n\`\`\`\n\n---\n\n## Lexicon execution context\n\n\`\`\`text\n${context}\n\`\`\`\n\n## Runtime attachments\n\n\`\`\`json\n${attachments}\n\`\`\``;
+    let renderer: ReactTestRenderer | undefined;
+    try {
+      await act(() => {
+        renderer = create(
+          <MessagesTimeline {...buildProps()} timelineEntries={[buildUserTimelineEntry(text)]} />,
+        );
+      });
+      const root = renderer!.root;
+      expect(
+        root.findByType("strong").findAll((node) => node.children.includes("architecture")).length,
+      ).toBeGreaterThan(0);
+      expect(root.findAllByType("pre")).toHaveLength(0);
+      expect(
+        root.findByProps({ "data-user-message-body": "true" }).props[
+          "data-user-message-collapsible"
+        ],
+      ).toBe("false");
+      const disclosure = () =>
+        root.findByProps({ "data-lexicon-context": true }).findByType("button");
+      expect(disclosure().props["aria-expanded"]).toBe(false);
+      await act(() => disclosure().props.onClick());
+      expect(disclosure().props["aria-expanded"]).toBe(true);
+      expect(root.findAllByType("pre").map((node) => node.children.join(""))).toEqual([
+        context,
+        attachments,
+      ]);
+      await act(() => disclosure().props.onClick());
+      expect(root.findAllByType("pre")).toHaveLength(0);
+    } finally {
+      await act(() => renderer?.unmount());
+    }
+  });
+
   it("preserves arbitrary XML-like tags and comparisons in rendered user messages", async () => {
     const { MessagesTimeline } = await import("./MessagesTimeline");
     const markup = renderToStaticMarkup(

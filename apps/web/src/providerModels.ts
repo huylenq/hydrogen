@@ -60,7 +60,24 @@ export function getProviderModelCapabilities(
 ): ModelCapabilities {
   const slug = resolveSelectableModel(provider, model, models);
   const selectedModel = models.find((candidate) => candidate.slug === slug);
-  const caps = selectedModel?.capabilities ?? EMPTY_CAPABILITIES;
+  let caps = selectedModel?.capabilities ?? EMPTY_CAPABILITIES;
+  // Older server snapshots can retain models without the instance's session controls.
+  if (provider === "hermes") {
+    const availableControls = models.flatMap(
+      (candidate) => candidate.capabilities?.optionDescriptors ?? [],
+    );
+    const missingControls = ["hermesProfile", "reasoningEffort"].flatMap((id) => {
+      if (caps.optionDescriptors?.some((option) => option.id === id)) return [];
+      const control = availableControls.find((option) => option.id === id);
+      return control ? [control] : [];
+    });
+    if (missingControls.length > 0) {
+      caps = {
+        ...caps,
+        optionDescriptors: [...(caps.optionDescriptors ?? []), ...missingControls],
+      };
+    }
+  }
   if (planModeEnabled) {
     return caps;
   }

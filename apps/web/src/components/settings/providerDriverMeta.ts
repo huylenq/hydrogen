@@ -1,5 +1,6 @@
 import {
   AcpRegistrySettings,
+  HermesSettings,
   AntigravitySettings,
   ClaudeSettings,
   CodexSettings,
@@ -96,6 +97,12 @@ const PROVIDER_CLIENT_DEFINITIONS: readonly ProviderClientDefinition[] = [
     label: "ACP Registry",
     settingsSchema: AcpRegistrySettings,
     hasDefaultInstance: false,
+  },
+  {
+    value: ProviderDriverKind.make("hermes"),
+    label: "Hermes",
+    badgeLabel: "Early Access",
+    settingsSchema: HermesSettings,
   },
 ];
 

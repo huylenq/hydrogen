@@ -1,3 +1,6 @@
+import { registerAppCommands } from "../appCommands";
+import { modalOverlayOpen } from "../modalKeyboardDom";
+import { getClientSettings } from "../hooks/useSettings";
 import { pullRequestHostOf, type SourceControlProviderKind } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { useProjects, useServerConfigs, useThreadShells } from "~/state/entities";
@@ -89,6 +92,7 @@ interface RightPanelTabsProps {
   defaultWidth?: number;
   inlineSize?: PreviewPanelInlineSize;
   layoutControls?: ReactNode;
+  controlsOverlay?: boolean;
   surfaces: readonly RightPanelSurface[];
   /** Fallback environment for surfaces that do not carry their own. */
   environmentId: EnvironmentId | null;
@@ -407,9 +411,19 @@ function RightPanelEmptyState(props: {
   });
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
+      if (
+        getClientSettings().modalKeyboardEnabled &&
+        !(event.target instanceof Element && event.target.closest("[data-right-panel-launcher]"))
+      )
+        return;
       const action = surfaceShortcutActionForKey(shortcutActionsRef.current, event);
       if (!action) return;
-      if (document.querySelector(LAUNCHER_SHORTCUT_BLOCKING_LAYERS)) return;
+      if (
+        getClientSettings().modalKeyboardEnabled
+          ? modalOverlayOpen()
+          : document.querySelector(LAUNCHER_SHORTCUT_BLOCKING_LAYERS)
+      )
+        return;
       const target = event.target;
       if (target instanceof Element && surfaceShortcutTargetsTypingContext(target)) return;
       event.preventDefault();
@@ -450,7 +464,7 @@ function RightPanelEmptyState(props: {
   // Stable identity so React only runs this callback ref on mount/unmount;
   // an inline arrow would re-attach and re-focus on every render.
   const focusOnMount = useCallback((node: HTMLDivElement | null) => {
-    node?.focus();
+    if (!getClientSettings().modalKeyboardEnabled) node?.focus();
   }, []);
 
   const isHighlighted = (action: SurfaceAction) =>
@@ -468,6 +482,7 @@ function RightPanelEmptyState(props: {
   return (
     <div
       ref={focusOnMount}
+      data-right-panel-launcher
       tabIndex={0}
       onKeyDown={handleKeyDown}
       aria-label="Open a surface"
@@ -789,6 +804,27 @@ function PullRequestSurfaceIcon({
 }
 
 export function RightPanelTabs(props: RightPanelTabsProps) {
+  const modalContentRef = useRef<HTMLDivElement>(null);
+  useEffect(
+    () =>
+      registerAppCommands((command) => {
+        if (command !== "rightPanel.enter" || props.open === false) return false;
+        if (
+          props.surfaces.find((surface) => surface.id === props.activeSurfaceId)?.kind ===
+          "terminal"
+        )
+          return false;
+        const content = modalContentRef.current;
+        if (!content) return false;
+        const target =
+          content.querySelector<HTMLElement>(
+            '[data-right-panel-launcher], iframe, webview, diffs-container, input:not([disabled]), textarea, [contenteditable="true"], button:not([disabled]), [tabindex="0"]',
+          ) ?? content;
+        target.focus({ preventScroll: true });
+        return document.activeElement === target;
+      }),
+    [props.activeSurfaceId, props.open, props.surfaces],
+  );
   const ownsDesktopTitleBar = isElectron && props.mode === "inline";
   const browserProfiles = useBrowserDefaults().profiles;
   const { resolvedTheme } = useTheme();
@@ -1056,6 +1092,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
 
   return (
     <PreviewPanelShell
+      modalSurface="rightPanel"
       mode={props.mode}
       {...(props.maximized !== undefined ? { maximized: props.maximized } : {})}
       {...(props.open !== undefined ? { open: props.open } : {})}
@@ -1069,12 +1106,19 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           // The sheet overlays from the viewport top, so its tab bar keeps
           // the titlebar's height: a compact row re-centers the layout
           // controls a few pixels higher and the cluster jumps on open.
-          props.mode === "inline" && !props.layoutControls ? "pr-28" : "pr-3",
+          props.mode === "inline" && !props.layoutControls
+            ? "pr-36"
+            : props.controlsOverlay
+              ? "pr-32 sm:pr-28"
+              : "pr-3",
           ownsDesktopTitleBar && "drag-region",
-          ownsDesktopTitleBar && "wco:pr-(--workspace-native-controls-inset)",
           props.mode === "inline" && props.maximized && COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
         )}
         data-right-panel-tabbar
+        data-panel-mode={props.mode}
+        data-has-layout-controls={Boolean(props.layoutControls)}
+        data-controls-overlay={props.controlsOverlay}
+        data-owns-titlebar={ownsDesktopTitleBar}
       >
         <ScrollArea
           radius="none"
@@ -1082,6 +1126,8 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           hideScrollbars
           scrollFade
           className="min-w-0 flex-1"
+          role="tablist"
+          aria-label="Right-panel tabs"
           data-right-panel-tab-list
         >
           <div className="flex h-full w-max min-w-full items-center gap-1">
@@ -1193,6 +1239,11 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
                                 setRenamingDevice(surface.id);
                             }}
                             className="cursor-pointer flex min-w-0 items-center"
+                            data-modal-panel-tab
+                            data-modal-key={surface.id}
+                            role="tab"
+                            aria-selected={active}
+                            aria-label={title}
                             onClick={() => props.onActivate(surface)}
                           >
                             <span className="truncate">{title}</span>
@@ -1356,11 +1407,16 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
         {ownsDesktopTitleBar ? (
           <span
             aria-hidden
-            className="pointer-events-none fixed top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] h-[var(--workspace-topbar-height)] w-28 [-webkit-app-region:no-drag]"
+            className="pointer-events-none fixed top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] h-[var(--workspace-topbar-height)] w-36 [-webkit-app-region:no-drag]"
           />
         ) : null}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col" data-right-panel-surface-content>
+      <div
+        ref={modalContentRef}
+        tabIndex={-1}
+        className="flex min-h-0 flex-1 flex-col outline-none"
+        data-right-panel-surface-content
+      >
         {props.activeSurfaceId === null ? (
           <RightPanelEmptyState
             onAddBrowser={props.onAddBrowser}

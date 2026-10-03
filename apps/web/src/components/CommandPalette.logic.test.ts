@@ -778,6 +778,63 @@ describe("filterPinnedBrowseEntries", () => {
   });
 });
 
+describe("thread switcher", () => {
+  const item = (value: string, title: string) => ({
+    kind: "action" as const,
+    value,
+    title,
+    searchTerms: [title],
+    icon: null,
+    run: async () => {},
+  });
+  const recent = item("thread:recent", "Recent work");
+  const thread = item("thread:match", "> ./fix search");
+  const action = item("action:match", "> ./fix search");
+  const input = {
+    activeGroups: [
+      { value: "actions", label: "Actions", items: [action] },
+      { value: "recent-threads", label: "Recent threads", items: [recent] },
+    ],
+    isInSubmenu: false,
+    projectSearchItems: [action],
+    settingsSearchItems: [action],
+    threadSearchItems: [thread],
+    threadsOnly: true,
+  };
+
+  it("shows only recent threads before typing", () => {
+    expect(filterCommandPaletteGroups({ ...input, query: "" })).toEqual([input.activeGroups[1]]);
+  });
+
+  it.each(["search", ">", "./fix"])("searches only threads for %s", (query) => {
+    const groups = filterCommandPaletteGroups({ ...input, query });
+    expect(groups.map((group) => group.value)).toEqual(["threads-search"]);
+    expect(groups[0]?.items).toEqual([thread]);
+  });
+
+  it("returns no groups when no threads match", () => {
+    expect(filterCommandPaletteGroups({ ...input, query: "missing" })).toEqual([]);
+  });
+
+  it("switches from commands to threads and toggles closed", () => {
+    const open = reduceCommandPaletteUiState(
+      { open: true, mode: "command", openIntent: null },
+      { _tag: "ToggleMode", mode: "threads" },
+    );
+    expect(open).toEqual({ open: true, mode: "threads", openIntent: null });
+    expect(reduceCommandPaletteUiState(open, { _tag: "ToggleMode", mode: "threads" })).toEqual({
+      open: false,
+      mode: "threads",
+      openIntent: null,
+    });
+    expect(reduceCommandPaletteUiState(open, { _tag: "ToggleMode", mode: "command" })).toEqual({
+      open: true,
+      mode: "command",
+      openIntent: null,
+    });
+  });
+});
+
 it.each([
   "#10839",
   "10839",

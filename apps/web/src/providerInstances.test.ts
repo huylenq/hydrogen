@@ -66,6 +66,21 @@ describe("isProviderInstancePickerReady", () => {
     expect(entry && isProviderInstancePickerReady(entry)).toBe(false);
   });
 
+  it("allows configured Hermes verification and retry without enabling missing credentials", () => {
+    const snapshot = provider({
+      provider: ProviderDriverKind.make("hermes"),
+      instanceId: "hermes",
+      status: "warning",
+    });
+    for (const [status, allowed] of [
+      ["unknown", true],
+      ["unauthenticated", false],
+    ] as const) {
+      const [entry] = deriveProviderInstanceEntries([{ ...snapshot, auth: { status } }]);
+      expect(isProviderInstancePickerReady(entry!)).toBe(allowed);
+    }
+  });
+
   it("accepts an enabled, available, ready instance", () => {
     const [entry] = deriveProviderInstanceEntries([
       provider({ provider: ProviderDriverKind.make("codex"), instanceId: "codex" }),

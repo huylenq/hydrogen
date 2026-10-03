@@ -1,6 +1,11 @@
 // @effect-diagnostics globalDate:off -- Tests exercise local calendar and elapsed-time snooze input.
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import { localSnoozeDate, localSnoozeTime, resolveCustomSnooze } from "./threadSettled.ts";
+import {
+  localSnoozeDate,
+  localSnoozeTime,
+  resolveCustomSnooze,
+  resolveSnoozeDuration,
+} from "./threadSettled.ts";
 
 const now = new Date(2026, 8, 14, 14, 30);
 
@@ -28,6 +33,8 @@ describe("custom snooze", () => {
 
   it.each([
     ["minutes", "45", 45 * 60_000],
+    ["minutes", "125", 125 * 60_000],
+    ["minutes", "0.5", 30_000],
     ["hours", "1.5", 90 * 60_000],
     ["days", "2", 48 * 3_600_000],
   ] as const)("resolves %s from the confirmation time", (unit, amount, elapsed) => {
@@ -63,4 +70,36 @@ describe("custom snooze", () => {
     expect(localSnoozeDate(date)).toBe("2026-01-02");
     expect(localSnoozeTime(date)).toBe("03:04");
   });
+});
+
+describe("snooze duration shorthand", () => {
+  it.each([
+    ["30s", 30_000],
+    ["15m", 900_000],
+    ["24h", 86_400_000],
+    ["2d", 172_800_000],
+    ["15", 900_000],
+    ["1.5h", 5_400_000],
+    [".5m", 30_000],
+    [" 30 S ", 30_000],
+  ])("resolves %s from confirmation time", (input, elapsed) => {
+    expect(resolveSnoozeDuration(input, now)).toBe(new Date(now.getTime() + elapsed).toISOString());
+  });
+
+  it.each([
+    "",
+    "0",
+    "0s",
+    "-1m",
+    "NaN",
+    "Infinity",
+    "1e300",
+    "2w",
+    "1h30m",
+    "15minutes",
+    "1..5m",
+    "9".repeat(400),
+  ])("rejects invalid duration %s", (input) =>
+    expect(resolveSnoozeDuration(input, now)).toBeNull(),
+  );
 });

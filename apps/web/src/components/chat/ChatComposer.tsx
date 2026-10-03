@@ -1,3 +1,5 @@
+import { captureComposerAcceptance } from "../../customizations/huy/composerAcceptance";
+import { getClientSettings } from "../../hooks/useSettings";
 import { DESKTOP_PASTE_AS_TEXT_EVENT } from "../../lib/desktopPasteAsText";
 import { runtimeModeConfig, runtimeModeOptions as runtimeModes } from "./runtimeModeConfig";
 import { isLocalEnvironmentDisabled } from "../../localEnvironment";
@@ -1637,6 +1639,7 @@ export interface ChatComposerProps {
     e?: { preventDefault: () => void },
     dispatchMode?: ComposerDispatchMode,
     submissionIntent?: ComposerSubmissionIntent,
+    onAccepted?: () => void,
   ) => void;
   onResume: () => void;
   onInterrupt: () => void;
@@ -2849,8 +2852,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // ------------------------------------------------------------------
   const setPromptFromTraits = useCallback(
     (nextPrompt: string) => {
+      const keepNavigationFocus = getClientSettings().modalKeyboardEnabled;
       if (nextPrompt === promptRef.current) {
-        scheduleComposerFocus();
+        if (!keepNavigationFocus) scheduleComposerFocus();
         return;
       }
       promptRef.current = nextPrompt;
@@ -2858,7 +2862,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       const nextCursor = collapseExpandedComposerCursor(nextPrompt, nextPrompt.length);
       setComposerCursor(nextCursor);
       setComposerTrigger(detectComposerTrigger(nextPrompt, nextPrompt.length));
-      scheduleComposerFocus();
+      if (!keepNavigationFocus) scheduleComposerFocus();
     },
     [
       composerDraftTarget,
@@ -4096,6 +4100,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       event?: { preventDefault: () => void },
       dispatchMode?: ComposerDispatchMode,
       submissionIntent?: ComposerSubmissionIntent,
+      onAccepted?: () => void,
     ) => {
       if (noProviderAvailable || isSendDisabled) {
         event?.preventDefault();
@@ -4145,6 +4150,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 activeTurnDefault: settings.followUpBehavior,
               }),
             submissionIntent,
+            onAccepted,
           );
           return !providerInputRejectedRef.current;
         },
@@ -4374,6 +4380,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
           activeTurnDefault: settings.followUpBehavior,
         }),
         submissionIntent,
+        captureComposerAcceptance(),
       );
       return true;
     }
@@ -5440,7 +5447,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         getModelDisabledReason={getModelDisabledReason}
         onInstanceModelChange={(instanceId, model) => {
           setMultipleModelSelections(null);
-          onProviderModelSelect(instanceId, model);
+          onProviderModelSelect(instanceId, model, {
+            focusComposer: !getClientSettings().modalKeyboardEnabled,
+          });
         }}
         onOpenProviderSetup={onOpenProviderSetup}
       />

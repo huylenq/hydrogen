@@ -1,13 +1,18 @@
+import { registerAppCommands } from "../../appCommands";
+import { requestModalFocus } from "../../modalKeyboardStore";
 import { type RuntimeRequestId } from "@t3tools/contracts";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { type PendingUserInput } from "../../session-logic";
 import {
   derivePendingUserInputProgress,
+  pendingUserInputOptionIndex,
   type PendingUserInputDraftAnswer,
 } from "../../pendingUserInput";
 import { CheckIcon } from "lucide-react";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 import { cn } from "~/lib/utils";
+import { useClientSettings } from "../../hooks/useSettings";
+import { modalEventIsEditable, modalEventIsEmbedded } from "../../modalKeyboardDom";
 import { ComposerBanner } from "./ComposerBanner";
 
 interface PendingUserInputPanelProps {
@@ -67,6 +72,8 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
   // Message-mode requests remain answerable after their provider turn ends.
   const canRespond = prompt.responseCapability !== "not_resumable";
   const responseDisabled = isResponding || !canRespond;
+  const modalEnabled = useClientSettings((settings) => settings.modalKeyboardEnabled);
+  const questionPanelRef = useRef<HTMLDivElement>(null);
   const progress = derivePendingUserInputProgress(prompt.questions, answers, questionIndex);
   const activeQuestion = progress.activeQuestion;
   const autoAdvanceTimerRef = useRef<number | null>(null);
@@ -83,6 +90,17 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
   // sending from the composer advances the active question.
   const [collapsedQuestionId, setCollapsedQuestionId] = useState<string | null>(null);
   const isCollapsed = collapsedQuestionId !== null && collapsedQuestionId === activeQuestion?.id;
+
+  useEffect(
+    () =>
+      registerAppCommands((command) => {
+        if (command !== "question.focus" || !activeQuestion || responseDisabled) return false;
+        setCollapsedQuestionId(null);
+        requestModalFocus("question");
+        return true;
+      }),
+    [activeQuestion, responseDisabled],
+  );
 
   useEffect(() => {
     onAdvanceRef.current = onAdvance;
@@ -137,28 +155,17 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
     [activeQuestion, onToggleOption],
   );
 
-  // Keyboard shortcut: number keys 1-9 select corresponding options when focus is
-  // outside editable fields. Multi-select prompts toggle options in place; single-
-  // select prompts keep the existing auto-advance behavior. Collapsed prompts opt
-  // out, since the numbers they refer to are not on screen.
+  // In modal mode the focused question owns numbers; elsewhere they navigate panels.
   useEffect(() => {
     if (!activeQuestion || responseDisabled || isCollapsed) return;
     const handler = (event: globalThis.KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      if (
-        target instanceof HTMLElement &&
-        target.closest('[contenteditable]:not([contenteditable="false"])')
-      ) {
-        return;
-      }
-      const digit = Number.parseInt(event.key, 10);
-      if (Number.isNaN(digit) || digit < 1 || digit > 9) return;
-      const optionIndex = digit - 1;
-      if (optionIndex >= activeQuestion.options.length) return;
+      const optionIndex = pendingUserInputOptionIndex(event, {
+        modalEnabled,
+        questionFocused: questionPanelRef.current?.contains(document.activeElement) ?? false,
+        editable: modalEventIsEditable(event) || modalEventIsEmbedded(event),
+        optionCount: activeQuestion.options.length,
+      });
+      if (optionIndex === null) return;
       const option = activeQuestion.options[optionIndex];
       if (!option) return;
       event.preventDefault();
@@ -166,7 +173,7 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [activeQuestion, handleOptionSelection, isCollapsed, responseDisabled]);
+  }, [activeQuestion, handleOptionSelection, isCollapsed, modalEnabled, responseDisabled]);
 
   if (!activeQuestion) {
     return null;
@@ -176,6 +183,10 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
 
   return (
     <Collapsible
+      ref={questionPanelRef}
+      data-modal-surface="question"
+      tabIndex={-1}
+      data-modal-question-panel={!isCollapsed && !responseDisabled ? "active" : undefined}
       open={!isCollapsed}
       onOpenChange={(open) => {
         setCollapsedQuestionId(open ? null : activeQuestion.id);
@@ -237,6 +248,12 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
             {activeQuestion.multiSelect ? (
               <p className="mt-1 text-secondary-label text-xs">Select one or more options.</p>
             ) : null}
+            {modalEnabled ? (
+              <p className="mt-1 text-secondary-label text-xs">
+                Press A from navigation to focus this question, then 1–9 to choose. Esc returns to
+                the conversation.
+              </p>
+            ) : null}
             <div className="mt-2 space-y-0.5">
               {activeQuestion.options.map((option, index) => {
                 const optionValue = option.value ?? option.label;
@@ -279,7 +296,10 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
                 return (
                   <button
                     key={`${activeQuestion.id}:${optionValue}`}
+                    data-modal-item
+                    data-modal-key={`${activeQuestion.id}:${optionValue}`}
                     type="button"
+                    aria-pressed={isSelected}
                     disabled={isResponding}
                     onClick={() => {
                       handleOptionSelection(activeQuestion.id, optionValue);

@@ -1,3 +1,6 @@
+import { GrokBotIcon } from "../../components/GrokBotIcon";
+import { CrewSheet } from "../crew/CrewSheet";
+import { ControlPill } from "../../components/ControlPill";
 import { ConnectionTraceId } from "./ConnectionTraceId";
 import { SymbolView } from "../../components/AppSymbol";
 import { connectionStatusText } from "@t3tools/client-runtime/connection";
@@ -45,6 +48,7 @@ export function ConnectionEnvironmentRow(props: {
     updates: { readonly label: string; readonly displayUrl: string },
   ) => Promise<AtomCommandResult<unknown, unknown>>;
 }) {
+  const [crewOpen, setCrewOpen] = useState(false);
   const [label, setLabel] = useState(props.environment.environmentLabel);
   const [url, setUrl] = useState(props.environment.displayUrl);
   const serverConfig = useAtomValue(
@@ -181,6 +185,17 @@ export function ConnectionEnvironmentRow(props: {
             </>
           )}
 
+          {serverConfig?.environment.capabilities.crew ? (
+            <View className="items-start border-t border-border-subtle pt-3">
+              <ControlPill
+                variant="pill"
+                iconNode={<GrokBotIcon />}
+                label="Grok Bot"
+                accessibilityLabel={`Open Grok Bot on ${props.environment.environmentLabel}`}
+                onPress={() => setCrewOpen(true)}
+              />
+            </View>
+          ) : null}
           {Platform.OS === "android" ? (
             <View className="flex-row items-center justify-end gap-2">
               {props.environment.isRelayManaged ? null : (
@@ -255,6 +270,13 @@ export function ConnectionEnvironmentRow(props: {
             </View>
           )}
         </Animated.View>
+      ) : null}
+      {crewOpen ? (
+        <CrewSheet
+          environmentId={props.environment.environmentId}
+          environmentLabel={props.environment.environmentLabel}
+          onClose={() => setCrewOpen(false)}
+        />
       ) : null}
     </Animated.View>
   );

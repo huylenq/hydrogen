@@ -1,0 +1,120 @@
+import { THREAD_JUMP_KEYBINDING_COMMANDS } from "@t3tools/contracts";
+
+/** App navigation keys. Embedded editors keep their own editing vocabulary. */
+export const MODAL_COMMANDS = [
+  ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
+    keys: [String(index + 1)],
+    command,
+    label: `Select thread ${index + 1}`,
+  })),
+  { keys: ["H"], command: "sidebar.toggle", label: "Toggle sidebar" },
+  {
+    keys: ["Escape"],
+    command: "focus.conversation",
+    label: "Focus conversation / return to Flow grid",
+  },
+  { keys: [" "], command: "focus.rightPanel", label: "Focus right panel" },
+  { keys: ["q"], command: "focus.flow", label: "Focus Flow bar" },
+  { keys: ["F"], command: "flow.toggle", label: "Toggle Flow mode" },
+  { keys: ["n"], command: "chat.new", label: "New thread" },
+  { keys: ["a"], command: "chat.new", label: "New thread" },
+  { keys: ["A"], command: "question.focus", label: "Focus pending question" },
+  { keys: ["m"], command: "modelPicker.toggle", label: "Choose model" },
+  { keys: ["e"], command: "composer.reasoning", label: "Choose reasoning effort" },
+  { keys: ["r"], command: "review.focus", label: "Open and focus changes" },
+  { keys: [","], command: "settings", label: "Settings" },
+  { keys: ["w", "w"], command: "focus.previous", label: "Previous navigation area" },
+  { keys: ["w", "s"], command: "sidebar.toggle", label: "Toggle sidebar" },
+  { keys: ["w", "q"], command: "flow.toggle", label: "Toggle Flow mode" },
+  { keys: ["w", "t"], command: "terminal.toggle", label: "Toggle terminal" },
+  { keys: ["w", " "], command: "rightPanel.toggle", label: "Toggle right panel" },
+  { keys: ["g", "k"], command: "git.commit", label: "Commit changes" },
+  {
+    keys: ["w", "m"],
+    command: "rightPanel.toggleMaximized",
+    label: "Maximize / restore right panel",
+  },
+  { keys: ["t", "p"], command: "thread.pin", label: "Pin / unpin thread" },
+  { keys: ["t", "s"], command: "thread.settle", label: "Settle / unsettle thread" },
+  { keys: ["f", "f"], command: "filePicker.toggle", label: "Find file" },
+  { keys: ["f", "s"], command: "projectSearch.toggle", label: "Search project" },
+  { keys: ["g", "g"], command: "first", label: "First item / top" },
+  { keys: ["G"], command: "last", label: "Last item / bottom" },
+  { keys: ["j"], command: "next", label: "Next item / scroll down" },
+  { keys: ["k"], command: "previous", label: "Previous item / scroll up" },
+  { keys: ["["], command: "flow.previous", label: "Open previous Flow session" },
+  { keys: ["]"], command: "flow.next", label: "Open next Flow session" },
+  { keys: ["s"], command: "thread.snooze", label: "Snooze / wake open thread" },
+  { keys: ["L"], command: "rightPanel.toggle", label: "Toggle right panel" },
+  { keys: ["h"], command: "left", label: "Navigate left" },
+  { keys: ["l"], command: "right", label: "Navigate right" },
+  { keys: ["ArrowLeft"], command: "left", label: "Previous panel tab" },
+  { keys: ["ArrowRight"], command: "right", label: "Next panel tab" },
+  { keys: ["i"], command: "composer", label: "Write in composer" },
+  { keys: ["/"], command: "threadSwitcher.toggle", label: "Switch thread" },
+  { keys: ["?"], command: "help", label: "Keyboard help" },
+  { keys: ["Enter"], command: "activate", label: "Open selected item" },
+] as const;
+
+export type ModalCommand = (typeof MODAL_COMMANDS)[number]["command"];
+export type ModalMotion = Extract<
+  ModalCommand,
+  "first" | "last" | "next" | "previous" | "left" | "right"
+>;
+export type ModalSequenceResult =
+  | { kind: "pass" }
+  | { kind: "cancel" }
+  | { kind: "pending"; keys: readonly string[] }
+  | { kind: "command"; command: ModalCommand };
+
+/** Prefixes stay pending until completed or explicitly cancelled, with no typing deadline. */
+export function resolveModalSequence(
+  pending: readonly string[],
+  key: string,
+  repeat: boolean,
+  available: (command: ModalCommand) => boolean,
+): ModalSequenceResult {
+  if (key === "Escape" && pending.length > 0) return { kind: "cancel" };
+  if (["Shift", "Control", "Alt", "Meta"].includes(key)) return { kind: "pass" };
+  if (repeat && pending.length > 0) return { kind: "pending", keys: pending };
+  const keys = [...pending, key];
+  const matches = MODAL_COMMANDS.filter(
+    (binding) =>
+      available(binding.command) && keys.every((part, index) => binding.keys[index] === part),
+  );
+  const exact = matches.find((binding) => binding.keys.length === keys.length);
+  if (exact) {
+    const repeatable = ["next", "previous", "left", "right", "flow.previous", "flow.next"].includes(
+      exact.command,
+    );
+    return repeat && !repeatable ? { kind: "cancel" } : { kind: "command", command: exact.command };
+  }
+  if (matches.length > 0) return { kind: "pending", keys: [...pending, key] };
+  return { kind: pending.length > 0 ? "cancel" : "pass" };
+}
+
+export function modalTargetIndex(
+  length: number,
+  current: number,
+  motion: ModalMotion,
+): number | null {
+  if (length === 0) return null;
+  if (motion === "first") return 0;
+  if (motion === "last") return length - 1;
+  if (current < 0) return motion === "previous" || motion === "left" ? length - 1 : 0;
+  return Math.max(
+    0,
+    Math.min(length - 1, current + (motion === "previous" || motion === "left" ? -1 : 1)),
+  );
+}
+
+/** Keep the same object selected after reorder; use its nearest neighbour after removal. */
+export function modalReturnIndex(
+  keys: readonly string[],
+  bookmark: { key: string; index: number } | null,
+): number | null {
+  if (keys.length === 0) return null;
+  if (!bookmark) return 0;
+  const found = keys.indexOf(bookmark.key);
+  return found >= 0 ? found : Math.max(0, Math.min(keys.length - 1, bookmark.index));
+}

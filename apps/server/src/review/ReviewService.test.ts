@@ -3,6 +3,9 @@ import { assert, describe, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import { ProjectId } from "@t3tools/contracts";
+import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as PlatformError from "effect/PlatformError";
 
 import * as ServerConfig from "../config.ts";
@@ -13,9 +16,33 @@ import * as ReviewService from "./ReviewService.ts";
 function makeLayer(input: {
   readonly workspaceRoot: string;
   readonly baseDir: string;
+  readonly registeredRoot?: string;
   readonly detectCalls?: Array<{ readonly cwd: string }>;
 }) {
   return ReviewService.layer.pipe(
+    Layer.provide(
+      Layer.mock(ProjectStore.ProjectStoreV2)({
+        findActiveByWorkspaceRoot: (cwd) =>
+          Effect.succeed(
+            cwd === input.registeredRoot
+              ? Option.some({
+                  projectId: ProjectId.make("lexicon"),
+                  title: "lexicon",
+                  workspaceRoot: cwd,
+                  defaultModelSelection: null,
+                  defaultThreadEnvMode: null,
+                  autoPull: false,
+                  faviconPath: null,
+                  projectIcon: null,
+                  scripts: [],
+                  createdAt: "2026-09-08T00:00:00.000Z",
+                  updatedAt: "2026-09-08T00:00:00.000Z",
+                  deletedAt: null,
+                })
+              : Option.none(),
+          ),
+      }),
+    ),
     Layer.provide(
       Layer.mock(VcsDriverRegistry.VcsDriverRegistry)({
         get: () => Effect.die("unexpected VCS registry get"),
@@ -105,6 +132,35 @@ describe("ReviewService", () => {
       assert.strictEqual(result.cwd, workspaceRoot);
       assert.deepStrictEqual(result.sources, []);
       assert.deepStrictEqual(detectCalls, [{ cwd: workspaceRoot }]);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reviews a registered project outside the server startup directory", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const workspaceRoot = yield* fs.makeTempDirectoryScoped({ prefix: "t3-review-server-" });
+      const registeredRoot = yield* fs.makeTempDirectoryScoped({ prefix: "t3-review-project-" });
+      const baseDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-review-base-" });
+      const detectCalls: Array<{ readonly cwd: string }> = [];
+      yield* Effect.gen(function* () {
+        const review = yield* ReviewService.ReviewService;
+        const result = yield* review.getDiffPreview({ cwd: registeredRoot });
+        assert.strictEqual(result.cwd, registeredRoot);
+        const error = yield* review
+          .getDiffFileContents({
+            cwd: registeredRoot,
+            sourceKind: "working-tree",
+            changeType: "change",
+            baseRef: "HEAD",
+            headRef: null,
+            oldPath: "file.ts",
+            newPath: "file.ts",
+          })
+          .pipe(Effect.flip);
+        // The non-repository fixture reaches detection for file contents too.
+        assert.strictEqual(error._tag, "VcsUnsupportedOperationError");
+      }).pipe(Effect.provide(makeLayer({ workspaceRoot, registeredRoot, baseDir, detectCalls })));
+      assert.deepStrictEqual(detectCalls, [{ cwd: registeredRoot }, { cwd: registeredRoot }]);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

@@ -490,3 +490,19 @@ describe("provider traits render guards", () => {
     expect(renderProviderTraitsMenuContent(args)).toBeNull();
   });
 });
+
+it("dispatches the Hermes profile selected in the composer", () => {
+  const state = getComposerProviderState({
+    provider: ProviderDriverKind.make("hermes"),
+    model: MODEL,
+    models: modelWith([
+      selectDescriptor("hermesProfile", [
+        { id: "default", label: "default", isDefault: true },
+        { id: "work", label: "work" },
+      ]),
+    ]),
+    modelOptions: [{ id: "hermesProfile", value: "work" }],
+    planModeEnabled: false,
+  });
+  expect(state.modelOptionsForDispatch).toEqual([{ id: "hermesProfile", value: "work" }]);
+});

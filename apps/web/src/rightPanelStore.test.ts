@@ -755,6 +755,18 @@ describe("rightPanelStore", () => {
     });
   });
 
+  it("reopens review and keeps it open on repeated focus without losing other surfaces", () => {
+    useRightPanelStore.getState().open(refA, "files");
+    useRightPanelStore.getState().open(refA, "diff");
+    useRightPanelStore.getState().close(refA);
+    useRightPanelStore.getState().open(refA, "diff");
+    useRightPanelStore.getState().open(refA, "diff");
+    const panel = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
+    expect(panel.isOpen).toBe(true);
+    expect(panel.activeSurfaceId).toBe("diff");
+    expect(panel.surfaces.map((surface) => surface.kind)).toEqual(["files", "diff"]);
+  });
+
   it("toggles empty panel visibility without creating a surface", () => {
     useRightPanelStore.getState().toggleVisibility(refA);
     expect(selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA)).toEqual({
