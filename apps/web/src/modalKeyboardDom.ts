@@ -210,9 +210,11 @@ export function moveModalFocus(motion: ModalMotion): void {
   if (
     surface === "conversation" &&
     root?.dataset?.modalGrid === "working-sessions" &&
-    current >= 0 &&
     (motion === "left" || motion === "right" || motion === "next" || motion === "previous")
   ) {
+    // A live preview can remount between keypresses. Keep its grid boundary
+    // even while no card owns DOM focus.
+    if (current < 0) return;
     const index = modalGridTargetIndex(
       items.map((item) => item.getBoundingClientRect()),
       current,
@@ -249,14 +251,17 @@ export function moveModalFocus(motion: ModalMotion): void {
 }
 
 /** Only explicit flow/sidebar activation changes the route; movement never does. */
-export function activateModalItem(): boolean {
+export function activateModalItem(): void {
   const { surface } = useModalKeyboardStore.getState();
   const active = document.activeElement;
   const target = modalSurfaceItems(surface).find((item) => item === active);
-  if (!target) return false;
+  if (!target) return;
+  const gridPreview =
+    surface === "conversation" &&
+    modalSurfaceRoot("conversation")?.dataset.modalGrid === "working-sessions";
   rememberModalFocus(target);
   target.click();
-  return true;
+  requestModalFocus(gridPreview ? "conversation" : "sidebar");
 }
 
 let returnFocus: { node: HTMLElement; path: string } | null = null;

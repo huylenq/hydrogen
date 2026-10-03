@@ -27,8 +27,8 @@ Flow has no default modified shortcut; Vim Normal mode toggles it. Grok Bot's Ma
 
 Web and desktop focus mode for working through threads that need attention.
 
-- An overview of waiting threads (oldest first) and a grid of running sessions. Opening or previewing a session keeps Flow on; Escape from an inspected session returns to the grid.
-- The grid uses the available width with balanced, equal-width rows and supports spatial Vim navigation; grid edges are hard stops (`h` at the left edge does not enter the sidebar).
+- An overview of waiting threads (oldest first) and a grid of running sessions. Opening a session from the grid keeps Flow on and does not reveal the sidebar; Escape from an inspected session returns to the grid.
+- The grid uses the available width with balanced, equal-width rows and supports spatial Vim navigation; grid edges are hard stops (`h` at the left edge does not enter the sidebar). Working-session positions stay stable as activity updates arrive; new sessions sort by creation time, newest first.
 - Enabling Flow hides the sidebar; after that the sidebar can be toggled freely and disabling Flow leaves it as is.
 - Successful user actions (send, answering approvals/input, settle, snooze, archive, implement plan) advance to the next waiting thread, or back to the grid when none remain.
 - Never pull the user anywhere on background activity alone. Typing, navigating, or leaving Flow cancels a pending jump; automatic queued sends never navigate.

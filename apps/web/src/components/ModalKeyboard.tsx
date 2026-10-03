@@ -236,7 +236,7 @@ export function ModalKeyboard({
               showModalFeedback("This panel is still loading; try Enter again");
             return;
           }
-          if (activateModalItem()) requestModalFocus(hasThread ? "conversation" : "sidebar");
+          activateModalItem();
           return;
         case "flow.previous":
         case "flow.next":

@@ -174,10 +174,11 @@ export function deriveFlow(
       Date.parse(left.timestamp) - Date.parse(right.timestamp) ||
       left.thread.id.localeCompare(right.thread.id),
   );
+  // Activity timestamps change during a run; keep working previews in place.
   bench.sort(
     (left, right) =>
-      Date.parse(right.timestamp) - Date.parse(left.timestamp) ||
-      left.thread.id.localeCompare(right.thread.id),
+      Date.parse(right.thread.createdAt) - Date.parse(left.thread.createdAt) ||
+      flowThreadKey(left.thread).localeCompare(flowThreadKey(right.thread)),
   );
 
   return { attention, bench };

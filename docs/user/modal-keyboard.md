@@ -29,8 +29,8 @@ Start with an open thread.
 Returning to the Flow bar restores the card you left. If it has disappeared, focus moves to
 the nearest remaining card. When no threads need attention, the working-session grid stays
 on screen: `n` or `a` starts a new thread, and `Enter` opens the focused preview.
-Use `h`/`l` across a row and `j`/`k` between rows. At the left edge, `h` moves to the
-sidebar. The other grid edges keep focus on the current preview.
+Use `h`/`l` across a row and `j`/`k` between rows. Grid edges keep focus on the
+current preview.
 From an opened working-session preview, press `Esc` in Normal mode to return to the grid.
 Use `h` from the conversation to browse the sidebar instead. Enabling Flow hides the left sidebar if it is open; you can still show or hide the sidebar afterward.
 

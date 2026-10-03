@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
-import { moveModalFocus, rememberModalFocus } from "../../modalKeyboardDom";
+import { activateModalItem, moveModalFocus, rememberModalFocus } from "../../modalKeyboardDom";
 import { useModalKeyboardStore } from "../../modalKeyboardStore";
 import { installFlowGridWindowFocus } from "./flowGridWindowFocus";
 
@@ -44,6 +44,28 @@ it("restores the selected card on repeated app switches and allows the next grid
   }
   moveModalFocus("right");
   expect(document.activeElement).toBe(cards[2]);
+});
+
+it("keeps repeated left motion inside the grid when a preview loses focus", () => {
+  moveModalFocus("left");
+  expect(document.activeElement).toBe(cards[0]);
+  moveModalFocus("left");
+  expect(document.activeElement).toBe(cards[0]);
+  expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
+
+  cards[0]!.replaceWith(cards[0]!.cloneNode(true));
+  expect(document.activeElement).toBe(document.body);
+  moveModalFocus("left");
+  expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
+});
+
+it("activates a grid preview into the conversation without requesting the sidebar", () => {
+  const open = vi.fn();
+  cards[1]!.addEventListener("click", open);
+
+  activateModalItem();
+  expect(open).toHaveBeenCalledOnce();
+  expect(useModalKeyboardStore.getState().focusRequest).toBe("conversation");
 });
 
 it("uses the bookmark when the selected card disappears while away", () => {

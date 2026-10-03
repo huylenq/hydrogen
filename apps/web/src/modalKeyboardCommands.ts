@@ -122,7 +122,7 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
     else if (context.surface === "sidebar")
       label = command === "left" ? "Stay in sidebar" : "Focus conversation";
     else if (context.workingSessionGrid) {
-      label = command === "left" ? "Previous preview / sidebar" : "Next preview";
+      label = command === "left" ? "Previous preview" : "Next preview";
     } else {
       label = command === "left" ? "Focus sidebar" : "Focus right panel";
       if (command === "right" && !thread) reason = "Open a thread first";

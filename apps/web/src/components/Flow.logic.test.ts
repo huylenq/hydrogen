@@ -134,10 +134,7 @@ describe("nextFlowThread", () => {
   });
 
   it("stays when only the current thread or bench remains", () => {
-    const model = deriveFlow(
-      [thread("current"), thread("bench", monitoring)],
-      { now: NOW },
-    );
+    const model = deriveFlow([thread("current"), thread("bench", monitoring)], { now: NOW });
     expect(nextFlowThread(model, key("current"), connected)).toBeNull();
     expect(nextFlowThread(model, null, connected)).toBeNull();
   });
@@ -158,13 +155,39 @@ describe("deriveFlow", () => {
   });
 
   it("moves running and monitoring threads onto the bench", () => {
-    const running = thread("running", runtime("running", "2026-09-04T11:30:00.000Z"));
+    const running = thread("running", {
+      createdAt: "2026-09-04T09:00:00.000Z",
+      ...runtime("running", "2026-09-04T11:30:00.000Z"),
+    });
     const monitored = thread("monitoring", monitoring);
 
     const model = deriveFlow([monitored, running], { now: NOW });
 
     expect(model.attention).toHaveLength(0);
     expect(model.bench.map((entry) => entry.status)).toEqual(["Working", "Monitoring"]);
+  });
+
+  it("keeps working-session positions stable as activity timestamps change", () => {
+    const older = thread("older", {
+      createdAt: "2026-09-04T08:00:00.000Z",
+      ...runtime("running", "2026-09-04T11:30:00.000Z"),
+    });
+    const newer = thread("newer", {
+      createdAt: "2026-09-04T09:00:00.000Z",
+      ...runtime("running", "2026-09-04T11:00:00.000Z"),
+    });
+
+    const initial = deriveFlow([older, newer], { now: NOW });
+    const updated = deriveFlow(
+      [
+        { ...newer, runtime: { ...newer.runtime!, updatedAt: "2026-09-04T12:00:00.000Z" } },
+        { ...older, runtime: { ...older.runtime!, updatedAt: "2026-09-04T12:30:00.000Z" } },
+      ],
+      { now: NOW },
+    );
+
+    expect(initial.bench.map((entry) => entry.thread.id)).toEqual(["newer", "older"]);
+    expect(updated.bench.map((entry) => entry.thread.id)).toEqual(["newer", "older"]);
   });
 
   it("keeps approvals on the attention conveyor even while the session runs", () => {
@@ -218,10 +241,7 @@ describe("deriveFlow", () => {
 
 describe("flowNavigationEntries", () => {
   it("keeps attention cards before working-session items", () => {
-    const model = deriveFlow(
-      [thread("attention"), thread("working", working)],
-      { now: NOW },
-    );
+    const model = deriveFlow([thread("attention"), thread("working", working)], { now: NOW });
 
     expect(flowNavigationEntries(model).map((entry) => entry.thread.id)).toEqual([
       "attention",
@@ -235,10 +255,12 @@ describe("flowNavigationEntries", () => {
         thread("attention"),
         thread("working", {
           ...working,
+          createdAt: "2026-09-04T10:00:00.000Z",
           updatedAt: "2026-09-04T11:00:00.000Z",
         }),
         thread("monitoring", {
           ...monitoring,
+          createdAt: "2026-09-04T09:00:00.000Z",
           updatedAt: "2026-09-04T10:00:00.000Z",
         }),
       ],
@@ -251,10 +273,7 @@ describe("flowNavigationEntries", () => {
   });
 
   it("re-enters the queue from a session outside the conveyor", () => {
-    const model = deriveFlow(
-      [thread("attention"), thread("working", working)],
-      { now: NOW },
-    );
+    const model = deriveFlow([thread("attention"), thread("working", working)], { now: NOW });
 
     expect(flowNavigationTarget(model, keyFor("settled"), "next")?.id).toBe("attention");
     expect(flowNavigationTarget(model, keyFor("settled"), "previous")?.id).toBe("attention");
@@ -263,10 +282,7 @@ describe("flowNavigationEntries", () => {
 
 describe("isFlowAttentionSession", () => {
   it("is true only for sessions currently on the attention queue", () => {
-    const model = deriveFlow(
-      [thread("attention"), thread("working", working)],
-      { now: NOW },
-    );
+    const model = deriveFlow([thread("attention"), thread("working", working)], { now: NOW });
 
     expect(isFlowAttentionSession(model, keyFor("attention"))).toBe(true);
     expect(isFlowAttentionSession(model, keyFor("working"))).toBe(false);
@@ -277,10 +293,7 @@ describe("isFlowAttentionSession", () => {
 
 describe("shouldReleaseFlowInspection", () => {
   it("keeps a working-session pin while the current route is still the queue", () => {
-    const model = deriveFlow(
-      [thread("attention"), thread("working", working)],
-      { now: NOW },
-    );
+    const model = deriveFlow([thread("attention"), thread("working", working)], { now: NOW });
 
     expect(shouldReleaseFlowInspection(model, keyFor("attention"), keyFor("working"))).toBe(false);
     expect(shouldReleaseFlowInspection(model, keyFor("working"), keyFor("working"))).toBe(false);
@@ -309,10 +322,7 @@ describe("flowAttentionTarget", () => {
   });
 
   it("does not steal an explicitly opened session outside the queue", () => {
-    const model = deriveFlow(
-      [thread("working", working), thread("oldest")],
-      { now: NOW },
-    );
+    const model = deriveFlow([thread("working", working), thread("oldest")], { now: NOW });
     expect(flowAttentionTarget(model, key("working"), key("working"))).toBeNull();
     expect(flowAttentionTarget(model, key("settled"), key("settled"))).toBeNull();
     expect(flowAttentionTarget(model, key("working"), key("oldest"))).toBeNull();
@@ -353,20 +363,16 @@ describe("isFlowSessionInspection", () => {
   });
 
   it("resumes the queue when a session needs attention", () => {
-    const model = deriveFlow(
-      [thread("working", working), thread("waiting")],
-      { now: NOW },
-    );
+    const model = deriveFlow([thread("working", working), thread("waiting")], { now: NOW });
     expect(isFlowSessionInspection(model, key("working"), key("working"))).toBe(false);
     expect(flowAttentionTarget(model, key("working"))?.id).toBe("waiting");
   });
 
   it("does not treat a same-ID session in another environment as the inspected one", () => {
     const remote = EnvironmentId.make("remote");
-    const model = deriveFlow(
-      [thread("working", { environmentId: remote, ...working })],
-      { now: NOW },
-    );
+    const model = deriveFlow([thread("working", { environmentId: remote, ...working })], {
+      now: NOW,
+    });
     expect(
       isFlowSessionInspection(
         model,
