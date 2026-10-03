@@ -145,7 +145,6 @@ describe("modal keyboard sequences", () => {
       ["H", "sidebar.toggle"],
       ["L", "rightPanel.toggle"],
       ["Escape", "focus.conversation"],
-      [" ", "focus.rightPanel"],
     ] as const) {
       expect(resolveModalSequence([], key, false, all)).toEqual({ kind: "command", command });
       expect(resolveModalSequence([], key, true, all)).toEqual({ kind: "cancel" });
@@ -164,6 +163,45 @@ describe("modal keyboard sequences", () => {
       kind: "command",
       command: "focus.flow",
     });
+  });
+
+  it("reads by block, section, and turn, with Control+J/K scrolling and holdable motions", () => {
+    for (const [key, command] of [
+      ["j", "next"],
+      ["k", "previous"],
+      ["h", "left"],
+      ["l", "right"],
+      ["J", "message.next"],
+      ["K", "message.previous"],
+      ["Ctrl+j", "scroll.down"],
+      ["Ctrl+k", "scroll.up"],
+      // Space reads on like j; Shift+Space reads back.
+      [" ", "next"],
+      ["Shift+Space", "previous"],
+    ] as const) {
+      for (const repeat of [false, true]) {
+        expect(resolveModalSequence([], key, repeat, all)).toEqual({ kind: "command", command });
+      }
+    }
+    for (const [key, command] of [
+      ["z", "reading.lamp"],
+      ["c", "reading.cite"],
+    ] as const) {
+      expect(resolveModalSequence([], key, false, all)).toEqual({ kind: "command", command });
+      expect(resolveModalSequence([], key, true, all)).toEqual({ kind: "cancel" });
+    }
+  });
+
+  it("moves between areas only through the workspace prefix", () => {
+    expect(resolveModalSequence(["w"], "h", false, all)).toEqual({
+      kind: "command",
+      command: "focus.left",
+    });
+    expect(resolveModalSequence(["w"], "l", false, all)).toEqual({
+      kind: "command",
+      command: "focus.right",
+    });
+    expect(resolveModalSequence(["w"], "l", true, all)).toEqual({ kind: "pending", keys: ["w"] });
   });
 
   it("has no ambiguous action/prefix pairs", () => {

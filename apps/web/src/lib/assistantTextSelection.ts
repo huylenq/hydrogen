@@ -214,7 +214,27 @@ export function captureAssistantTextSelection(
   selection: Selection | null,
 ): { source: HTMLElement; selector: AssistantTextSelector; range: Range } | null {
   if (selection === null || selection.isCollapsed || selection.rangeCount !== 1) return null;
-  const range = selection.getRangeAt(0).cloneRange();
+  return captureAssistantTextRange(viewport, selection.getRangeAt(0));
+}
+
+/** Spans an element's citable text, trimmed to its first and last visible characters. */
+export function assistantTextRange(element: HTMLElement): Range | null {
+  const { chunks } = readAssistantText(element);
+  const first = chunks.find((chunk) => /\S/.test(chunk.node.data));
+  const last = chunks.findLast((chunk) => /\S/.test(chunk.node.data));
+  if (first === undefined || last === undefined) return null;
+  const range = element.ownerDocument.createRange();
+  range.setStart(first.node, first.node.data.search(/\S/));
+  range.setEnd(last.node, last.node.data.trimEnd().length);
+  return range;
+}
+
+/** Captures a range within one assistant message, whether selected or chosen from the keyboard. */
+export function captureAssistantTextRange(
+  viewport: HTMLElement,
+  sourceRange: Range,
+): { source: HTMLElement; selector: AssistantTextSelector; range: Range } | null {
+  const range = sourceRange.cloneRange();
   const first = selectedTextBoundary(range, range.commonAncestorContainer, false);
   const last = selectedTextBoundary(range, range.commonAncestorContainer, true);
   if (first === null || last === null) return null;

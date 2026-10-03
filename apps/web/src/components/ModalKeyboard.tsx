@@ -11,6 +11,7 @@ import { runAppCommand } from "../appCommands";
 import { useComposerHandleContext } from "../composerHandleContext";
 import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
 import {
+  isShortcutBound,
   resolveShortcutCommand,
   shortcutLabelForCommand,
   threadJumpIndexFromCommand,
@@ -27,6 +28,7 @@ import {
   modalEventIsQuestion,
   modalOverlayOpen,
   modalSurfaceItems,
+  moveModalArea,
   moveModalFocus,
   rememberModalFocus,
 } from "../modalKeyboardDom";
@@ -43,6 +45,8 @@ import { toggleFlowMode } from "../customizations/huy/toggleFlowMode";
 import { returnToFlowOverview } from "../customizations/huy/flowSessionInspection";
 import { useFlowStore } from "../flowStore";
 import { installFlowGridWindowFocus } from "../customizations/huy/flowGridWindowFocus";
+import { toggleReadingLamp, useReadingLampStore } from "../customizations/huy/readingCursor";
+import { dispatchTimelineCommand } from "../customizations/huy/useHuyChatIntegration";
 import { useSidebar } from "./ui/sidebar";
 
 const GROUP_LABELS: Record<string, string> = {
@@ -68,6 +72,7 @@ export function ModalKeyboard({
   const pathname = useLocation({ select: (location) => location.pathname });
   const { open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar } = useSidebar();
   const flowOpen = useFlowStore((state) => state.open);
+  const readingLamp = useReadingLampStore((state) => state.on);
   const state = useModalKeyboardStore();
   const [hintPrefix, setHintPrefix] = useState<readonly string[] | null>(null);
 
@@ -83,6 +88,7 @@ export function ModalKeyboard({
           workingSessionGrid ||
           (typeof document !== "undefined" &&
             modalSurfaceRoot("conversation")?.dataset.modalGrid === "working-sessions"),
+        readingLamp,
       }),
     [
       hasThread,
@@ -94,6 +100,7 @@ export function ModalKeyboard({
       flowOpen,
       state.previousSurface,
       workingSessionGrid,
+      readingLamp,
     ],
   );
 
@@ -188,9 +195,6 @@ export function ModalKeyboard({
           // Flow session it returns to the working-session grid first.
           if (!returnToFlowOverview()) requestModalFocus("conversation");
           return;
-        case "focus.rightPanel":
-          requestModalFocus("rightPanel");
-          return;
         case "sidebar.toggle":
           toggleSidebar();
           if (
@@ -243,26 +247,38 @@ export function ModalKeyboard({
           if (runAppCommand(command)) requestModalFocus("conversation");
           else showModalFeedback("No sessions waiting in the flow");
           return;
-        case "left":
-        case "right":
-          moveModalFocus(command);
+        case "focus.left":
+        case "focus.right":
+          moveModalArea(command === "focus.left" ? "left" : "right");
+          return;
+        case "reading.lamp":
+          toggleReadingLamp();
+          return;
+        case "reading.cite":
+          dispatchTimelineCommand("cite");
           return;
         case "message.next":
         case "message.previous":
-          window.dispatchEvent(
-            new CustomEvent("t3code:modal-timeline-motion", { detail: command }),
-          );
+        case "scroll.down":
+        case "scroll.up":
+          dispatchTimelineCommand(command);
           return;
         case "first":
         case "last":
         case "next":
         case "previous":
-          if (useModalKeyboardStore.getState().surface === "conversation" && hasThread) {
-            // The timeline owns scrolling and follow state through its registered command handler.
-            window.dispatchEvent(
-              new CustomEvent("t3code:modal-timeline-motion", { detail: command }),
+        case "left":
+        case "right":
+          // In an open conversation h/l step by section; elsewhere they move within the area.
+          if (useModalKeyboardStore.getState().surface === "conversation" && hasThread)
+            dispatchTimelineCommand(
+              command === "left"
+                ? "section.previous"
+                : command === "right"
+                  ? "section.next"
+                  : command,
             );
-          } else moveModalFocus(command);
+          else moveModalFocus(command);
           return;
         default:
           if (!runAppCommand(command)) {
@@ -313,11 +329,21 @@ export function ModalKeyboard({
         clearModalSequence();
         return;
       }
+      // Control+J/K scroll unless an app shortcut uses the chord in any context: this listener
+      // cannot see the context the app's own dispatch checks (`mod` is Control off Mac).
+      const controlScroll =
+        event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        (event.key === "j" || event.key === "k") &&
+        !isShortcutBound(event, keybindings);
       if (
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        (event.shiftKey && /^[1-9]$/.test(event.key))
+        !controlScroll &&
+        (event.metaKey ||
+          event.ctrlKey ||
+          event.altKey ||
+          (event.shiftKey && /^[1-9]$/.test(event.key)))
       ) {
         clearModalSequence();
         return;
@@ -341,7 +367,12 @@ export function ModalKeyboard({
         if (!event.repeat) closeModalHelp();
         return;
       }
-      const result = resolveModalSequence(current.pending, event.key, event.repeat, (action) => {
+      const key = controlScroll
+        ? `Ctrl+${event.key}`
+        : event.key === " " && event.shiftKey
+          ? "Shift+Space"
+          : event.key;
+      const result = resolveModalSequence(current.pending, key, event.repeat, (action) => {
         if (action === "activate") {
           const target = event.target;
           return (

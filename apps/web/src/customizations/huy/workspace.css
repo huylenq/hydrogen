@@ -5,21 +5,88 @@
   outline-offset: -2px;
 }
 
-/* Vim J/K flash the user message they land on; inset so neighboring rows can't clip it. */
-[data-user-message-bubble][data-modal-flash] {
-  animation: modal-message-flash 800ms ease-out;
+/* Vim reading cursor: a bar beside the cursor's block, in the gutter left of the text. The row
+   frame draws it because the content lane clips anything left of the text; scripts place it. */
+[data-modal-keyboard] [data-reading] [data-reading-bar] {
+  position: relative;
 }
-@keyframes modal-message-flash {
+[data-modal-keyboard] [data-reading] [data-reading-bar]::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: var(--reading-bar-top);
+  left: var(--reading-bar-left);
+  width: 3px;
+  height: var(--reading-bar-height);
+  border-radius: 9999px;
+  background: var(--ring);
+  pointer-events: none;
+}
+/* A faint tint shows the cursor block's extent, briefly stronger as a landing starts so the eye
+   can follow the block. An inset shadow sits above the block's own background and below its
+   text without changing its shape. */
+[data-modal-keyboard]
+  [data-reading="cursor"]
+  [data-reading-cursor]:not([data-user-message-bubble]) {
+  box-shadow: inset 0 0 0 100vmax color-mix(in srgb, var(--ring) 6%, transparent);
+}
+[data-modal-keyboard]
+  [data-reading="cursor"]
+  [data-reading-cursor][data-reading-landed]:not([data-user-message-bubble]) {
+  animation: reading-landed 700ms ease-out;
+}
+@keyframes reading-landed {
+  from {
+    box-shadow: inset 0 0 0 100vmax color-mix(in srgb, var(--ring) 22%, transparent);
+  }
+}
+/* On a user message the cursor highlights the bubble's border instead, inset so neighboring rows
+   can't clip it, and flashes it twice on landing. */
+[data-modal-keyboard] [data-reading] [data-reading-cursor][data-user-message-bubble] {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+}
+[data-modal-keyboard]
+  [data-reading="cursor"]
+  [data-reading-cursor][data-user-message-bubble][data-reading-landed] {
+  animation: reading-message-landed 800ms ease-out;
+}
+@keyframes reading-message-landed {
   0%,
   50% {
-    outline: 2px solid var(--ring);
-    outline-offset: -2px;
+    outline-color: var(--ring);
   }
   25%,
   100% {
-    outline: 2px solid transparent;
-    outline-offset: -2px;
+    outline-color: transparent;
   }
+}
+
+/* h/l highlight what made their target a section, its heading or bold lead, like a cited
+   quote. Scripts animate the inherited strength. */
+@property --reading-marker-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+::highlight(t3-reading-marker) {
+  background-color: color-mix(
+    in oklab,
+    var(--ring) calc(var(--reading-marker-opacity) * 100%),
+    transparent
+  );
+}
+
+/* Vim reading lamp: rows and siblings off the cursor's path recede. Static, so scrolling
+   repaints nothing extra. */
+[data-modal-keyboard]
+  [data-reading="lamp"]
+  [data-timeline-row-id]:not([data-reading-cursor], [data-reading-path]),
+[data-modal-keyboard]
+  [data-reading="lamp"]
+  [data-reading-path]
+  > :not([data-reading-cursor], [data-reading-path]) {
+  opacity: 0.35;
 }
 
 /* Flow keeps layout commands on the keyboard and in the command palette. */

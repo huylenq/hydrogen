@@ -252,6 +252,16 @@ export function resolveShortcutCommand(
   return null;
 }
 
+/** Whether any binding uses this chord, whatever its `when` clause says. */
+export function isShortcutBound(
+  event: ShortcutEventLike,
+  keybindings: ResolvedKeybindingsConfig,
+  options?: ShortcutMatchOptions,
+): boolean {
+  const platform = resolvePlatform(options);
+  return keybindings.some((binding) => matchesShortcut(event, binding.shortcut, platform));
+}
+
 export function formatShortcutKeyLabel(key: string): string {
   if (key === " ") return "Space";
   if (key.length === 1) return key.toUpperCase();

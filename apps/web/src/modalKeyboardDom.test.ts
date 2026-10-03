@@ -8,6 +8,7 @@ import {
   modalGridTargetIndex,
   modalOverlayOpen,
   modalPickerFinalFocus,
+  moveModalArea,
   moveModalFocus,
 } from "./modalKeyboardDom";
 
@@ -109,23 +110,33 @@ describe("horizontal modal navigation", () => {
     return items;
   }
 
-  it("moves from conversation to sidebar and back without opening a thread", () => {
-    setup("conversation", -1, 0);
-    moveModalFocus("left");
-    expect(useModalKeyboardStore.getState().focusRequest).toBe("sidebar");
-    setup("sidebar", 1);
-    moveModalFocus("right");
-    expect(useModalKeyboardStore.getState().focusRequest).toBe("conversation");
+  it("keeps h/l inside the conversation and sidebar", () => {
+    for (const surface of ["conversation", "sidebar"] as const) {
+      const items = setup(surface, 1);
+      moveModalFocus("left");
+      moveModalFocus("right");
+      expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
+      expect(items.every((item) => item.focus.mock.calls.length === 0)).toBe(true);
+    }
   });
 
-  it("stops at the outer sidebar edge and does not open a panel without a thread", () => {
-    const items = setup("sidebar", 1);
-    moveModalFocus("left");
-    expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
-    expect(items.every((item) => item.focus.mock.calls.length === 0)).toBe(true);
+  it("moves between areas with w h / w l, stopping at the outer edges", () => {
+    useModalKeyboardStore.setState({ threadContext: null });
     setup("conversation", -1, 0);
-    moveModalFocus("right");
+    moveModalArea("left");
+    expect(useModalKeyboardStore.getState().focusRequest).toBe("sidebar");
+    setup("sidebar", 1);
+    moveModalArea("left");
     expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
+    moveModalArea("right");
+    expect(useModalKeyboardStore.getState().focusRequest).toBe("conversation");
+    // Without a thread there is no right panel to enter.
+    setup("conversation", -1, 0);
+    moveModalArea("right");
+    expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
+    setup("rightPanel", 0);
+    moveModalArea("left");
+    expect(useModalKeyboardStore.getState().focusRequest).toBe("conversation");
   });
 
   it("moves within Flow cards without activating them or leaving the row", () => {
@@ -136,7 +147,7 @@ describe("horizontal modal navigation", () => {
     expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
   });
 
-  it("selects adjacent panel tabs and exits left only at the first tab", () => {
+  it("selects adjacent panel tabs and stays at the first tab", () => {
     const items = setup("rightPanel", 1);
     moveModalFocus("left");
     expect(items[0]?.focus).toHaveBeenCalledOnce();
@@ -144,13 +155,13 @@ describe("horizontal modal navigation", () => {
     expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
     setup("rightPanel", 0);
     moveModalFocus("left");
-    expect(useModalKeyboardStore.getState().focusRequest).toBe("conversation");
+    expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
   });
 
-  it("exits an empty panel and clamps at the final tab", () => {
+  it("does nothing in an empty panel and clamps at the final tab", () => {
     setup("rightPanel", -1, 0);
     moveModalFocus("left");
-    expect(useModalKeyboardStore.getState().focusRequest).toBe("conversation");
+    expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
     const items = setup("rightPanel", 2);
     moveModalFocus("right");
     expect(items[2]?.focus).toHaveBeenCalledOnce();

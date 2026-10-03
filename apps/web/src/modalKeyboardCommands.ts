@@ -24,6 +24,7 @@ export interface ModalCommandContext {
   flowOpen: boolean;
   previousSurface: ModalSurface | null;
   workingSessionGrid: boolean;
+  readingLamp: boolean;
 }
 
 /** One description drives help, dispatch guards, and unavailable-command feedback. */
@@ -52,6 +53,8 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
     "flow.next",
     "left",
     "right",
+    "focus.left",
+    "focus.right",
     "activate",
   ];
   if (!thread && !global.includes(command)) reason = "Open a thread first";
@@ -105,27 +108,51 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
         reason = "Settlement is unavailable for this thread";
     }
   }
+  const reading = context.surface === "conversation" && thread !== null;
   if (
-    (command === "message.previous" || command === "message.next") &&
+    (command === "message.previous" ||
+      command === "message.next" ||
+      command === "scroll.down" ||
+      command === "scroll.up" ||
+      command === "reading.cite") &&
     thread &&
     context.surface !== "conversation"
   )
     reason = "Focus the conversation first";
+  if (command === "reading.lamp")
+    label = context.readingLamp ? "Turn off reading lamp" : "Turn on reading lamp";
   if (command === "flow.previous" || command === "flow.next") {
     if (!context.flowOpen) reason = "Enable Flow mode first";
   }
+  if ((command === "next" || command === "previous") && reading)
+    label = command === "next" ? "Next block" : "Previous block";
   if (command === "left" || command === "right") {
     if (context.surface === "flow")
       label = command === "left" ? "Previous Flow card" : "Next Flow card";
     else if (context.surface === "rightPanel")
-      label = command === "left" ? "Previous tab / conversation" : "Next panel tab";
-    else if (context.surface === "sidebar")
-      label = command === "left" ? "Stay in sidebar" : "Focus conversation";
+      label = command === "left" ? "Previous panel tab" : "Next panel tab";
     else if (context.workingSessionGrid) {
       label = command === "left" ? "Previous preview" : "Next preview";
+    } else if (reading) {
+      label = command === "left" ? "Previous section" : "Next section";
     } else {
-      label = command === "left" ? "Focus sidebar" : "Focus right panel";
-      if (command === "right" && !thread) reason = "Open a thread first";
+      reason =
+        context.surface === "conversation"
+          ? "Open a thread first"
+          : "Use w h or w l to change areas";
+    }
+  }
+  if (command === "focus.left" || command === "focus.right") {
+    const left = command === "focus.left";
+    if (context.surface === "sidebar") {
+      label = left ? "Focus area to the left" : "Focus conversation";
+      if (left) reason = "The sidebar is the leftmost area";
+    } else if (context.surface === "rightPanel") {
+      label = left ? "Focus conversation" : "Focus area to the right";
+      if (!left) reason = "The right panel is the rightmost area";
+    } else {
+      label = left ? "Focus sidebar" : "Focus right panel";
+      if (!left && !thread) reason = "Open a thread first";
     }
   }
   if (command === "activate" && context.surface === "rightPanel") label = "Enter selected panel";

@@ -22,7 +22,7 @@ Start with an open thread.
 2. Press `q` to open and focus the Flow bar.
 3. Use `h` and `l` (or the arrow keys) to move between cards. The outline marks keyboard focus.
 4. Press `Enter` to open that thread.
-5. Use `j` and `k` to scroll the conversation, or `r` to open its changes.
+5. Use `j` and `k` to read the conversation block by block, or `r` to open its changes.
 6. Press `i` and write in the composer. Its usual editing and send controls still work.
 7. Press `Esc`, then `q`, to return to the Flow bar. Your draft stays intact.
 
@@ -32,30 +32,32 @@ on screen: `n` or `a` starts a new thread, and `Enter` opens the focused preview
 Use `h`/`l` across a row and `j`/`k` between rows. Grid edges keep focus on the
 current preview.
 From an opened working-session preview, press `Esc` in Normal mode to return to the grid.
-Use `h` from the conversation to browse the sidebar instead. Enabling Flow hides the left sidebar if it is open; you can still show or hide the sidebar afterward.
+Use `w h` from the conversation to browse the sidebar instead. Enabling Flow hides the left sidebar if it is open; you can still show or hide the sidebar afterward.
 
 ## Common actions
 
 These keys work in Normal mode, outside text fields, embedded tools, and open dialogs.
 
-| Key       | Action                                            |
-| --------- | ------------------------------------------------- |
-| `H` / `L` | Toggle sidebar / right panel visibility           |
-| `h` / `l` | Navigate left / right within the current UI level |
-| `Esc`     | Focus Conversation or show Flow grid              |
-| `Space`   | Open and focus Right panel                        |
-| `q`       | Open and focus Flow bar                           |
-| `F`       | Toggle Flow mode                                  |
-| `i`       | Focus composer                                    |
-| `n`       | Open the new-thread chooser                       |
-| `a`       | Open the new-thread chooser                       |
-| `A`       | Expand and focus the pending question             |
-| `m` / `e` | Choose a model / reasoning effort                 |
-| `r`       | Open and focus review changes                     |
-| `/`       | Search and switch threads                         |
-| `,`       | Open keyboard settings                            |
-| `1`–`9`   | Select thread as with `Cmd+1`–`Cmd+9`             |
-| `?`       | Show the complete shortcut reference              |
+| Key       | Action                                                   |
+| --------- | -------------------------------------------------------- |
+| `H` / `L` | Toggle sidebar / right panel visibility                  |
+| `h` / `l` | Move within the current area; sections in a conversation |
+| `Esc`     | Focus Conversation or show Flow grid                     |
+| `Space`   | Same as `j`; `Shift+Space` is the same as `k`            |
+| `q`       | Open and focus Flow bar                                  |
+| `F`       | Toggle Flow mode                                         |
+| `i`       | Focus composer                                           |
+| `n`       | Open the new-thread chooser                              |
+| `a`       | Open the new-thread chooser                              |
+| `A`       | Expand and focus the pending question                    |
+| `z`       | Turn the reading lamp on or off                          |
+| `c`       | Cite the reading cursor's block in the composer          |
+| `m` / `e` | Choose a model / reasoning effort                        |
+| `r`       | Open and focus review changes                            |
+| `/`       | Search and switch threads                                |
+| `,`       | Open keyboard settings                                   |
+| `1`–`9`   | Select thread as with `Cmd+1`–`Cmd+9`                    |
+| `?`       | Show the complete shortcut reference                     |
 
 Numbers follow the same thread order as the modified shortcuts: the sidebar order, or
 the Flow bar order while the Flow bar has focus. After a jump, the main content gets
@@ -66,7 +68,7 @@ for a maximized panel. It names the open thread targeted by thread actions. Unav
 commands show a reason, and trying one displays that reason briefly. While the `?`
 reference is open, typing a prefix highlights its matching commands.
 
-Focus actions keep their destination open. Pressing `Space`, `q`, or `r` again does not close
+Focus actions keep their destination open. Pressing `w l`, `q`, or `r` again does not close
 it. Right-panel focus lands in its active content. Use `Ctrl+Shift+Space` to return to the selected tab. `r` requires an
 existing thread in a Git repository.
 
@@ -86,6 +88,8 @@ whole sequence without waiting. There is no typing deadline.
 | `w Space` | Toggle right-panel visibility                                                    |
 | `w t`     | Toggle terminal visibility                                                       |
 | `w m`     | Maximize or restore the open right panel, where the layout supports it           |
+| `w h`     | Focus the area to the left, toward the sidebar                                   |
+| `w l`     | Focus the area to the right, toward the right panel                              |
 | `t p`     | Pin or unpin the open thread                                                     |
 | `t s`     | Settle or unsettle the open thread                                               |
 | `f f`     | Find a file in the active project                                                |
@@ -97,8 +101,7 @@ whole sequence without waiting. There is no typing deadline.
 For example, `q` opens Flow and focuses its bar when visible; the working-session grid keeps the bar hidden.
 `F` or `w q` toggles Flow mode.
 
-Space focuses the right panel immediately. Use direct sequences such as `w q` for
-grouped commands, and `?` for the full reference.
+Use direct sequences such as `w q` for grouped commands, and `?` for the full reference.
 The `?` reference stays visible while you navigate and run commands. Press `?` again or
 `Esc` in Normal mode to close it. Text fields, questions, and embedded tools keep their
 usual keys while the reference is visible.
@@ -110,23 +113,28 @@ also cancel it.
 
 ## Move and read
 
-| Keys                  | Flow bar             | Sidebar              | Conversation                           |
-| --------------------- | -------------------- | -------------------- | -------------------------------------- |
-| `j` / `k`             | Next / previous card | Next / previous item | Scroll down / up                       |
-| `h` / `l` (or arrows) | Previous / next card | Stay / conversation  | Focus sidebar / right panel            |
-| `gg` / `G`            | First / last card    | First / last item    | Top / bottom                           |
-| `J` / `K`             |                      |                      | Next / previous message you sent       |
-| `Enter`               | Open focused thread  | Open focused item    | Use the focused control's usual action |
+| Keys                                   | Flow bar             | Sidebar              | Conversation                           |
+| -------------------------------------- | -------------------- | -------------------- | -------------------------------------- |
+| `j` / `k` (or `Space` / `Shift+Space`) | Next / previous card | Next / previous item | Next / previous block                  |
+| `h` / `l` (or arrows)                  | Previous / next card |                      | Previous / next section                |
+| `Ctrl+j` / `Ctrl+k`                    |                      |                      | Scroll down / up                       |
+| `gg` / `G`                             | First / last card    | First / last item    | Top / bottom                           |
+| `J` / `K`                              |                      |                      | Next / previous message you sent       |
+| `Enter`                                | Open focused thread  | Open focused item    | Use the focused control's usual action |
+
+In a conversation, a block is a paragraph, heading, list item, table, or code block of an answer, or any other timeline entry. Sections start at each message, at headings, and at paragraphs or list items that open in bold; when `h` or `l` stops, the heading or bold text that made it a section briefly lights up. The reading cursor marks your place: a bar beside the block you are on, or a highlighted border around a message you sent. The page stays still while it moves through the middle of the screen; before it gets within a fifth of the top or bottom, the conversation scrolls a little under half a screen toward where you are reading, so your place never sits at an edge. The block brightens as it moves so you can follow it. A quick step back scrolls only as far as it needs, so the block you left stays in view. A block taller than the window scrolls half a screen at a time before `j` moves on. `k`, `h`, and `K` first return to the start of the block, section, or message you are partway through. Your first `j` or `k` shows the reading cursor on the first block that starts on screen. `Ctrl+j` and `Ctrl+k` scroll only when no other shortcut uses them; on Windows and Linux they open the terminal and command palette unless you change those.
+
+Press `z` to turn on the reading lamp: everything except the reading cursor's block dims. The lamp stays on for this client until you press `z` again. Press `c` to cite the reading cursor's block in the composer, as if you had selected its text and chosen **Cite**. Add an optional comment, or press `Esc` to remove the citation. Only answer text can be cited.
 
 Movement changes focus. Press Enter to open a highlighted thread before pinning or
 settling it: thread actions always apply to the thread you have open.
 
 ## Right-panel tabs and returning to your place
 
-Press `l` from the conversation or `Space` to focus the active right-panel content.
+Press `w l` from the conversation to open and focus the active right-panel content.
 Use `Ctrl+Shift+Space` to focus its selected tab. Use `h` / `l` (or `ArrowLeft` / `ArrowRight`) to select the previous or
 next tab, then Enter to move into that surface's controls. Switching tabs keeps focus on
-the tab strip. At the first tab, `h` returns to the conversation; `l` stops at the last tab. Embedded tools keep their own input behavior once you enter them.
+the tab strip. `h` stops at the first tab and `l` at the last; `w h` returns to the conversation. Embedded tools keep their own input behavior once you enter them.
 If the panel has no tabs, Enter focuses its launcher so you can choose a surface.
 
 `Ctrl+Shift+Space` returns from a right-panel editor or terminal to its selected tab.

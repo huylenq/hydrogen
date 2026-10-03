@@ -227,27 +227,28 @@ export function moveModalFocus(motion: ModalMotion): void {
     target?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
     return;
   }
-  if (motion === "left" || motion === "right") {
-    if (surface === "conversation" || surface === "question") {
-      if (motion === "left") requestModalFocus("sidebar");
-      else if (useModalKeyboardStore.getState().threadContext) requestModalFocus("rightPanel");
-      return;
-    }
-    if (surface === "sidebar") {
-      if (motion === "right") requestModalFocus("conversation");
-      return;
-    }
-    if (surface === "rightPanel" && motion === "left" && current <= 0) {
-      requestModalFocus("conversation");
-      return;
-    }
-  }
+  // h/l move within an area; `w h` / `w l` (moveModalArea) change areas.
+  if (
+    (motion === "left" || motion === "right") &&
+    (surface === "conversation" || surface === "question" || surface === "sidebar")
+  )
+    return;
   const index = modalTargetIndex(items.length, current, motion);
   if (index === null) return;
   const target = items[index];
   target?.focus({ preventScroll: true });
   if (surface === "rightPanel") target?.click();
   target?.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+}
+
+/** Steps between the sidebar, the main area, and the right panel, stopping at the outer edges. */
+export function moveModalArea(direction: "left" | "right"): void {
+  const { surface, threadContext } = useModalKeyboardStore.getState();
+  if (direction === "left") {
+    if (surface === "rightPanel") requestModalFocus("conversation");
+    else if (surface !== "sidebar") requestModalFocus("sidebar");
+  } else if (surface === "sidebar") requestModalFocus("conversation");
+  else if (surface !== "rightPanel" && threadContext) requestModalFocus("rightPanel");
 }
 
 /** Only explicit flow/sidebar activation changes the route; movement never does. */

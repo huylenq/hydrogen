@@ -7380,11 +7380,14 @@ export default function ChatView(props: ChatViewProps) {
           : "ready",
     },
     {
+      threadKey: activeThreadKey,
       getList: () => legendListRef.current,
       beforeScroll: (direction) => {
         cancelTimelineLiveFollowForUserNavigation();
         timelineScrollIntentRef.current = direction;
       },
+      composerTop: () => composerOverlayElement?.getBoundingClientRect().top ?? null,
+      cite: paintOnlyDisplayedTimeline ? null : citeAssistantText,
     },
   );
 

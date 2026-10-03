@@ -24,6 +24,7 @@ import {
   isTerminalSplitShortcut,
   isTerminalSplitVerticalShortcut,
   isTerminalToggleShortcut,
+  isShortcutBound,
   resolveShortcutCommand,
   shouldShowThreadJumpHintsForModifiers,
   shortcutLabelForCommand,
@@ -202,6 +203,28 @@ describe("isTerminalToggleShortcut", () => {
         context: { terminalFocus: true },
       }),
     );
+  });
+});
+
+describe("isShortcutBound", () => {
+  const conditional = compile([
+    {
+      shortcut: modShortcut("k", { modKey: false, ctrlKey: true }),
+      command: "chat.new",
+      whenAst: whenIdentifier("terminalFocus"),
+    },
+  ]);
+
+  it("claims a chord whose binding only applies in another context", () => {
+    const ctrlK = event({ key: "k", ctrlKey: true });
+    assert.isNull(resolveShortcutCommand(ctrlK, conditional, { platform: "MacIntel" }));
+    assert.isTrue(isShortcutBound(ctrlK, conditional, { platform: "MacIntel" }));
+  });
+
+  it("follows the platform's meaning of mod", () => {
+    const ctrlJ = event({ key: "j", ctrlKey: true });
+    assert.isTrue(isShortcutBound(ctrlJ, DEFAULT_BINDINGS, { platform: "Win32" }));
+    assert.isFalse(isShortcutBound(ctrlJ, DEFAULT_BINDINGS, { platform: "MacIntel" }));
   });
 });
 

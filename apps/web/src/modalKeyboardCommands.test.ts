@@ -27,6 +27,7 @@ const context: ModalCommandContext = {
   flowOpen: false,
   previousSurface: "sidebar",
   workingSessionGrid: false,
+  readingLamp: false,
 };
 
 describe("context-aware modal commands", () => {
@@ -113,11 +114,18 @@ describe("context-aware modal commands", () => {
       label: "Next preview",
       reason: null,
     });
-    expect(describeModalCommand("left", context).reason).toBeNull();
-    expect(describeModalCommand("left", { ...context, surface: "rightPanel" })).toMatchObject({
-      label: "Previous tab / conversation",
+    expect(describeModalCommand("left", context)).toMatchObject({
+      label: "Previous section",
       reason: null,
     });
+    expect(describeModalCommand("next", context).label).toBe("Next block");
+    expect(describeModalCommand("left", { ...context, surface: "rightPanel" })).toMatchObject({
+      label: "Previous panel tab",
+      reason: null,
+    });
+    expect(describeModalCommand("right", { ...context, surface: "sidebar" }).reason).toBe(
+      "Use w h or w l to change areas",
+    );
     expect(describeModalCommand("activate", { ...context, surface: "rightPanel" }).label).toBe(
       "Enter selected panel",
     );
@@ -126,5 +134,39 @@ describe("context-aware modal commands", () => {
       reason: null,
       target: null,
     });
+  });
+
+  it("names area moves from where focus is and explains the outer edges", () => {
+    expect(describeModalCommand("focus.left", context)).toMatchObject({
+      label: "Focus sidebar",
+      reason: null,
+    });
+    expect(describeModalCommand("focus.right", { ...context, surface: "sidebar" })).toMatchObject({
+      label: "Focus conversation",
+      reason: null,
+    });
+    expect(describeModalCommand("focus.left", { ...context, surface: "sidebar" }).reason).toBe(
+      "The sidebar is the leftmost area",
+    );
+    expect(describeModalCommand("focus.right", { ...context, surface: "rightPanel" }).reason).toBe(
+      "The right panel is the rightmost area",
+    );
+    expect(describeModalCommand("focus.left", { ...context, thread: null }).reason).toBeNull();
+  });
+
+  it("keeps reading commands on the conversation and labels the lamp by its state", () => {
+    for (const command of ["scroll.down", "scroll.up", "reading.cite"] as const) {
+      expect(describeModalCommand(command, context).reason).toBeNull();
+      expect(describeModalCommand(command, { ...context, surface: "sidebar" }).reason).toBe(
+        "Focus the conversation first",
+      );
+    }
+    expect(describeModalCommand("reading.lamp", context).label).toBe("Turn on reading lamp");
+    expect(describeModalCommand("reading.lamp", { ...context, readingLamp: true }).label).toBe(
+      "Turn off reading lamp",
+    );
+    expect(describeModalCommand("reading.lamp", { ...context, thread: null }).reason).toBe(
+      "Open a thread first",
+    );
   });
 });
