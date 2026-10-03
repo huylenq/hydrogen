@@ -105,6 +105,12 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
         reason = "Settlement is unavailable for this thread";
     }
   }
+  if (
+    (command === "message.previous" || command === "message.next") &&
+    thread &&
+    context.surface !== "conversation"
+  )
+    reason = "Focus the conversation first";
   if (command === "flow.previous" || command === "flow.next") {
     if (!context.flowOpen) reason = "Enable Flow mode first";
   }

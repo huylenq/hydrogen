@@ -16,6 +16,8 @@ Opt-in modal keyboard profile for web and desktop (not native mobile). Full comm
 - Text inputs, embedded editors, and terminals keep their own editing keys; terminals have an escape hatch back to navigation.
 - Focus and mode survive pickers, thread switches, and leaving/returning to the app window. Returning to the window never focuses the composer by itself.
 - Each command runs exactly once; help, settings copy, and behavior agree.
+- `j`/`k` scroll the conversation smoothly, and holding them glides continuously. Any other scroll interrupts the glide. Reduced motion jumps instead, and `gg`/`G` stay instant.
+- `J`/`K` jump the conversation to the next/previous user message, aligned at the top. `K` partway through a user message returns to its start first. Holding either key keeps stepping. The landed bubble's outline flashes briefly to orient the eye.
 
 ## Shortcuts
 

@@ -115,6 +115,7 @@ also cancel it.
 | `j` / `k`             | Next / previous card | Next / previous item | Scroll down / up                       |
 | `h` / `l` (or arrows) | Previous / next card | Stay / conversation  | Focus sidebar / right panel            |
 | `gg` / `G`            | First / last card    | First / last item    | Top / bottom                           |
+| `J` / `K`             |                      |                      | Next / previous message you sent       |
 | `Enter`               | Open focused thread  | Open focused item    | Use the focused control's usual action |
 
 Movement changes focus. Press Enter to open a highlighted thread before pinning or

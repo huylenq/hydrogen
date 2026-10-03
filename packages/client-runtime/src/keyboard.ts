@@ -42,6 +42,8 @@ export const MODAL_COMMANDS = [
   { keys: ["G"], command: "last", label: "Last item / bottom" },
   { keys: ["j"], command: "next", label: "Next item / scroll down" },
   { keys: ["k"], command: "previous", label: "Previous item / scroll up" },
+  { keys: ["J"], command: "message.next", label: "Next user message" },
+  { keys: ["K"], command: "message.previous", label: "Previous user message" },
   { keys: ["["], command: "flow.previous", label: "Open previous Flow session" },
   { keys: ["]"], command: "flow.next", label: "Open next Flow session" },
   { keys: ["s"], command: "thread.snooze", label: "Snooze / wake open thread" },
@@ -84,9 +86,16 @@ export function resolveModalSequence(
   );
   const exact = matches.find((binding) => binding.keys.length === keys.length);
   if (exact) {
-    const repeatable = ["next", "previous", "left", "right", "flow.previous", "flow.next"].includes(
-      exact.command,
-    );
+    const repeatable = [
+      "next",
+      "previous",
+      "message.next",
+      "message.previous",
+      "left",
+      "right",
+      "flow.previous",
+      "flow.next",
+    ].includes(exact.command);
     return repeat && !repeatable ? { kind: "cancel" } : { kind: "command", command: exact.command };
   }
   if (matches.length > 0) return { kind: "pending", keys: [...pending, key] };

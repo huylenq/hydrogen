@@ -7380,7 +7380,7 @@ export default function ChatView(props: ChatViewProps) {
           : "ready",
     },
     {
-      getScrollableNode: getTimelineScrollableNode,
+      getList: () => legendListRef.current,
       beforeScroll: (direction) => {
         cancelTimelineLiveFollowForUserNavigation();
         timelineScrollIntentRef.current = direction;

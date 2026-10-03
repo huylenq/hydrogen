@@ -5,6 +5,23 @@
   outline-offset: -2px;
 }
 
+/* Vim J/K flash the user message they land on; inset so neighboring rows can't clip it. */
+[data-user-message-bubble][data-modal-flash] {
+  animation: modal-message-flash 800ms ease-out;
+}
+@keyframes modal-message-flash {
+  0%,
+  50% {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+  }
+  25%,
+  100% {
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+  }
+}
+
 /* Flow keeps layout commands on the keyboard and in the command palette. */
 [data-flow-mode="true"] [data-sidebar-control],
 [data-flow-mode="true"] [data-sidebar="trigger"],

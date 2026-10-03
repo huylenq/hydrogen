@@ -247,6 +247,12 @@ export function ModalKeyboard({
         case "right":
           moveModalFocus(command);
           return;
+        case "message.next":
+        case "message.previous":
+          window.dispatchEvent(
+            new CustomEvent("t3code:modal-timeline-motion", { detail: command }),
+          );
+          return;
         case "first":
         case "last":
         case "next":
@@ -478,9 +484,7 @@ export function ModalKeyboard({
                   <span className="text-right text-foreground">
                     {entry.label}
                     {entry.reason ? (
-                      <span className="block text-[10px] text-muted-foreground">
-                        {entry.reason}
-                      </span>
+                      <span className="block text-3xs text-muted-foreground">{entry.reason}</span>
                     ) : null}
                   </span>
                 </div>
