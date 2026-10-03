@@ -153,6 +153,9 @@ export function deriveFlow(
 
   for (const thread of threads) {
     if (thread.archivedAt !== null || thread.settledOverride === "settled") continue;
+    // Subagent threads have no run of their own (they would always read as
+    // Review); their parent carries the activity, as in the sidebar.
+    if (thread.lineage.relationshipToParent === "subagent") continue;
     if (effectiveSnoozed(thread, options)) continue;
 
     const timestamp = attentionTimestamp(thread);

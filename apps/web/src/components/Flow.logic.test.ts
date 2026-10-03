@@ -237,6 +237,22 @@ describe("deriveFlow", () => {
 
     expect(model).toEqual({ attention: [], bench: [] });
   });
+
+  it("omits subagent threads, which have no run of their own", () => {
+    const parent = thread("parent", runtime("running"));
+    const subagent = thread("subagent", {
+      lineage: {
+        relationshipToParent: "subagent",
+        parentThreadId: parent.id,
+        rootThreadId: parent.id,
+      },
+    });
+
+    const model = deriveFlow([parent, subagent], { now: NOW });
+
+    expect(model.attention).toHaveLength(0);
+    expect(model.bench.map((entry) => entry.thread.id)).toEqual(["parent"]);
+  });
 });
 
 describe("flowNavigationEntries", () => {
