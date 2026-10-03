@@ -30,7 +30,7 @@ Web and desktop focus mode for working through threads that need attention.
 - Enabling Flow hides the sidebar; after that the sidebar can be toggled freely and disabling Flow leaves it as is.
 - Successful user actions (send, answering approvals/input, settle, snooze, archive, implement plan) advance to the next waiting thread, or back to the grid when none remain.
 - Never pull the user anywhere on background activity alone. Typing, navigating, or leaving Flow cancels a pending jump; automatic queued sends never navigate.
-- Flow hides git toolbar chrome but keeps git commands working.
+- Vim `g k` opens the commit dialog wherever git actions are mounted (upstream shows them in the thread-details panel).
 
 ## Custom snooze
 
@@ -43,12 +43,8 @@ Huy no longer uses Grok Bot but wants to keep it so he can come back to it. Crew
 - Requirement: it must not crash or break the app, server startup, or other features, and must stay out of the way when not configured.
 - Its tests may be skipped or disabled when they create friction for other work. Don't spend merge effort keeping Grok Bot fully working; keep it compiling and inert.
 - Don't delete it without asking Huy.
-
-Original behavior, for reference if it is revived: [Grok Bot](docs/user/composer.md#grok-bot).
-
-## Grok provider permissions
-
-In auto-accept-edits mode, the Grok provider auto-approves only file edits (edit, delete, move) and still asks before other tools, including MCP writes, instead of letting Grok's own classifier silently deny them.
+- What still works is the manual panel: connect, chat with bots, attach task context, and use a reply in the composer.
+- Agent delegation over MCP and automatic reply delivery into coding threads were built on the pre-V2 orchestrator. They were removed when rebasing onto upstream's new orchestrator; the old implementation is in commit `5335523848` if it is ever revived.
 
 ## Hermes provider
 
@@ -56,7 +52,7 @@ Hermes is a selectable ACP provider with settings, icon, model discovery/switchi
 
 - A configured instance is usable without a warning while credentials are unverified, including after restart. Missing credentials and failed turns still warn; routine refreshes don't clear a failed-turn warning. Status checks never send model requests.
 - Model labels keep an inference-route suffix so identical model names from different routes stay distinguishable.
-- Agent profile is chosen per conversation (always explicit, defaulting to `default`; no "automatic"), preserved through drafts, sends, and resume on all clients. Switching profiles starts a fresh session; never load another profile's session.
+- Agent profile is chosen per conversation (always explicit, defaulting to `default`; no "automatic"), preserved through drafts, sends, and resume on all clients. Switching profiles starts a fresh session (seeded with upstream's thread-summary handoff); never load another profile's session.
 - Reasoning effort is session-scoped, applied before the next prompt, survives resume, never writes profile config, and errors clearly on Hermes versions that can't honor it.
 - Each instance's Hermes home isolates its config, credentials, memory, and skills. Report capabilities honestly.
 
