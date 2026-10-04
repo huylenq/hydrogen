@@ -148,7 +148,15 @@ export const PanelLayoutControls = memo(function PanelLayoutControls({
   );
 });
 
+// Hidden while Grok Bot is quarantined (HUY-SPECS.md); the keybinding and command palette still toggle it.
+const GROK_BOT_TOGGLE_VISIBLE = false;
+
 export function GrokBotToggle({ shortcutLabel }: { shortcutLabel?: string | null | undefined }) {
+  if (!GROK_BOT_TOGGLE_VISIBLE) return null;
+  return <GrokBotToggleButton shortcutLabel={shortcutLabel} />;
+}
+
+function GrokBotToggleButton({ shortcutLabel }: { shortcutLabel?: string | null | undefined }) {
   const open = useCrewStore((state) => state.open);
   const toggle = useCrewStore((state) => state.toggle);
   return (
