@@ -183,12 +183,19 @@ describe("modal keyboard sequences", () => {
         expect(resolveModalSequence([], key, repeat, all)).toEqual({ kind: "command", command });
       }
     }
+    expect(resolveModalSequence([], "c", false, all)).toEqual({
+      kind: "command",
+      command: "reading.cite",
+    });
+    expect(resolveModalSequence([], "c", true, all)).toEqual({ kind: "cancel" });
+    expect(resolveModalSequence([], "z", false, all)).toEqual({ kind: "pending", keys: ["z"] });
     for (const [key, command] of [
-      ["z", "reading.lamp"],
-      ["c", "reading.cite"],
+      ["t", "view.top"],
+      ["z", "view.center"],
+      ["b", "view.bottom"],
+      ["i", "reading.lamp"],
     ] as const) {
-      expect(resolveModalSequence([], key, false, all)).toEqual({ kind: "command", command });
-      expect(resolveModalSequence([], key, true, all)).toEqual({ kind: "cancel" });
+      expect(resolveModalSequence(["z"], key, false, all)).toEqual({ kind: "command", command });
     }
   });
 

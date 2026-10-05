@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   readingAnchor,
   readingJumpIndex,
+  readingPlacementLine,
   readingSectionMarker,
   resolveReadingStep,
   rowReadingStops,
@@ -139,6 +140,14 @@ describe("readingAnchor", () => {
   it("stays on a block taller than the screen until the next one begins", () => {
     expect(readingAnchor([stop(-200, 900), stop(900, 1000)], view)).toBe(0);
     expect(readingAnchor([], view)).toBe(-1);
+  });
+});
+
+describe("readingPlacementLine", () => {
+  it("places zt and zb just inside the view's edges and zz at its middle", () => {
+    expect(readingPlacementLine(view, "top")).toBe(30);
+    expect(readingPlacementLine(view, "center")).toBe(300);
+    expect(readingPlacementLine(view, "bottom")).toBe(570);
   });
 });
 

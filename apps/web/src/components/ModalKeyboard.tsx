@@ -261,6 +261,9 @@ export function ModalKeyboard({
         case "message.previous":
         case "scroll.down":
         case "scroll.up":
+        case "view.top":
+        case "view.center":
+        case "view.bottom":
           dispatchTimelineCommand(command);
           return;
         case "first":

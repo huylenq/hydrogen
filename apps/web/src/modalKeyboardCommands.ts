@@ -114,6 +114,9 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
       command === "message.next" ||
       command === "scroll.down" ||
       command === "scroll.up" ||
+      command === "view.top" ||
+      command === "view.center" ||
+      command === "view.bottom" ||
       command === "reading.cite") &&
     thread &&
     context.surface !== "conversation"

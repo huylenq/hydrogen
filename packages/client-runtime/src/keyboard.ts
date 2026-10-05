@@ -51,7 +51,11 @@ export const MODAL_COMMANDS = [
   { keys: ["Ctrl+k"], command: "scroll.up", label: "Scroll up" },
   { keys: ["J"], command: "message.next", label: "Next user message" },
   { keys: ["K"], command: "message.previous", label: "Previous user message" },
-  { keys: ["z"], command: "reading.lamp", label: "Toggle reading lamp" },
+  // Like Vim's z commands: place the reading cursor's block, or toggle a view mode (`zi`).
+  { keys: ["z", "t"], command: "view.top", label: "Scroll block to top" },
+  { keys: ["z", "z"], command: "view.center", label: "Scroll block to center" },
+  { keys: ["z", "b"], command: "view.bottom", label: "Scroll block to bottom" },
+  { keys: ["z", "i"], command: "reading.lamp", label: "Toggle reading lamp" },
   { keys: ["c"], command: "reading.cite", label: "Cite block in composer" },
   { keys: ["["], command: "flow.previous", label: "Open previous Flow session" },
   { keys: ["]"], command: "flow.next", label: "Open next Flow session" },

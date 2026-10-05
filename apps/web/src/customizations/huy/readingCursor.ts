@@ -13,7 +13,7 @@ function readInitialReadingLamp(): boolean {
   }
 }
 
-/** Vim `z`: dim the conversation except the block being read. A per-client preference. */
+/** Vim `zi`: dim the conversation except the block being read. A per-client preference. */
 export const useReadingLampStore = create<{ readonly on: boolean }>(() => ({
   on: readInitialReadingLamp(),
 }));

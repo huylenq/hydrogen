@@ -16,10 +16,12 @@ import {
   collectReadingStops,
   findReadingStopElement,
   readingAnchor,
+  readingPlacementLine,
   readingView,
   resolveReadingStep,
   visibleReadingStops,
   type ReadingDirection,
+  type ReadingEdge,
   type ReadingGranularity,
   type ReadingStop,
 } from "./readingStops";
@@ -46,6 +48,9 @@ const TIMELINE_COMMANDS = [
   "message.previous",
   "scroll.down",
   "scroll.up",
+  "view.top",
+  "view.center",
+  "view.bottom",
   "cite",
 ] as const;
 export type TimelineCommand = (typeof TIMELINE_COMMANDS)[number];
@@ -67,6 +72,13 @@ const MOTIONS: Partial<
   "message.next": ["turn", "next"],
   "message.previous": ["turn", "previous"],
 };
+
+const PLACEMENTS: Partial<Record<TimelineCommand, ReadingEdge>> = {
+  "view.top": "top",
+  "view.center": "center",
+  "view.bottom": "bottom",
+};
+const EDGE_SHARE = { top: 0, center: 0.5, bottom: 1 } as const;
 
 /**
  * Timed scrolls the eye can follow. Block steps glide calmly, since reading continues where they
@@ -318,9 +330,9 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
     const land = (
       list: LegendListRef,
       node: HTMLElement,
-      stop: ReadingStop,
+      stop: Pick<ReadingStop, "key" | "rowId" | "block">,
       origin: number | null,
-      edge: "top" | "bottom",
+      edge: ReadingEdge,
       offset: number,
       pace: Pace,
       cue: () => void,
@@ -333,7 +345,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
         if (element) {
           const rect = element.getBoundingClientRect();
           const top = rect.top - node.getBoundingClientRect().top + node.scrollTop;
-          return edge === "top" ? top : top + rect.height;
+          return top + rect.height * EDGE_SHARE[edge];
         }
         const index = rowIndex();
         const position = index === undefined ? undefined : list.getState().positionAtIndex(index);
@@ -414,6 +426,25 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
         if (granularity === "section") cue();
       }
     };
+    /** Vim `zt`/`zz`/`zb`: scrolls the cursor's block to the top, center, or bottom. */
+    const place = (list: LegendListRef, node: HTMLElement, edge: ReadingEdge) => {
+      trajectory = null;
+      cursor ??= anchor(list, node);
+      const element = cursor ? findReadingStopElement(node, cursor) : null;
+      if (!cursor || !element) return;
+      const base = scrollBase(node);
+      const offset =
+        readingPlacementLine(readingView(base, node.clientHeight, composerInset(node)), edge) -
+        base;
+      const rect = element.getBoundingClientRect();
+      const edgeAt =
+        rect.top -
+        node.getBoundingClientRect().top +
+        node.scrollTop +
+        rect.height * EDGE_SHARE[edge];
+      currentTimeline.current.beforeScroll(edgeAt - offset > base ? "toward-end" : "away-from-end");
+      land(list, node, cursor, null, edge, offset, "quick", pulseReadingCursor);
+    };
     const cite = () => {
       const timeline = timelineNode();
       const insertCitation = currentTimeline.current.cite;
@@ -436,6 +467,8 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       const timeline = timelineNode();
       if (!timeline) return;
       const { list, node } = timeline;
+      const placement = PLACEMENTS[command];
+      if (placement) return place(list, node, placement);
       // Reading stops live follow even when the page stays still.
       currentTimeline.current.beforeScroll(
         command === "first" || command.endsWith("previous") || command === "scroll.up"

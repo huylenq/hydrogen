@@ -134,6 +134,23 @@ it("lands a block that leaves the band on the band's top line", async () => {
   expect(node.scrollTop).toBeCloseTo(440 - 137.6, 1);
 });
 
+it("places the cursor's block at the top, center, or bottom like Vim's zt, zz, and zb", async () => {
+  const { list, node } = fakeTimeline("a");
+  node.scrollTop = 1000;
+  await render("a", list);
+  // Reading starts at block 10 (1100px to 1200px): zt puts its top 52.4px down, just inside the
+  // readable area, zz its middle at the view's middle, and zb its bottom 563.6px down.
+  press("view.top");
+  wait(1000);
+  expect(node.scrollTop).toBeCloseTo(1100 - 52.4, 1);
+  press("view.center");
+  wait(1000);
+  expect(node.scrollTop).toBeCloseTo(1150 - 308, 1);
+  press("view.bottom");
+  wait(1000);
+  expect(node.scrollTop).toBeCloseTo(1200 - 563.6, 1);
+});
+
 it("leaves the view where the user scrolls it during a landing", async () => {
   const { list, node } = fakeTimeline("a");
   await render("a", list);

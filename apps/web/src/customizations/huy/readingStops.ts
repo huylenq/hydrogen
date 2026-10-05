@@ -37,8 +37,32 @@ const VIEW_BOTTOM_INSET = 8;
  * area, so it never rides the edge, and scrolls stay a little under half a screen.
  */
 const SCROLL_MARGIN_FRACTION = 0.2;
+/** `zt`/`zb` place a block nearer the edge than the band, leaving just a sliver of context. */
+const PLACEMENT_MARGIN_FRACTION = 0.05;
 /** Half a line: a block clipped by less still reads as fully visible. */
 const VISIBLE_SLACK = 8;
+
+/** The part of the readable area the cursor lives in, clear of the scroll margins. */
+function readingBand(view: ReadingView): ReadingView {
+  const margin = (view.bottom - view.top) * SCROLL_MARGIN_FRACTION;
+  return { top: view.top + margin, bottom: view.bottom - margin };
+}
+
+/** Which edge of a block a landing aligns. */
+export type ReadingEdge = "top" | "center" | "bottom";
+
+/**
+ * Vim `zt`/`zz`/`zb`: the line, as a scroll offset, that the cursor's block `edge` lands on.
+ * `zt` and `zb` stop just short of the readable area's edges, outside the band.
+ */
+export function readingPlacementLine(view: ReadingView, edge: ReadingEdge): number {
+  const margin = (view.bottom - view.top) * PLACEMENT_MARGIN_FRACTION;
+  return edge === "top"
+    ? view.top + margin
+    : edge === "bottom"
+      ? view.bottom - margin
+      : (view.top + view.bottom) / 2;
+}
 
 export function readingView(
   scrollTop: number,
@@ -276,8 +300,7 @@ export function resolveReadingStep(input: {
   | null {
   const { stops, granularity, direction, view } = input;
   const readable = view.bottom - view.top;
-  const margin = readable * SCROLL_MARGIN_FRACTION;
-  const band = { top: view.top + margin, bottom: view.bottom - margin };
+  const band = readingBand(view);
   let cursor = input.cursor;
   if (cursor < 0) {
     cursor = readingAnchor(stops, view);

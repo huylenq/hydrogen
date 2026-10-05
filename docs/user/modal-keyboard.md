@@ -50,7 +50,7 @@ These keys work in Normal mode, outside text fields, embedded tools, and open di
 | `n`       | Open the new-thread chooser                              |
 | `a`       | Open the new-thread chooser                              |
 | `A`       | Expand and focus the pending question                    |
-| `z`       | Turn the reading lamp on or off                          |
+| `z i`     | Turn the reading lamp on or off                          |
 | `c`       | Cite the reading cursor's block in the composer          |
 | `m` / `e` | Choose a model / reasoning effort                        |
 | `r`       | Open and focus review changes                            |
@@ -120,11 +120,14 @@ also cancel it.
 | `Ctrl+j` / `Ctrl+k`                    |                      |                      | Scroll down / up                       |
 | `gg` / `G`                             | First / last card    | First / last item    | Top / bottom                           |
 | `J` / `K`                              |                      |                      | Next / previous message you sent       |
+| `zt` / `zz` / `zb`                     |                      |                      | Scroll block to top / center / bottom  |
 | `Enter`                                | Open focused thread  | Open focused item    | Use the focused control's usual action |
 
 In a conversation, a block is a paragraph, heading, list item, table, or code block of an answer, or any other timeline entry. Sections start at each message, at headings, and at paragraphs or list items that open in bold; when `h` or `l` stops, the heading or bold text that made it a section briefly lights up. The reading cursor marks your place: a bar beside the block you are on, or a highlighted border around a message you sent. The page stays still while it moves through the middle of the screen; before it gets within a fifth of the top or bottom, the conversation scrolls a little under half a screen toward where you are reading, so your place never sits at an edge. The block brightens as it moves so you can follow it. A quick step back scrolls only as far as it needs, so the block you left stays in view. A block taller than the window scrolls half a screen at a time before `j` moves on. `k`, `h`, and `K` first return to the start of the block, section, or message you are partway through. Your first `j` or `k` shows the reading cursor on the first block that starts on screen. `Ctrl+j` and `Ctrl+k` scroll only when no other shortcut uses them; on Windows and Linux they open the terminal and command palette unless you change those.
 
-Press `z` to turn on the reading lamp: everything except the reading cursor's block dims. The lamp stays on for this client until you press `z` again. Press `c` to cite the reading cursor's block in the composer, as if you had selected its text and chosen **Cite**. Add an optional comment, or press `Esc` to remove the citation. Only answer text can be cited.
+As in Vim, `zt`, `zz`, and `zb` scroll the conversation so the reading cursor's block sits near the top, in the middle, or near the bottom.
+
+Press `z i` to turn on the reading lamp: everything except the reading cursor's block dims. The lamp stays on for this client until you press `z i` again. Press `c` to cite the reading cursor's block in the composer, as if you had selected its text and chosen **Cite**. Add an optional comment, or press `Esc` to remove the citation. Only answer text can be cited.
 
 Movement changes focus. Press Enter to open a highlighted thread before pinning or
 settling it: thread actions always apply to the thread you have open.

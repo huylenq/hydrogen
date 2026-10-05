@@ -155,7 +155,14 @@ describe("context-aware modal commands", () => {
   });
 
   it("keeps reading commands on the conversation and labels the lamp by its state", () => {
-    for (const command of ["scroll.down", "scroll.up", "reading.cite"] as const) {
+    for (const command of [
+      "scroll.down",
+      "scroll.up",
+      "view.top",
+      "view.center",
+      "view.bottom",
+      "reading.cite",
+    ] as const) {
       expect(describeModalCommand(command, context).reason).toBeNull();
       expect(describeModalCommand(command, { ...context, surface: "sidebar" }).reason).toBe(
         "Focus the conversation first",
