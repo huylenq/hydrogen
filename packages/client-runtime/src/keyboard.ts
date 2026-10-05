@@ -25,6 +25,7 @@ export const MODAL_COMMANDS = [
   { keys: ["w", "w"], command: "focus.previous", label: "Previous navigation area" },
   { keys: ["w", "s"], command: "sidebar.toggle", label: "Toggle sidebar" },
   { keys: ["w", "q"], command: "flow.toggle", label: "Toggle Flow mode" },
+  { keys: ["w", "g"], command: "flow.overview.toggle", label: "Toggle Flow overview" },
   { keys: ["w", "t"], command: "terminal.toggle", label: "Toggle terminal" },
   { keys: ["w", " "], command: "rightPanel.toggle", label: "Toggle right panel" },
   { keys: ["w", "h"], command: "focus.left", label: "Focus area to the left" },

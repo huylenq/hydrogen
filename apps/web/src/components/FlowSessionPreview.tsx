@@ -14,11 +14,13 @@ import { getProviderInstanceEntry } from "../providerInstances";
 import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
 import { getTriggerDisplayModelLabel } from "./chat/providerIconUtils";
 import { buildThreadRouteParams } from "../threadRoutes";
-import type { FlowBenchEntry } from "./Flow.logic";
+import type { FlowAttentionEntry, FlowBenchEntry } from "./Flow.logic";
+import { FLOW_STATUS_CLASS } from "./FlowBar";
 import { ProjectFavicon } from "./ProjectFavicon";
 import { WorkEntryPreview } from "./chat/ToolActivity";
 import { shouldPreserveAssistantLineBreaks } from "./chat/MessagesTimeline.logic";
 import ChatMarkdown from "./ChatMarkdown";
+import { cn } from "../lib/utils";
 
 const PREVIEW_MESSAGE_CHARS = 2000;
 
@@ -34,7 +36,7 @@ function previewMarkdownTail(text: string): string {
 export const FlowSessionPreview = memo(function FlowSessionPreview({
   entry,
 }: {
-  entry: FlowBenchEntry;
+  entry: FlowAttentionEntry | FlowBenchEntry;
 }) {
   const { thread } = entry;
   const { resolvedTheme } = useTheme();
@@ -119,7 +121,14 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
       <header className="flex items-start gap-2 border-b border-border/60 px-4 py-3">
         {project ? <ProjectFavicon project={project} className="mt-0.5 size-4 shrink-0" /> : null}
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-medium">{thread.title}</h2>
+          <div className="flex min-w-0 items-baseline gap-2">
+            <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{thread.title}</h2>
+            {entry.kind === "attention" ? (
+              <span className={cn("shrink-0 text-xs font-medium", FLOW_STATUS_CLASS[entry.status])}>
+                {entry.status}
+              </span>
+            ) : null}
+          </div>
           <p className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
             <span className="min-w-0 shrink truncate">
               {environments.length > 1 ? `${environment?.label ?? "Unknown environment"} · ` : ""}

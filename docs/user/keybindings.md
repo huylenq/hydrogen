@@ -27,6 +27,7 @@ groups. `?` shows the shortcut reference. Reading a conversation with the keyboa
 | `Enter`                      | Open or toggle the reading cursor's item, else write; open focused item |
 | `w w`                        | Alternate between the previous two navigation areas                     |
 | `w s` / `w q` / `w Space`    | Toggle sidebar / Flow mode / right panel visibility                     |
+| `w g`                        | Toggle the Flow overview, even while threads wait on you                |
 | `w t` / `w m`                | Toggle terminal / maximize or restore open right panel                  |
 | `t p` / `t s`                | Pin/unpin / settle/unsettle the open thread                             |
 | `f f` / `f s`                | Find file / search project contents                                     |
@@ -47,11 +48,11 @@ A bare number means minutes. The duration field receives focus immediately; Esca
 snoozed, `s` wakes it instead.
 Snooze requires support from the connected environment.
 
-`q` opens Flow and focuses its bar when visible; the working-session grid keeps the bar hidden.
-`F` or `w q` toggles Flow mode. Prefixes have no typing
+`q` opens Flow and focuses its bar when visible; the Flow overview keeps the bar hidden.
+`F` or `w q` toggles Flow mode; `w g` toggles the Flow overview. Prefixes have no typing
 deadline. Escape dismisses help or cancels a sequence first, then focuses the main
-content on the next press. During Flow session inspection, that next press returns to the
-working-session grid. Escape closes an open picker first; otherwise it returns from text fields to navigation.
+content on the next press. When no threads wait on you, that next press returns an opened
+session to the Flow overview. Escape closes an open picker first; otherwise it returns from text fields to navigation.
 
 Press `A` to expand and focus a question without answering it. Its numbered answers work
 only while the expanded question has focus. Escape returns to conversation navigation.
@@ -204,8 +205,14 @@ shortcut; in Vim Normal mode use `F` or `w q`, or bind it yourself. Enabling Flo
 sidebar if it is open. The Flow bar places threads waiting on you from oldest to newest and
 compacts running threads onto the right-side bench.
 
-The Flow bar is hidden in the working-session grid and returns when you open a session.
-When the attention queue is empty, the working-session grid uses `h`/`l` within a row and
+The Flow overview shows a preview of each running session when nothing waits on you.
+`flow.overview.toggle` (`w g` in Vim Normal mode, otherwise bind it yourself) holds the
+overview open even while threads wait, with waiting threads first. While it is held, Flow
+doesn't enter waiting threads on its own. Opening a session or toggling it again resumes the
+queue; with threads waiting, only `w g` brings the overview back.
+
+The Flow bar is hidden in the overview and returns when you open a session.
+The overview uses `h`/`l` within a row and
 `j`/`k` between rows. At the left edge, `h` moves to the sidebar. The other grid edges keep
 focus on the current preview.
 
@@ -213,7 +220,7 @@ While Flow mode is active, sending a message, finishing the current thread's app
 or input requests, or settling, snoozing, or archiving it advances to the oldest
 available thread waiting on you. Starting a plan implementation advances too.
 The next destination is marked **Next**. If nothing else needs attention, an open
-session returns to the working-session grid. New activity never switches threads by itself. Typing or navigating
+session returns to the Flow overview. New activity never switches threads by itself. Typing or navigating
 while an action is pending cancels its jump; leaving Flow mode turns auto-jump off.
 
 ## Reserved shortcuts

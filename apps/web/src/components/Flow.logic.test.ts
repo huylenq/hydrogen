@@ -9,6 +9,7 @@ import {
   flowNavigationEntries,
   flowNavigationTarget,
   isFlowAttentionSession,
+  isFlowOverviewAvailable,
   nextFlowThread,
   shouldReleaseFlowInspection,
 } from "./Flow.logic";
@@ -396,5 +397,16 @@ describe("isFlowSessionInspection", () => {
         scopedThreadKey(scopeThreadRef(remote, ThreadId.make("working"))),
       ),
     ).toBe(false);
+  });
+});
+
+describe("held Flow overview", () => {
+  const model = deriveFlow([thread("working", working), thread("waiting")], { now: NOW });
+
+  it("shows while threads wait instead of entering the oldest one", () => {
+    expect(isFlowOverviewAvailable(model, false)).toBe(false);
+    expect(isFlowOverviewAvailable(model, true)).toBe(true);
+    expect(flowAttentionTarget(model, null, null, true)).toBeNull();
+    expect(flowAttentionTarget(model, keyFor("working"), null, true)).toBeNull();
   });
 });

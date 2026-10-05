@@ -37,6 +37,7 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
   const global = [
     "focus.flow",
     "flow.toggle",
+    "flow.overview.toggle",
     "focus.conversation",
     ...THREAD_JUMP_KEYBINDING_COMMANDS,
     "focus.previous",

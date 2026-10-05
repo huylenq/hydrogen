@@ -27,11 +27,11 @@ Start with an open thread.
 7. Press `Esc`, then `q`, to return to the Flow bar. Your draft stays intact.
 
 Returning to the Flow bar restores the card you left. If it has disappeared, focus moves to
-the nearest remaining card. When no threads need attention, the working-session grid stays
-on screen: `n` or `a` starts a new thread, and `Enter` opens the focused preview.
+the nearest remaining card. When no threads need attention, the Flow overview stays
+on screen, and `w g` brings it up even while threads wait: `n` or `a` starts a new thread, and `Enter` opens the focused preview.
 Use `h`/`l` across a row and `j`/`k` between rows. Grid edges keep focus on the
 current preview.
-From an opened working-session preview, press `Esc` in Normal mode to return to the grid.
+From a session opened in the overview, press `Esc` in Normal mode to return to the overview.
 Use `w h` from the conversation to browse the sidebar instead. Enabling Flow hides the left sidebar if it is open; you can still show or hide the sidebar afterward.
 
 ## Common actions
@@ -42,7 +42,7 @@ These keys work in Normal mode, outside text fields, embedded tools, and open di
 | --------- | --------------------------------------------------------------- |
 | `H` / `L` | Toggle sidebar / right panel visibility                         |
 | `h` / `l` | Move within the current area; collapse/expand in a conversation |
-| `Esc`     | Focus Conversation or show Flow grid                            |
+| `Esc`     | Focus Conversation or show Flow overview                        |
 | `Space`   | Same as `j`; `Shift+Space` is the same as `k`                   |
 | `q`       | Open and focus Flow bar                                         |
 | `F`       | Toggle Flow mode                                                |
@@ -85,6 +85,7 @@ whole sequence without waiting. There is no typing deadline.
 | `w w`     | Return to the previous navigation area; repeat to alternate between the last two |
 | `w s`     | Toggle sidebar visibility                                                        |
 | `w q`     | Toggle Flow bar visibility; enabling hides the left sidebar if it is open        |
+| `w g`     | Toggle the Flow overview, even while threads wait on you                         |
 | `w Space` | Toggle right-panel visibility                                                    |
 | `w t`     | Toggle terminal visibility                                                       |
 | `w m`     | Maximize or restore the open right panel, where the layout supports it           |
@@ -98,7 +99,7 @@ whole sequence without waiting. There is no typing deadline.
 
 `w` controls workspace layout, `t` acts on the open thread, `f` finds things, and
 `g k` commits changes.
-For example, `q` opens Flow and focuses its bar when visible; the working-session grid keeps the bar hidden.
+For example, `q` opens Flow and focuses its bar when visible; the Flow overview keeps the bar hidden.
 `F` or `w q` toggles Flow mode.
 
 Use direct sequences such as `w q` for grouped commands, and `?` for the full reference.

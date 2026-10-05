@@ -62,6 +62,7 @@ export const STATIC_KEYBINDING_COMMANDS = [
   "keyboard.normal",
   "sidebar.toggle",
   "flow.toggle",
+  "flow.overview.toggle",
   "crew.toggle",
   "navigation.back",
   "navigation.forward",

@@ -187,17 +187,23 @@ export function deriveFlow(
   return { attention, bench };
 }
 
-/** Stay on a queued session, or on a session the user opened themselves.
- * Otherwise enter the oldest waiting session (empty overview, or unpinned
- * working session) so autojump still drives the conveyor. */
+/** Stay on a queued session, on a session the user opened themselves, or on
+ * the held overview. Otherwise enter the oldest waiting session (empty
+ * overview, or unpinned working session) so autojump still drives the conveyor. */
 export function flowAttentionTarget(
   model: FlowModel,
   currentThreadKey: string | null,
   inspectedThreadKey: string | null = null,
+  overviewOpen = false,
 ): EnvironmentThreadShell | null {
-  if (inspectedThreadKey !== null) return null;
+  if (overviewOpen || inspectedThreadKey !== null) return null;
   if (isFlowAttentionSession(model, currentThreadKey)) return null;
   return model.attention[0]?.thread ?? null;
+}
+
+/** The overview shows while the attention queue is empty or the user holds it open. */
+export function isFlowOverviewAvailable(model: FlowModel, overviewOpen: boolean): boolean {
+  return overviewOpen || model.attention.length === 0;
 }
 
 /** An explicit selection opens chat while the attention queue is empty. */

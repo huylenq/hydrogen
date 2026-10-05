@@ -70,3 +70,27 @@ it("inspects sessions and returns to previews without changing the saved Flow pr
   useFlowStore.getState().toggle();
   expect(useFlowStore.getState().inspectedThreadKey).toBeNull();
 });
+
+it("holds the overview open until toggled again or a session is opened", async () => {
+  vi.stubGlobal("window", { localStorage: { getItem: () => null, setItem: () => undefined } });
+  const { useFlowStore } = await import("./flowStore");
+  const flow = () => useFlowStore.getState();
+
+  flow().toggleOverview();
+  expect(flow()).toMatchObject({ open: true, overviewOpen: true });
+
+  flow().inspectSession(null);
+  expect(flow().overviewOpen).toBe(true);
+  flow().inspectSession("session");
+  expect(flow().overviewOpen).toBe(false);
+
+  // From that session, the toggle brings the overview back.
+  flow().toggleOverview();
+  expect(flow()).toMatchObject({ overviewOpen: true, inspectedThreadKey: null });
+  flow().toggleOverview();
+  expect(flow()).toMatchObject({ open: true, overviewOpen: false });
+
+  flow().toggleOverview();
+  flow().toggle();
+  expect(flow()).toMatchObject({ open: false, overviewOpen: false });
+});

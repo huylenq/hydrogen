@@ -11,6 +11,8 @@ import {
 } from "../threadRoutes";
 import {
   flowAttentionTarget,
+  flowNavigationEntries,
+  isFlowOverviewAvailable,
   isFlowSessionInspection,
   shouldReleaseFlowInspection,
 } from "./Flow.logic";
@@ -47,6 +49,7 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
   const hostModalKeyboard = routeTarget !== null;
   const open = useFlowStore((state) => state.open);
   const inspectedThreadKey = useFlowStore((state) => state.inspectedThreadKey);
+  const overviewOpen = useFlowStore((state) => state.overviewOpen);
   const routeId = useMatches({ select: (matches) => matches.at(-1)?.routeId });
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
   const model = useFlowModel();
@@ -62,7 +65,9 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
     chatRoute,
     draftRoute: routeTarget?.kind === "draft",
   });
-  const target = controlled ? flowAttentionTarget(model, currentKey, inspectedThreadKey) : null;
+  const target = controlled
+    ? flowAttentionTarget(model, currentKey, inspectedThreadKey, overviewOpen)
+    : null;
   const targetEnvironmentId = target?.environmentId;
   const targetThreadId = target?.id;
   useEffect(() => {
@@ -79,10 +84,12 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
   }, [model, currentKey, inspectedThreadKey]);
   if (
     !controlled ||
-    model.attention.length > 0 ||
+    !isFlowOverviewAvailable(model, overviewOpen) ||
     isFlowSessionInspection(model, currentKey, inspectedThreadKey)
   )
     return children;
+  // Waiting threads only appear while the overview is held open; they lead, as in the Flow bar.
+  const entries = flowNavigationEntries(model);
 
   return (
     <SidebarInset className="relative h-svh min-h-0 overflow-hidden bg-background text-foreground md:h-dvh">
@@ -95,13 +102,13 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
         tabIndex={-1}
       >
         <div className="flex min-h-full items-center justify-center">
-          {model.bench.length === 0 ? (
+          {entries.length === 0 ? (
             <p className="py-16 text-center text-sm text-muted-foreground">
               No sessions are working right now.
             </p>
           ) : (
             <WorkingSessionGrid>
-              {model.bench.map((entry) => (
+              {entries.map((entry) => (
                 <FlowSessionPreview
                   key={scopedThreadKey(scopeThreadRef(entry.thread.environmentId, entry.thread.id))}
                   entry={entry}

@@ -23,3 +23,10 @@ export function toggleFlowMode(sidebar: FlowSidebarControls): boolean {
   if (enabling) hideVisibleSidebar(sidebar);
   return enabling;
 }
+
+/** Toggle the held Flow overview, enabling Flow (and hiding the sidebar) when it is off. */
+export function toggleFlowOverview(sidebar: FlowSidebarControls) {
+  const enabling = !useFlowStore.getState().open;
+  useFlowStore.getState().toggleOverview();
+  if (enabling) hideVisibleSidebar(sidebar);
+}

@@ -12,7 +12,7 @@ import { registerAppCommands, runAppCommand } from "../../appCommands";
 import { resolveShortcutCommand } from "../../keybindings";
 import { isTerminalFocused } from "../../lib/terminalFocus";
 import { cn } from "../../lib/utils";
-import { toggleFlowMode } from "./toggleFlowMode";
+import { toggleFlowMode, toggleFlowOverview } from "./toggleFlowMode";
 
 export function useHuyWorkspace({
   flowAvailable,
@@ -118,6 +118,10 @@ export function useHuyWorkspaceCommands(
           toggleFlowMode(sidebarRef.current);
           return true;
         }
+        if (command === "flow.overview.toggle" && flowAvailable) {
+          toggleFlowOverview(sidebarRef.current);
+          return true;
+        }
         return false;
       }),
     [flowAvailable],
@@ -132,7 +136,12 @@ export function useHuyWorkspaceCommands(
       const command = resolveShortcutCommand(event, keybindings, {
         context: { terminalFocus: isTerminalFocused() },
       });
-      if ((command === "crew.toggle" || command === "flow.toggle") && runAppCommand(command)) {
+      if (
+        (command === "crew.toggle" ||
+          command === "flow.toggle" ||
+          command === "flow.overview.toggle") &&
+        runAppCommand(command)
+      ) {
         event.preventDefault();
         event.stopPropagation();
       }

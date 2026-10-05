@@ -41,8 +41,8 @@ import {
   showModalFeedback,
 } from "../modalKeyboardStore";
 import { primaryServerKeybindingsAtom } from "../state/server";
-import { toggleFlowMode } from "../customizations/huy/toggleFlowMode";
-import { returnToFlowOverview } from "../customizations/huy/flowSessionInspection";
+import { toggleFlowMode, toggleFlowOverview } from "../customizations/huy/toggleFlowMode";
+import { escapeToFlowOverview } from "../customizations/huy/flowSessionInspection";
 import { useFlowStore } from "../flowStore";
 import { installFlowGridWindowFocus } from "../customizations/huy/flowGridWindowFocus";
 import { toggleReadingLamp, useReadingLampStore } from "../customizations/huy/readingCursor";
@@ -193,7 +193,7 @@ export function ModalKeyboard({
         case "focus.conversation":
           // Escape resolves to this command in Normal mode. From an inspected
           // Flow session it returns to the working-session grid first.
-          if (!returnToFlowOverview()) requestModalFocus("conversation");
+          if (!escapeToFlowOverview()) requestModalFocus("conversation");
           return;
         case "sidebar.toggle":
           toggleSidebar();
@@ -211,6 +211,10 @@ export function ModalKeyboard({
             requestModalFocus("conversation");
           return;
         }
+        case "flow.overview.toggle":
+          toggleFlowOverview({ isMobile, open, openMobile, setOpen, setOpenMobile });
+          requestModalFocus("conversation");
+          return;
         case "rightPanel.toggle":
           runAppCommand(command);
           if (useModalKeyboardStore.getState().surface === "rightPanel")

@@ -42,7 +42,7 @@ import { ProjectFavicon } from "./ProjectFavicon";
 import { ArrowLeftIcon, FolderCodeIcon } from "lucide-react";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 
-const STATUS_CLASS: Record<FlowAttentionStatus, string> = {
+export const FLOW_STATUS_CLASS: Record<FlowAttentionStatus, string> = {
   Approval: "text-amber-700 dark:text-amber-300",
   Input: "text-indigo-600 dark:text-indigo-300",
   Failed: "text-red-700 dark:text-red-300",
@@ -248,7 +248,7 @@ export function FlowBar() {
                   </span>
                 </div>
                 <div className="flex min-w-0 items-center gap-2 text-[11px] leading-3">
-                  <span className={cn("shrink-0 font-medium", STATUS_CLASS[entry.status])}>
+                  <span className={cn("shrink-0 font-medium", FLOW_STATUS_CLASS[entry.status])}>
                     {entry.status}
                   </span>
                   {threadKey === nextThreadKey ? (
