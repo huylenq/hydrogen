@@ -86,11 +86,14 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
       data-modal-item=""
       data-modal-key={scopedThreadKey(ref)}
       aria-label={`Open ${thread.title}`}
-      onClick={() => {
+      onClick={(event) => {
         if (window.getSelection()?.isCollapsed === false) return;
+        // Markdown links and code-block controls keep their own action.
+        if ((event.target as Element).closest("a, button")) return;
         openSession();
       }}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         event.stopPropagation();
