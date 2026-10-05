@@ -39,3 +39,17 @@ export function getTriggerDisplayModelName(model: ModelEsque): string {
 export function getTriggerDisplayModelLabel(model: ModelEsque): string {
   return getTriggerDisplayModelName(model);
 }
+
+// Brand prefixes the provider icon already shows. Only providers whose icon *is* the
+// model brand: a Claude model run through Cursor keeps "Claude", and "GPT-5.5" keeps
+// "GPT" since the OpenAI icon doesn't say GPT and a bare "5.5" reads as nothing.
+const ICON_REDUNDANT_MODEL_PREFIX: Record<string, string> = {
+  claudeAgent: "Claude",
+  grok: "Grok",
+};
+
+/** Drops a model label's leading brand word when the driver's icon is shown beside it. */
+export function stripIconRedundantModelPrefix(label: string, driverKind: string): string {
+  const prefix = ICON_REDUNDANT_MODEL_PREFIX[driverKind];
+  return prefix ? stripLeadingQualifier(label, prefix) : label;
+}
