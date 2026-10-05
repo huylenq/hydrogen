@@ -14,6 +14,19 @@ import { buildThreadRouteParams } from "../threadRoutes";
 import type { FlowBenchEntry } from "./Flow.logic";
 import { ProjectFavicon } from "./ProjectFavicon";
 import { WorkEntryPreview } from "./chat/ToolActivity";
+import { shouldPreserveAssistantLineBreaks } from "./chat/MessagesTimeline.logic";
+import ChatMarkdown from "./ChatMarkdown";
+
+const PREVIEW_MESSAGE_CHARS = 2000;
+
+/** Keeps a message's tail for the tile, cut at a line start and reopening a code fence the cut lands inside. */
+function previewMarkdownTail(text: string): string {
+  if (text.length <= PREVIEW_MESSAGE_CHARS) return text;
+  const cut = text.indexOf("\n", text.length - PREVIEW_MESSAGE_CHARS);
+  if (cut === -1) return text.slice(-PREVIEW_MESSAGE_CHARS);
+  const fencesBefore = text.slice(0, cut).match(/^ {0,3}(```|~~~)/gm)?.length ?? 0;
+  return `${fencesBefore % 2 === 1 ? "```\n" : ""}${text.slice(cut + 1)}`;
+}
 
 export const FlowSessionPreview = memo(function FlowSessionPreview({
   entry,
@@ -44,7 +57,9 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
           entry.kind === "message" && entry.message.text.trim() ? [entry.message] : [],
         )
         .slice(-3),
-      activities: entries.flatMap((entry) => (entry.kind === "work" ? [entry.entry] : [])).slice(-3),
+      activities: entries
+        .flatMap((entry) => (entry.kind === "work" ? [entry.entry] : []))
+        .slice(-3),
     };
   }, [visibleTurnItems]);
   const loaded = visibleTurnItems.length > 0;
@@ -121,9 +136,17 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
                     ? "Agent"
                     : "System"}
               </p>
-              <p className="whitespace-pre-wrap break-words text-xs leading-relaxed">
-                {message.text.slice(-2000)}
-              </p>
+              <ChatMarkdown
+                text={previewMarkdownTail(message.text)}
+                cwd={thread.worktreePath ?? project?.workspaceRoot}
+                threadRef={ref}
+                isStreaming={Boolean(message.streaming)}
+                lineBreaks={
+                  message.role === "user" || shouldPreserveAssistantLineBreaks(message.text)
+                }
+                parseRawHtml={message.role !== "user"}
+                className="text-xs"
+              />
             </div>
           ))}
           {activities.length > 0 ? (
