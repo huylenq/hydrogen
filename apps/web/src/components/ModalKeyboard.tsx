@@ -248,11 +248,6 @@ export function ModalKeyboard({
           }
           activateModalItem();
           return;
-        case "flow.previous":
-        case "flow.next":
-          if (runAppCommand(command)) requestModalFocus("conversation");
-          else showModalFeedback("No sessions waiting in the flow");
-          return;
         case "focus.left":
         case "focus.right":
           moveModalArea(command === "focus.left" ? "left" : "right");

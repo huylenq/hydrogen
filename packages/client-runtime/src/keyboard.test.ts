@@ -116,8 +116,6 @@ describe("modal keyboard sequences", () => {
       ["t", "p", "thread.pin"],
       ["t", "s", "thread.settle"],
       ["g", "k", "git.commit"],
-      ["g", "t", "flow.next"],
-      ["g", "T", "flow.previous"],
       ["f", "f", "filePicker.toggle"],
       ["f", "s", "projectSearch.toggle"],
     ] as const) {

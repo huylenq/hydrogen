@@ -50,14 +50,6 @@ describe("context-aware modal commands", () => {
     }
   });
 
-  it("allows flow navigation only while the flow is visible", () => {
-    for (const command of ["flow.previous", "flow.next"] as const) {
-      expect(describeModalCommand(command, { ...context, flowOpen: true }).reason).toBeNull();
-      expect(describeModalCommand(command, context).reason).not.toBeNull();
-    }
-    expect(describeModalCommand("left", { ...context, flowOpen: true }).reason).toBeNull();
-  });
-
   it("names reverse actions and keeps thread actions targeted at the open thread", () => {
     const pinned = {
       ...context,

@@ -22,7 +22,6 @@ groups. `?` shows the shortcut reference. Reading a conversation with the keyboa
 | `n` or `a` / `m` / `e` / `r` | New-thread chooser / model / reasoning effort / open and focus changes  |
 | `/` / `,`                    | Switch thread / keyboard settings                                       |
 | `j` / `k` (or `Space`)       | Next/previous Flow card or sidebar item; next/previous reading block    |
-| `gT` / `gt`                  | Open previous/next Flow session in Normal mode                          |
 | `gg` / `G`                   | First/last item; top/bottom of conversation                             |
 | `Enter`                      | Open or toggle the reading cursor's item, else write; open focused item |
 | `w w`                        | Alternate between the previous two navigation areas                     |
@@ -42,7 +41,6 @@ commands. Panel labels identify the active area. In the right-panel tab strip, h
 select tabs and Enter enters their controls; `ctrl+shift+space` returns to the selected tab.
 Pickers restore the control you left when dismissed. Enter on a model or reasoning effort from Normal mode stays in Normal mode.
 
-Use `gT` / `gt` to open the previous/next Flow session immediately, staying in Normal mode.
 Press `s`, type a duration such as `30s`, `15m`, `24h`, or `2d`, and press Enter to snooze the open thread.
 A bare number means minutes. The duration field receives focus immediately; Escape cancels. If the thread is already
 snoozed, `s` wakes it instead.

@@ -117,19 +117,7 @@ export function FlowBar() {
 
   useEffect(() => {
     const executeNavigation = (command: AppCommand) => {
-      const flowNavigation = command === "flow.previous" || command === "flow.next";
-      if (
-        !flowNavigation &&
-        getClientSettings().modalKeyboardEnabled &&
-        useModalKeyboardStore.getState().surface !== "flow"
-      )
-        return false;
-      const direction =
-        command === "flow.previous"
-          ? "previous"
-          : command === "flow.next"
-            ? "next"
-            : threadTraversalDirectionFromCommand(command);
+      const direction = threadTraversalDirectionFromCommand(command);
       const targetIndex = threadJumpIndexFromCommand(command);
       let target = targetIndex !== null ? model.attention[targetIndex]?.thread : undefined;
       if (direction !== null) {

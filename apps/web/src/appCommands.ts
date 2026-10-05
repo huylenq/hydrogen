@@ -2,8 +2,6 @@ import type { KeybindingCommand } from "@t3tools/contracts";
 
 export type AppCommand =
   | KeybindingCommand
-  | "flow.previous"
-  | "flow.next"
   | "thread.snooze"
   | "question.focus"
   | "review.focus"

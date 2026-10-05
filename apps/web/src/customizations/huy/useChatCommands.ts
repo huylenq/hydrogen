@@ -23,9 +23,7 @@ export function useChatCommands(
           command === "question.focus" ||
           command === "rightPanel.enter" ||
           command === "thread.snooze" ||
-          command === "git.commit" ||
-          command === "flow.previous" ||
-          command === "flow.next"
+          command === "git.commit"
         )
           return false;
         return executeCurrent(command, false);

@@ -61,9 +61,6 @@ export const MODAL_COMMANDS = [
   { keys: ["z", "b"], command: "view.bottom", label: "Scroll block to bottom" },
   { keys: ["z", "i"], command: "reading.lamp", label: "Toggle reading lamp" },
   { keys: ["c"], command: "reading.cite", label: "Cite block in composer" },
-  // Like Vim's tab motions: Flow sessions are the open work to cycle through.
-  { keys: ["g", "T"], command: "flow.previous", label: "Open previous Flow session" },
-  { keys: ["g", "t"], command: "flow.next", label: "Open next Flow session" },
   { keys: ["s"], command: "thread.snooze", label: "Snooze / wake open thread" },
   { keys: ["L"], command: "rightPanel.toggle", label: "Toggle right panel" },
   { keys: ["h"], command: "left", label: "Move left / collapse" },

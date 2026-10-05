@@ -59,8 +59,8 @@ These keys work in Normal mode, outside text fields, embedded tools, and open di
 | `1`–`9`   | Select thread as with `Cmd+1`–`Cmd+9`                           |
 | `?`       | Show the complete shortcut reference                            |
 
-Numbers follow the same thread order as the modified shortcuts: the sidebar order, or
-the Flow bar order while the Flow bar has focus. After a jump, the main content gets
+Numbers follow the same thread order as the modified shortcuts: the Flow bar order while
+Flow is on in a thread, otherwise the sidebar order. After a jump, the main content gets
 focus in Normal mode, so another number immediately selects a thread from the sidebar.
 
 Help reflects the current state: it shows **Unpin** for a pinned thread and **Restore**

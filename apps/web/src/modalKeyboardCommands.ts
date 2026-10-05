@@ -50,8 +50,6 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
     "last",
     "next",
     "previous",
-    "flow.previous",
-    "flow.next",
     "left",
     "right",
     "focus.left",
@@ -127,9 +125,6 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
     reason = "Focus the conversation first";
   if (command === "reading.lamp")
     label = context.readingLamp ? "Turn off reading lamp" : "Turn on reading lamp";
-  if (command === "flow.previous" || command === "flow.next") {
-    if (!context.flowOpen) reason = "Enable Flow mode first";
-  }
   if ((command === "next" || command === "previous") && reading)
     label = command === "next" ? "Next block" : "Previous block";
   if (command === "left" || command === "right") {
