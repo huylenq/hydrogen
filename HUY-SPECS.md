@@ -37,6 +37,7 @@ Web and desktop focus mode for working through threads that need attention.
 
 - An overview of waiting threads (oldest first) and a grid of running sessions. Subagent threads are excluded, as in the sidebar; their parent session carries their activity. Opening a session from the grid keeps Flow on and does not reveal the sidebar; Escape from an inspected session returns to the grid.
 - The grid uses the available width with balanced, equal-width rows and supports spatial Vim navigation; grid edges are hard stops (`h` at the left edge does not enter the sidebar). Working-session positions stay stable as activity updates arrive; new sessions sort by creation time, newest first.
+- Grid tiles (`FlowSessionPreview`) show the title, then one line with project, provider icon, model, and effort. The body shows the latest messages as markdown, with user messages in the main chat's right-aligned bubble and no role labels, followed by recent tool activity at message size using the main chat's settled labels (a shell call shows its command).
 - Enabling Flow hides the sidebar; after that the sidebar can be toggled freely and disabling Flow leaves it as is.
 - In Vim Normal mode `gt`/`gT` open the next/previous waiting session, like Vim's tab motions (`[`/`]` belong to `[[`/`]]` section motions).
 - Successful user actions (send, answering approvals/input, settle, snooze, archive, implement plan) advance to the next waiting thread, or back to the grid when none remain.

@@ -9,7 +9,10 @@ import { deriveTimelineEntriesFromVisibleTurnItems } from "../session-logic";
 import { useTheme } from "../hooks/useTheme";
 import { useFlowStore } from "../flowStore";
 import { useEnvironments } from "../state/environments";
-import { useProject, useThreadVisibleTurnItems } from "../state/entities";
+import { useProject, useServerConfigs, useThreadVisibleTurnItems } from "../state/entities";
+import { getProviderInstanceEntry } from "../providerInstances";
+import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
+import { getTriggerDisplayModelLabel } from "./chat/providerIconUtils";
 import { buildThreadRouteParams } from "../threadRoutes";
 import type { FlowBenchEntry } from "./Flow.logic";
 import { ProjectFavicon } from "./ProjectFavicon";
@@ -46,6 +49,18 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
   const { environments } = useEnvironments();
   const environment = environments.find((item) => item.environmentId === thread.environmentId);
   const disconnected = environment?.connection.phase !== "connected";
+  const providers = useServerConfigs().get(thread.environmentId)?.providers;
+  const instanceId = thread.runtime?.providerInstanceId ?? thread.modelSelection.instanceId;
+  const providerEntry = useMemo(
+    () => (providers ? getProviderInstanceEntry(providers, instanceId) : undefined),
+    [providers, instanceId],
+  );
+  const selectedModel = providerEntry?.models.find(
+    (model) => model.slug === thread.modelSelection.model,
+  );
+  const modelLabel = selectedModel
+    ? getTriggerDisplayModelLabel(selectedModel)
+    : thread.modelSelection.model;
   const { messages, activities } = useMemo(() => {
     const entries = deriveTimelineEntriesFromVisibleTurnItems({
       visibleTurnItems,
@@ -105,18 +120,30 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
         {project ? <ProjectFavicon project={project} className="mt-0.5 size-4 shrink-0" /> : null}
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-sm font-medium">{thread.title}</h2>
-          <p className="truncate text-xs text-muted-foreground">
-            {environments.length > 1 ? `${environment?.label ?? "Unknown environment"} · ` : ""}
-            {project?.title ?? "Unknown project"}
-          </p>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {thread.modelSelection.model} ·{" "}
-            {String(
-              thread.modelSelection.options?.find((option) =>
-                ["reasoningEffort", "effort", "reasoning", "variant"].includes(option.id),
-              )?.value ?? "Default effort",
-            )}
-            {disconnected ? " · Disconnected" : ""}
+          <p className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+            <span className="min-w-0 shrink truncate">
+              {environments.length > 1 ? `${environment?.label ?? "Unknown environment"} · ` : ""}
+              {project?.title ?? "Unknown project"}
+            </span>
+            <span aria-hidden>·</span>
+            {providerEntry ? (
+              <ProviderInstanceIcon
+                driverKind={providerEntry.driverKind}
+                displayName={providerEntry.displayName}
+                acpRegistryAgentId={providerEntry.acpRegistryAgentId}
+                acpRegistryIconUrl={providerEntry.acpRegistryIconUrl}
+                iconClassName="size-3 shrink-0"
+              />
+            ) : null}
+            <span className="min-w-0 shrink-[2] truncate">
+              {modelLabel} ·{" "}
+              {String(
+                thread.modelSelection.options?.find((option) =>
+                  ["reasoningEffort", "effort", "reasoning", "variant"].includes(option.id),
+                )?.value ?? "Default effort",
+              )}
+              {disconnected ? " · Disconnected" : ""}
+            </span>
           </p>
         </div>
       </header>
@@ -131,14 +158,14 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
           className="overflow-y-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {messages.map((message) => (
-            <div key={message.id} className="mb-3">
-              <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {message.role === "user"
-                  ? "You"
-                  : message.role === "assistant"
-                    ? "Agent"
-                    : "System"}
-              </p>
+            <div
+              key={message.id}
+              className={
+                message.role === "user"
+                  ? "mb-3 ml-auto w-fit max-w-[80%] rounded-2xl bg-message p-3 text-message-foreground"
+                  : "mb-3"
+              }
+            >
               <ChatMarkdown
                 text={previewMarkdownTail(message.text)}
                 cwd={thread.worktreePath ?? project?.workspaceRoot}
