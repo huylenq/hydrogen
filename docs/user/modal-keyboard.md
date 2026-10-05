@@ -38,26 +38,26 @@ Use `w h` from the conversation to browse the sidebar instead. Enabling Flow hid
 
 These keys work in Normal mode, outside text fields, embedded tools, and open dialogs.
 
-| Key       | Action                                                   |
-| --------- | -------------------------------------------------------- |
-| `H` / `L` | Toggle sidebar / right panel visibility                  |
-| `h` / `l` | Move within the current area; sections in a conversation |
-| `Esc`     | Focus Conversation or show Flow grid                     |
-| `Space`   | Same as `j`; `Shift+Space` is the same as `k`            |
-| `q`       | Open and focus Flow bar                                  |
-| `F`       | Toggle Flow mode                                         |
-| `i`       | Focus composer                                           |
-| `n`       | Open the new-thread chooser                              |
-| `a`       | Open the new-thread chooser                              |
-| `A`       | Expand and focus the pending question                    |
-| `z i`     | Turn the reading lamp on or off                          |
-| `c`       | Cite the reading cursor's block in the composer          |
-| `m` / `e` | Choose a model / reasoning effort                        |
-| `r`       | Open and focus review changes                            |
-| `/`       | Search and switch threads                                |
-| `,`       | Open keyboard settings                                   |
-| `1`–`9`   | Select thread as with `Cmd+1`–`Cmd+9`                    |
-| `?`       | Show the complete shortcut reference                     |
+| Key       | Action                                                          |
+| --------- | --------------------------------------------------------------- |
+| `H` / `L` | Toggle sidebar / right panel visibility                         |
+| `h` / `l` | Move within the current area; collapse/expand in a conversation |
+| `Esc`     | Focus Conversation or show Flow grid                            |
+| `Space`   | Same as `j`; `Shift+Space` is the same as `k`                   |
+| `q`       | Open and focus Flow bar                                         |
+| `F`       | Toggle Flow mode                                                |
+| `i`       | Focus composer                                                  |
+| `n`       | Open the new-thread chooser                                     |
+| `a`       | Open the new-thread chooser                                     |
+| `A`       | Expand and focus the pending question                           |
+| `z i`     | Turn the reading lamp on or off                                 |
+| `c`       | Cite the reading cursor's block in the composer                 |
+| `m` / `e` | Choose a model / reasoning effort                               |
+| `r`       | Open and focus review changes                                   |
+| `/`       | Search and switch threads                                       |
+| `,`       | Open keyboard settings                                          |
+| `1`–`9`   | Select thread as with `Cmd+1`–`Cmd+9`                           |
+| `?`       | Show the complete shortcut reference                            |
 
 Numbers follow the same thread order as the modified shortcuts: the sidebar order, or
 the Flow bar order while the Flow bar has focus. After a jump, the main content gets
@@ -113,17 +113,20 @@ also cancel it.
 
 ## Move and read
 
-| Keys                                   | Flow bar             | Sidebar              | Conversation                           |
-| -------------------------------------- | -------------------- | -------------------- | -------------------------------------- |
-| `j` / `k` (or `Space` / `Shift+Space`) | Next / previous card | Next / previous item | Next / previous block                  |
-| `h` / `l` (or arrows)                  | Previous / next card |                      | Previous / next section                |
-| `Ctrl+j` / `Ctrl+k`                    |                      |                      | Scroll down / up                       |
-| `gg` / `G`                             | First / last card    | First / last item    | Top / bottom                           |
-| `J` / `K`                              |                      |                      | Next / previous message you sent       |
-| `zt` / `zz` / `zb`                     |                      |                      | Scroll block to top / center / bottom  |
-| `Enter`                                | Open focused thread  | Open focused item    | Use the focused control's usual action |
+| Keys                                   | Flow bar             | Sidebar              | Conversation                            |
+| -------------------------------------- | -------------------- | -------------------- | --------------------------------------- |
+| `j` / `k` (or `Space` / `Shift+Space`) | Next / previous card | Next / previous item | Next / previous block                   |
+| `h` / `l` (or arrows)                  | Previous / next card |                      | Collapse / expand (files, folds, tools) |
+| `[[` / `]]`                            |                      |                      | Previous / next section                 |
+| `Ctrl+j` / `Ctrl+k`                    |                      |                      | Scroll down / up                        |
+| `gg` / `G`                             | First / last card    | First / last item    | Top / bottom                            |
+| `J` / `K`                              |                      |                      | Next / previous message you sent        |
+| `zt` / `zz` / `zb`                     |                      |                      | Scroll block to top / center / bottom   |
+| `Enter`                                | Open focused thread  | Open focused item    | Use the focused control's usual action  |
 
-In a conversation, a block is a paragraph, heading, list item, table, or code block of an answer, or any other timeline entry. Sections start at each message, at headings, and at paragraphs or list items that open in bold; when `h` or `l` stops, the heading or bold text that made it a section briefly lights up. The reading cursor marks your place: a bar beside the block you are on, or a highlighted border around a message you sent. The page stays still while it moves through the middle of the screen; before it gets within a fifth of the top or bottom, the conversation scrolls a little under half a screen toward where you are reading, so your place never sits at an edge. The block brightens as it moves so you can follow it. A quick step back scrolls only as far as it needs, so the block you left stays in view. A block taller than the window scrolls half a screen at a time before `j` moves on. `k`, `h`, and `K` first return to the start of the block, section, or message you are partway through. Your first `j` or `k` shows the reading cursor on the first block that starts on screen. `Ctrl+j` and `Ctrl+k` scroll only when no other shortcut uses them; on Windows and Linux they open the terminal and command palette unless you change those.
+In a conversation, a block is a paragraph, heading, list item, table, or code block of an answer, the header and each folder or file of the changed-files card after it, or any other timeline entry. Sections start at each message, at headings, at paragraphs or list items that open in bold, and at a changed-files card; when `[[` or `]]` stops, the heading or bold text that made it a section briefly lights up. The reading cursor marks your place: a bar beside the block you are on, or a highlighted border around a message you sent. The page stays still while it moves through the middle of the screen; before it gets within a fifth of the top or bottom, the conversation scrolls a little under half a screen toward where you are reading, so your place never sits at an edge. The block brightens as it moves so you can follow it. A quick step back scrolls only as far as it needs, so the block you left stays in view. A block taller than the window scrolls half a screen at a time before `j` moves on. `k`, `[[`, and `K` first return to the start of the block, section, or message you are partway through. Your first `j` or `k` shows the reading cursor on the first block that starts on screen. `Ctrl+j` and `Ctrl+k` scroll only when no other shortcut uses them; on Windows and Linux they open the terminal and command palette unless you change those.
+
+With the reading cursor in a changed-files card, `h` and `l` work like a file tree: `l` opens a file's diff, expands a folder or steps into an open one, and on the card's header opens the turn's full diff; `h` collapses an open folder or steps out to the folder above, then the header. A finished turn's "Worked for …" fold and a group of tool calls such as "Ran 3 commands" work the same way: `l` expands one and then steps into what it reveals, and `h` collapses it. Inside an open group, `j` and `k` move from call to call, `l` and `h` show and hide a call's output, and `h` on a call steps back to the group. `h` from anything inside an open "Worked for …" fold steps back out to it. `Enter` opens or toggles whatever the cursor is on. Elsewhere in a conversation, `Enter` moves to the composer.
 
 As in Vim, `zt`, `zz`, and `zb` scroll the conversation so the reading cursor's block sits near the top, in the middle, or near the bottom.
 

@@ -6,6 +6,7 @@ import type { AssistantCitationSourceAnchor } from "../../lib/assistantTextSelec
 import type { ModalThreadContext } from "../../modalKeyboardCommands";
 import { showModalFeedback, useModalKeyboardStore } from "../../modalKeyboardStore";
 import { captureBlockCitation } from "./readingCite";
+import { toolGroupList } from "./toolGroupLists";
 import {
   flashReadingMarker,
   markReadingCursor,
@@ -14,11 +15,19 @@ import {
 } from "./readingCursor";
 import {
   collectReadingStops,
+  findReadingStop,
   findReadingStopElement,
+  ROW_START_BLOCK,
   readingAnchor,
   readingPlacementLine,
+  readingStopControl,
+  readingStopRect,
+  readingTreeMotion,
   readingView,
   resolveReadingStep,
+  rowReadingStops,
+  toolCallBlock,
+  toolCallIndex,
   visibleReadingStops,
   type ReadingDirection,
   type ReadingEdge,
@@ -52,14 +61,22 @@ const TIMELINE_COMMANDS = [
   "view.center",
   "view.bottom",
   "cite",
+  "activate",
+  "tree.in",
+  "tree.out",
 ] as const;
 export type TimelineCommand = (typeof TIMELINE_COMMANDS)[number];
 
 const TIMELINE_COMMAND_EVENT = "t3code:modal-timeline-command";
 
-/** The open conversation owns scrolling and follow state, so Vim commands reach it by event. */
-export function dispatchTimelineCommand(command: TimelineCommand): void {
-  window.dispatchEvent(new CustomEvent(TIMELINE_COMMAND_EVENT, { detail: command }));
+/**
+ * The open conversation owns scrolling and follow state, so Vim commands reach it by event.
+ * Returns whether the conversation acted on the command.
+ */
+export function dispatchTimelineCommand(command: TimelineCommand): boolean {
+  return !window.dispatchEvent(
+    new CustomEvent(TIMELINE_COMMAND_EVENT, { detail: command, cancelable: true }),
+  );
 }
 
 const MOTIONS: Partial<
@@ -98,6 +115,8 @@ type Pace = keyof typeof PACES;
 // Input that scrolls the timeline directly, as opposed to its own glides and layout shifts.
 const USER_SCROLL_EVENTS = ["wheel", "touchstart", "pointerdown"] as const;
 const enabled = () => getClientSettings().modalKeyboardEnabled;
+/** Room kept between a tool call and its group scroller's edges (its edge fades and scroll padding). */
+const TOOL_GROUP_EDGE = 24;
 const lampOn = () => useReadingLampStore.getState().on;
 
 /** The chat publishes capabilities and timeline access; modal policy stays outside ChatView. */
@@ -184,7 +203,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
     const watch = (node: HTMLElement | null) => {
       if (watched?.node === node) return;
       if (watched) {
-        watched.node.removeEventListener("scroll", schedule);
+        watched.node.removeEventListener("scroll", schedule, { capture: true });
         for (const type of USER_SCROLL_EVENTS)
           watched.node.removeEventListener(type, noteUserInput);
         watched.observer.disconnect();
@@ -193,17 +212,60 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       if (!node) return;
       const observer = new MutationObserver(schedule);
       observer.observe(node, { childList: true, subtree: true });
-      node.addEventListener("scroll", schedule, { passive: true });
+      // Captured, so a tool group scrolling inside the timeline is followed too.
+      node.addEventListener("scroll", schedule, { capture: true, passive: true });
       for (const type of USER_SCROLL_EVENTS)
         node.addEventListener(type, noteUserInput, { passive: true });
       watched = { node, observer };
     };
     const showCursor = (node: HTMLElement) => {
       const lamp = enabled() && lampOn();
-      const element = cursor && enabled() ? findReadingStopElement(node, cursor) : null;
+      const found = cursor && enabled() ? findReadingStop(node, cursor) : null;
+      // A row entered at its start takes the name of the stop it turned out to start with.
+      if (cursor && found && found.block !== cursor.block)
+        cursor = { key: `${cursor.rowId}#${found.block}`, rowId: cursor.rowId, block: found.block };
+      const element = found?.element ?? null;
       markReadingCursor(element ? node : null, element, lamp);
       watch(cursor || lamp ? node : null);
     };
+    /**
+     * A tool call scrolls into view inside its group's own scroller first, clear of the scroller's
+     * edge fades, so the timeline then scrolls to where it actually shows.
+     */
+    const showInToolGroup = (node: HTMLElement) => {
+      const element = cursor ? findReadingStopElement(node, cursor) : null;
+      const scroller = element?.closest<HTMLElement>("[data-tool-group-scroll]");
+      if (!element || !scroller) return;
+      const box = scroller.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+      const margin = Math.min(TOOL_GROUP_EDGE, box.height / 4);
+      if (rect.top < box.top + margin || rect.height > box.height - 2 * margin)
+        scroller.scrollTop += rect.top - box.top - margin;
+      else if (rect.bottom > box.bottom - margin)
+        scroller.scrollTop += rect.bottom - box.bottom + margin;
+    };
+    /**
+     * A tool group renders only the calls near its view. Stepping to a neighbor it has not
+     * rendered yet asks the group's list to render it; true while that is underway.
+     */
+    const renderNeighborCall = (node: HTMLElement, direction: ReadingDirection) => {
+      const index = cursor ? toolCallIndex(cursor.block) : null;
+      if (!cursor || index === null) return false;
+      const row = node.querySelector(`[data-timeline-row-id="${CSS.escape(cursor.rowId)}"]`);
+      const scroller = row?.querySelector("[data-tool-group-scroll]");
+      const calls = scroller ? toolGroupList(scroller) : null;
+      const neighbor = index + (direction === "next" ? 1 : -1);
+      if (!calls || neighbor < 0 || neighbor >= calls.getState().data.length) return false;
+      if (findReadingStop(node, { rowId: cursor.rowId, block: toolCallBlock(neighbor) }))
+        return false;
+      void calls.scrollToIndex({
+        index: neighbor,
+        animated: false,
+        viewPosition: direction === "next" ? 1 : 0,
+      });
+      return true;
+    };
+    let neighborCallFrames = 0;
     /** Where reading starts without a cursor: the first block that begins on screen. */
     const anchor = (list: LegendListRef, node: HTMLElement) => {
       const rect = node.getBoundingClientRect();
@@ -223,7 +285,11 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
           const nodeTop = node.getBoundingClientRect().top;
           const view = readingView(nodeTop, node.clientHeight, composerInset(node));
           const rect = element.getBoundingClientRect();
-          if (rect.bottom <= view.top || rect.top >= view.bottom) cursor = null;
+          // A tool call scrolled out of its group's own scroller is gone too.
+          const group = element.closest("[data-tool-group-scroll]")?.getBoundingClientRect();
+          const top = Math.max(view.top, group?.top ?? -Infinity);
+          const bottom = Math.min(view.bottom, group?.bottom ?? Infinity);
+          if (rect.bottom <= top || rect.top >= bottom) cursor = null;
         } else cursor = null;
         if (!cursor) trajectory = null;
         if (!cursor && enabled() && lampOn()) cursor = anchor(list, node);
@@ -343,7 +409,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       const measured = () => {
         const element = findReadingStopElement(node, stop);
         if (element) {
-          const rect = element.getBoundingClientRect();
+          const rect = readingStopRect(element);
           const top = rect.top - node.getBoundingClientRect().top + node.scrollTop;
           return top + rect.height * EDGE_SHARE[edge];
         }
@@ -402,6 +468,17 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
         });
         return { step, cursorIndex };
       };
+      // The step waits a few frames for a tool call its group is rendering, then goes on without.
+      if (
+        granularity === "block" &&
+        neighborCallFrames < 4 &&
+        renderNeighborCall(node, direction)
+      ) {
+        neighborCallFrames += 1;
+        requestAnimationFrame(() => move(list, node, granularity, direction));
+        return;
+      }
+      neighborCallFrames = 0;
       // Block steps stay within the mounted rows, so they skip walking the whole list unless
       // they reach its edge; jumps may need rows that are not mounted.
       let { stops, origin } = collectReadingStops(list, node, granularity !== "block");
@@ -417,7 +494,8 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       if (step.kind === "page") return glideBy(node, step.distance, pace);
       const target = stops[step.index]!;
       cursor = target;
-      // `h`/`l` show why their target is a section, scrolled to or not.
+      showInToolGroup(node);
+      // `[[`/`]]` show why their target is a section, scrolled to or not.
       const cue = granularity === "section" ? flashReadingMarker : pulseReadingCursor;
       if (step.kind === "land")
         land(list, node, target, origin, step.edge, step.line - base, pace, cue);
@@ -436,7 +514,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       const offset =
         readingPlacementLine(readingView(base, node.clientHeight, composerInset(node)), edge) -
         base;
-      const rect = element.getBoundingClientRect();
+      const rect = readingStopRect(element);
       const edgeAt =
         rect.top -
         node.getBoundingClientRect().top +
@@ -458,12 +536,75 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       if ("reason" in captured) return showModalFeedback(captured.reason);
       insertCitation(captured.citation, captured.anchor);
     };
+    /**
+     * Moves the cursor to a stop, scrolling only as far as it takes to show it. A stop whose row is
+     * not mounted lands at the top from the list's estimate.
+     */
+    const reveal = (
+      list: LegendListRef,
+      node: HTMLElement,
+      stop: Pick<ReadingStop, "key" | "rowId" | "block">,
+    ) => {
+      trajectory = null;
+      cursor = stop;
+      showInToolGroup(node);
+      const base = scrollBase(node);
+      const view = readingView(base, node.clientHeight, composerInset(node));
+      const element = findReadingStopElement(node, stop);
+      let edge: ReadingEdge | null = "top";
+      if (element) {
+        const rect = readingStopRect(element);
+        const top = rect.top - node.getBoundingClientRect().top + node.scrollTop;
+        edge = top < view.top ? "top" : top + rect.height > view.bottom ? "bottom" : null;
+      }
+      if (!edge) {
+        showCursor(node);
+        return pulseReadingCursor();
+      }
+      currentTimeline.current.beforeScroll(edge === "top" ? "away-from-end" : "toward-end");
+      const offset = readingPlacementLine(view, edge) - base;
+      const origin = element ? null : collectReadingStops(list, node, false).origin;
+      land(list, node, stop, origin, edge, offset, "quick", pulseReadingCursor);
+    };
+    /** `h`/`l` on what folds (a changed-files card, a turn fold): open, close, step in or out. */
+    const tree = (event: Event, motion: "in" | "out") => {
+      const timeline = timelineNode();
+      const element = timeline && cursor ? findReadingStopElement(timeline.node, cursor) : null;
+      const action = element ? readingTreeMotion(element, motion) : null;
+      if (!timeline || !action) return;
+      event.preventDefault();
+      if (action.kind === "click") return action.control.click();
+      if (action.kind === "none") return;
+      const { list, node } = timeline;
+      if (action.kind === "next") {
+        currentTimeline.current.beforeScroll("toward-end");
+        return move(list, node, "block", "next");
+      }
+      const row = action.element?.closest<HTMLElement>("[data-timeline-row-id]");
+      const block = row
+        ? rowReadingStops(row).find((stop) => stop.element === action.element)?.block
+        : ROW_START_BLOCK;
+      if (block === undefined) return;
+      reveal(list, node, { key: `${action.rowId}#${block}`, rowId: action.rowId, block });
+    };
+    /** Enter on a stop with a control, such as a changed file, clicks it. */
+    const activate = (event: Event) => {
+      const node = timelineNode()?.node;
+      const element = node && cursor ? findReadingStopElement(node, cursor) : null;
+      const control = element ? readingStopControl(element) : null;
+      if (!control) return;
+      event.preventDefault();
+      control.click();
+    };
     const onCommand = (event: Event) => {
       if (!enabled()) return;
       const detail: unknown = (event as CustomEvent<unknown>).detail;
       const command = TIMELINE_COMMANDS.find((candidate) => candidate === detail);
       if (!command) return;
       if (command === "cite") return cite();
+      if (command === "activate") return activate(event);
+      if (command === "tree.in" || command === "tree.out")
+        return tree(event, command === "tree.in" ? "in" : "out");
       const timeline = timelineNode();
       if (!timeline) return;
       const { list, node } = timeline;

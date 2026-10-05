@@ -62,7 +62,7 @@
   }
 }
 
-/* h/l highlight what made their target a section, its heading or bold lead, like a cited
+/* [[ and ]] highlight what made their target a section, its heading or bold lead, like a cited
    quote. Scripts animate the inherited strength. */
 @property --reading-marker-opacity {
   syntax: "<number>";

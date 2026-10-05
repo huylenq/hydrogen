@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vite-plus/test";
 import {
+  findReadingStopElement,
+  readingTreeMotion,
   readingAnchor,
   readingJumpIndex,
   readingPlacementLine,
   readingSectionMarker,
+  readingStopControl,
   resolveReadingStep,
   rowReadingStops,
 } from "./readingStops";
@@ -61,17 +64,241 @@ describe("rowReadingStops", () => {
     expect(stops.some((stop) => stop.turn)).toBe(false);
   });
 
+  it("ends an answer with its changed-files card, read header first and then row by row", () => {
+    const answer = row(
+      "message",
+      `<div class="chat-markdown"><p>Done.</p></div>
+      <div data-changed-files-state="tree">
+        <div data-changed-files-header>2 changed files<button data-changed-files-open>Open diff</button></div>
+        <div>
+          <div><button data-changed-files-entry="directory" data-changed-files-path="src">src</button>
+            <div><button data-changed-files-entry="file" data-changed-files-path="src/a.ts">a.ts</button></div>
+          </div>
+          <button data-changed-files-entry="file" data-changed-files-path="README.md">README.md</button>
+        </div>
+      </div>`,
+      "assistant",
+    );
+    const stops = rowReadingStops(answer);
+    expect(stops.map((stop) => stop.element.textContent?.trim())).toEqual([
+      "Done.",
+      "2 changed filesOpen diff",
+      "src",
+      "a.ts",
+      "README.md",
+    ]);
+    expect(stops.map((stop) => stop.section)).toEqual([true, true, false, false, false]);
+    // Enter clicks the file or folder itself, and the header's full-diff button.
+    expect(stops.map((stop) => readingStopControl(stop.element)?.textContent)).toEqual([
+      undefined,
+      "Open diff",
+      "src",
+      "a.ts",
+      "README.md",
+    ]);
+  });
+
+  it("keeps the cursor on its file when a folder above it opens or closes", () => {
+    const answer = row(
+      "message",
+      `<div class="chat-markdown"><p>Done.</p></div>
+      <div data-changed-files-state="tree">
+        <div data-changed-files-header>2 changed files</div>
+        <div>
+          <div data-changed-files-folder>
+            <button data-changed-files-entry="directory" data-changed-files-path="src">src</button>
+          </div>
+          <button data-changed-files-entry="file" data-changed-files-path="README.md">README.md</button>
+        </div>
+      </div>`,
+      "assistant",
+    );
+    const timeline = document.createElement("div");
+    timeline.append(answer);
+    const readme = answer.querySelector<HTMLElement>('[data-changed-files-path="README.md"]')!;
+    const cursor = {
+      rowId: "message-row",
+      block: rowReadingStops(answer).find((stop) => stop.element === readme)!.block,
+    };
+    // Opening `src` shows its file above README.md.
+    answer
+      .querySelector("[data-changed-files-folder]")!
+      .insertAdjacentHTML(
+        "beforeend",
+        `<div><button data-changed-files-entry="file" data-changed-files-path="src/a.ts">a.ts</button></div>`,
+      );
+    expect(findReadingStopElement(timeline, cursor)).toBe(readme);
+  });
+
   it("keeps user messages and other rows whole, and skips assistant metadata", () => {
     const user = row("message", `<div class="chat-markdown"><p>a</p><p>b</p></div>`, "user");
-    expect(rowReadingStops(user)).toEqual([{ element: user, section: true, turn: true }]);
+    expect(rowReadingStops(user)).toEqual([
+      { element: user, section: true, turn: true, block: "0" },
+    ]);
     const work = row("work", "<p>Read file</p>");
-    expect(rowReadingStops(work)).toEqual([{ element: work, section: false, turn: false }]);
+    expect(rowReadingStops(work)).toEqual([
+      { element: work, section: false, turn: false, block: "0" },
+    ]);
     expect(rowReadingStops(row("assistant-meta", "<button>Copy</button>"))).toEqual([]);
+  });
+
+  it("reads an expanded tool group call by call, by list index, skipping parked rows", () => {
+    const group = row(
+      "work",
+      `<div data-tool-group-scroll>
+        <div data-work-entry-index="3">ls</div>
+        <div data-work-entry-index="2">cat</div>
+        <div data-work-entry-index="9" class="parked">stale</div>
+      </div>`,
+    );
+    const parked = group.querySelector<HTMLElement>(".parked")!;
+    parked.getBoundingClientRect = () => ({ top: -1e7 }) as DOMRect;
+    const stops = rowReadingStops(group);
+    expect(stops.map((stop) => [stop.element.textContent, stop.block])).toEqual([
+      ["cat", "call:2"],
+      ["ls", "call:3"],
+    ]);
   });
 });
 
 // user, assistant, work, user, assistant, user
 const turns = [true, false, false, true, false, true];
+
+describe("readingTreeMotion", () => {
+  const card = () => {
+    const answer = row(
+      "message",
+      `<div data-changed-files-state="tree">
+        <div data-changed-files-header><button data-changed-files-open>Open diff</button></div>
+        <div>
+          <div data-changed-files-folder>
+            <button data-changed-files-entry="directory" data-changed-files-path="src" aria-expanded="true">src</button>
+            <div>
+              <div data-changed-files-folder>
+                <button data-changed-files-entry="directory" data-changed-files-path="src/lib" aria-expanded="false">lib</button>
+              </div>
+              <button data-changed-files-entry="file" data-changed-files-path="src/a.ts">a.ts</button>
+            </div>
+          </div>
+          <button data-changed-files-entry="file" data-changed-files-path="README.md">README.md</button>
+        </div>
+      </div>`,
+      "assistant",
+    );
+    const entry = (name: string) =>
+      [...answer.querySelectorAll<HTMLElement>("[data-changed-files-entry]")].find(
+        (node) => node.textContent === name,
+      )!;
+    const header = answer.querySelector<HTMLElement>("[data-changed-files-header]")!;
+    return { answer, entry, header };
+  };
+  const moveTo = (element: HTMLElement) => ({ kind: "move", rowId: "message-row", element });
+
+  it("opens with l: files and the header click, folders expand, open folders step in", () => {
+    const { entry, header } = card();
+    expect(readingTreeMotion(entry("a.ts"), "in")).toEqual({
+      kind: "click",
+      control: entry("a.ts"),
+    });
+    expect(readingTreeMotion(entry("lib"), "in")).toEqual({
+      kind: "click",
+      control: entry("lib"),
+    });
+    expect(readingTreeMotion(entry("src"), "in")).toEqual(moveTo(entry("lib")));
+    expect(readingTreeMotion(header, "in")).toEqual({
+      kind: "click",
+      control: header.querySelector("[data-changed-files-open]"),
+    });
+  });
+
+  it("closes with h: open folders collapse, everything else steps out to its folder", () => {
+    const { entry, header } = card();
+    expect(readingTreeMotion(entry("src"), "out")).toEqual({
+      kind: "click",
+      control: entry("src"),
+    });
+    expect(readingTreeMotion(entry("a.ts"), "out")).toEqual(moveTo(entry("src")));
+    expect(readingTreeMotion(entry("lib"), "out")).toEqual(moveTo(entry("src")));
+    expect(readingTreeMotion(entry("README.md"), "out")).toEqual(moveTo(header));
+    expect(readingTreeMotion(header, "out")).toEqual({ kind: "none" });
+  });
+
+  it("expands a turn fold with l and steps into it once open; h collapses it", () => {
+    const fold = (expanded: boolean) =>
+      row("turn-fold", `<button aria-expanded="${expanded}">Worked</button>`);
+    const closed = fold(false);
+    const toggle = closed.querySelector<HTMLElement>("button");
+    expect(readingTreeMotion(closed, "in")).toEqual({ kind: "click", control: toggle });
+    expect(readingTreeMotion(closed, "out")).toEqual({ kind: "none" });
+    const open = fold(true);
+    expect(readingTreeMotion(open, "in")).toEqual({ kind: "next" });
+    expect(readingTreeMotion(open, "out")).toEqual({
+      kind: "click",
+      control: open.querySelector("button"),
+    });
+  });
+
+  it("steps h out to the turn fold from anything the fold reveals, header included", () => {
+    const inner = row("message", `<div class="chat-markdown"><p>Checking.</p></div>`, "assistant");
+    inner.dataset.turnFold = "run-1";
+    const out = { kind: "move", rowId: "turn-fold:run-1", element: null };
+    expect(readingTreeMotion(inner.querySelector("p")!, "out")).toEqual(out);
+    expect(readingTreeMotion(inner.querySelector("p")!, "in")).toBeNull();
+    const { answer, header } = card();
+    answer.dataset.turnFold = "run-1";
+    expect(readingTreeMotion(header, "out")).toEqual(out);
+  });
+
+  it("opens and closes tool groups and tool calls, stepping out of a call to its group", () => {
+    const header = (expanded: boolean) =>
+      row("work-toggle", `<button aria-expanded="${expanded}">Ran 3 commands</button>`);
+    const closed = header(false);
+    expect(readingTreeMotion(closed, "in")).toEqual({
+      kind: "click",
+      control: closed.querySelector("button"),
+    });
+    const open = header(true);
+    expect(readingTreeMotion(open, "in")).toEqual({ kind: "next" });
+    expect(readingTreeMotion(open, "out")).toEqual({
+      kind: "click",
+      control: open.querySelector("button"),
+    });
+    const group = row(
+      "work",
+      `<div data-tool-group-scroll>
+        <div data-work-entry-index="0"><div role="button" aria-expanded="false">ls</div></div>
+        <div data-work-entry-index="1"><div role="button" aria-expanded="true">cat</div></div>
+        <div data-work-entry-index="2"><div>note</div></div>
+      </div>`,
+    );
+    group.dataset.toolGroupHeader = "work-toggle:w";
+    const toHeader = { kind: "move", rowId: "work-toggle:w", element: null };
+    const [closedCall, openCall, plainCall] = rowReadingStops(group).map((stop) => stop.element);
+    expect(readingTreeMotion(closedCall!, "in")).toEqual({
+      kind: "click",
+      control: closedCall!.firstElementChild,
+    });
+    expect(readingTreeMotion(closedCall!, "out")).toEqual(toHeader);
+    expect(readingTreeMotion(openCall!, "in")).toEqual({ kind: "none" });
+    expect(readingTreeMotion(openCall!, "out")).toEqual({
+      kind: "click",
+      control: openCall!.firstElementChild,
+    });
+    expect(readingTreeMotion(plainCall!, "out")).toEqual(toHeader);
+    // A lone tool call opens and closes its output in place.
+    const single = row("work", `<div role="button" aria-expanded="true">Read file</div>`);
+    expect(readingTreeMotion(single, "in")).toEqual({ kind: "none" });
+    expect(readingTreeMotion(single, "out")).toEqual({
+      kind: "click",
+      control: single.firstElementChild,
+    });
+  });
+
+  it("does nothing elsewhere", () => {
+    expect(readingTreeMotion(document.createElement("p"), "in")).toBeNull();
+    expect(readingTreeMotion(document.createElement("p"), "out")).toBeNull();
+  });
+});
 
 describe("readingJumpIndex", () => {
   it("moves to the next eligible stop after the reading line", () => {

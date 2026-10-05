@@ -1343,6 +1343,15 @@ describe("deriveMessagesTimelineRows", () => {
     expect(
       expandedRows.find((row) => row.kind === "turn-fold" && row.expanded === true),
     ).toBeDefined();
+    // Rows the open fold reveals know their fold; the fold and the final answer do not.
+    expect(expandedRows.map((row) => row.turnFoldRunId)).toEqual([
+      undefined,
+      undefined,
+      "turn-1",
+      "turn-1",
+      undefined,
+    ]);
+    expect(collapsedRows.every((row) => row.turnFoldRunId === undefined)).toBe(true);
   });
 
   it.each([1, 2, 3])("folds %i completed activities after the terminal response", (count) => {
@@ -2895,6 +2904,8 @@ describe("deriveMessagesTimelineRows", () => {
     expect(expandedRows.find((row) => row.kind === "work")).toMatchObject({
       isExpandedToolGroup: true,
       groupedEntries: timelineEntries.map(({ entry }) => entry),
+      // The calls point back to the header that opened them.
+      groupHeaderRowId: "work-toggle:work-entry-1",
     });
     expect(expandedRows.find((row) => row.kind === "work-toggle")).toMatchObject({
       expanded: true,
@@ -3590,6 +3601,138 @@ describe("v2 run and attempt history", () => {
       "assistant-final-entry",
     ]);
   });
+  it("tags rows an open turn fold reveals, superseded-attempt folds and tool calls included", () => {
+    const runId = "run-steered" as never;
+    const supersededAttemptId = "attempt-1" as never;
+    const activeAttemptId = "attempt-2" as never;
+    const supersededAttempt = {
+      id: supersededAttemptId,
+      runId,
+      attemptOrdinal: 1,
+      rootNodeId: "node-attempt-1" as never,
+      status: "superseded" as const,
+    };
+    const activeAttempt = {
+      id: activeAttemptId,
+      runId,
+      attemptOrdinal: 2,
+      rootNodeId: "node-attempt-2" as never,
+      status: "completed" as const,
+    };
+    const timelineEntries = [
+      {
+        id: "initial-user-entry",
+        kind: "message" as const,
+        createdAt: "2026-01-01T00:00:00Z",
+        attempt: supersededAttempt,
+        message: {
+          id: "initial-user" as never,
+          role: "user" as const,
+          text: "Build it",
+          runId,
+          inputIntent: "turn_start" as const,
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          streaming: false,
+        },
+      },
+      {
+        id: "superseded-assistant-entry",
+        kind: "message" as const,
+        createdAt: "2026-01-01T00:00:02Z",
+        attempt: supersededAttempt,
+        message: {
+          id: "superseded-assistant" as never,
+          role: "assistant" as const,
+          text: "Partial old response",
+          runId,
+          createdAt: "2026-01-01T00:00:02Z",
+          updatedAt: "2026-01-01T00:00:03Z",
+          streaming: false,
+        },
+      },
+      {
+        id: "superseded-work-entry",
+        kind: "work" as const,
+        createdAt: "2026-01-01T00:00:04Z",
+        attempt: supersededAttempt,
+        entry: {
+          id: "superseded-work",
+          createdAt: "2026-01-01T00:00:04Z",
+          runId,
+          label: "Old command",
+          tone: "tool" as const,
+        },
+      },
+      {
+        id: "superseded-thread-created-entry",
+        kind: "event" as const,
+        createdAt: "2026-01-01T00:00:04.500Z",
+        attempt: supersededAttempt,
+        projectedItem: {
+          item: {
+            type: "thread_created",
+          },
+        } as never,
+      },
+      {
+        id: "steer-user-entry",
+        kind: "message" as const,
+        createdAt: "2026-01-01T00:00:05Z",
+        attempt: activeAttempt,
+        message: {
+          id: "steer-user" as never,
+          role: "user" as const,
+          text: "Change direction",
+          runId,
+          inputIntent: "steer" as const,
+          createdAt: "2026-01-01T00:00:05Z",
+          updatedAt: "2026-01-01T00:00:05Z",
+          streaming: false,
+        },
+      },
+      {
+        id: "active-assistant-entry",
+        kind: "message" as const,
+        createdAt: "2026-01-01T00:00:06Z",
+        attempt: activeAttempt,
+        message: {
+          id: "active-assistant" as never,
+          role: "assistant" as const,
+          text: "Current response",
+          runId,
+          createdAt: "2026-01-01T00:00:06Z",
+          updatedAt: "2026-01-01T00:00:07Z",
+          streaming: false,
+        },
+      },
+    ];
+    const rows = deriveMessagesTimelineRows({
+      timelineEntries,
+      latestRun: {
+        runId,
+        status: "completed" as const,
+        startedAt: "2026-01-01T00:00:00Z",
+        completedAt: "2026-01-01T00:00:08Z",
+      },
+      expandedRunIds: new Set([runId]),
+      expandedAttemptIds: new Set([supersededAttemptId]),
+      isWorking: false,
+      turnDiffSummaries: [],
+      supportsConversationRollback: false,
+    });
+    expect(rows.map((row) => [row.id, row.turnFoldRunId ?? null])).toEqual([
+      ["initial-user-entry", null],
+      ["turn-fold:run-steered", null],
+      ["attempt-fold:attempt-1", "run-steered"],
+      ["superseded-assistant-entry", "run-steered"],
+      ["superseded-work-entry", "run-steered"],
+      ["superseded-thread-created-entry", null],
+      ["steer-user-entry", null],
+      ["active-assistant-entry", null],
+    ]);
+  });
+
   it("collapses only output from a superseded V2 attempt within the active logical run", () => {
     const runId = "run-steered" as never;
     const supersededAttemptId = "attempt-1" as never;

@@ -115,9 +115,16 @@ describe("context-aware modal commands", () => {
       reason: null,
     });
     expect(describeModalCommand("left", context)).toMatchObject({
-      label: "Previous section",
+      label: "Collapse / step out",
       reason: null,
     });
+    expect(describeModalCommand("section.next", context)).toMatchObject({
+      label: "Next section",
+      reason: null,
+    });
+    expect(describeModalCommand("section.next", { ...context, surface: "sidebar" }).reason).toBe(
+      "Focus the conversation first",
+    );
     expect(describeModalCommand("next", context).label).toBe("Next block");
     expect(describeModalCommand("left", { ...context, surface: "rightPanel" })).toMatchObject({
       label: "Previous panel tab",

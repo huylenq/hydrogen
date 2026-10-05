@@ -46,6 +46,8 @@ export interface ResizableWidthHandlers {
 export function useResizableWidth(options: UseResizableWidthOptions): {
   readonly width: number;
   readonly handlers: ResizableWidthHandlers;
+  /** Grows (or, with a negative delta, shrinks) the panel within its bounds and persists it. */
+  readonly resizeBy: (delta: number) => void;
 } {
   const { storageKey, defaultWidth, minWidth, maxWidth, edge } = options;
 
@@ -75,10 +77,28 @@ export function useResizableWidth(options: UseResizableWidthOptions): {
   }
 
   const clampedWidth = clamp(widthState.width);
-  const latestOptions = useRef({ clamp, storageKey });
+  const latestOptions = useRef({ clamp, storageKey, width: clampedWidth });
   useLayoutEffect(() => {
-    latestOptions.current = { clamp, storageKey };
-  }, [clamp, storageKey]);
+    latestOptions.current = { clamp, storageKey, width: clampedWidth };
+  }, [clamp, storageKey, clampedWidth]);
+  const persist = useCallback((key: string, width: number) => {
+    try {
+      setLocalStorageItem(key, width, WidthSchema);
+    } catch (error) {
+      console.error("Could not persist panel width.", error);
+    }
+  }, []);
+  const resizeBy = useCallback(
+    (delta: number) => {
+      const current = latestOptions.current;
+      const width = current.clamp(current.width + delta);
+      // Held keys can step again before the next render.
+      latestOptions.current = { ...current, width };
+      setWidthState({ storageKey: current.storageKey, width });
+      persist(current.storageKey, width);
+    },
+    [persist],
+  );
 
   const handlers = useResizeDrag<HTMLElement>(
     () => ({
@@ -91,15 +111,11 @@ export function useResizableWidth(options: UseResizableWidthOptions): {
       },
       finish(finalWidth) {
         // Commit once at drag-end to avoid 60Hz localStorage writes.
-        try {
-          setLocalStorageItem(latestOptions.current.storageKey, finalWidth, WidthSchema);
-        } catch (error) {
-          console.error("Could not persist panel width.", error);
-        }
+        persist(latestOptions.current.storageKey, finalWidth);
       },
     }),
     storageKey,
   );
 
-  return { width: clampedWidth, handlers };
+  return { width: clampedWidth, handlers, resizeBy };
 }

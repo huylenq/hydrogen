@@ -1,5 +1,13 @@
-import { type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
+import { registerAppCommands } from "~/appCommands";
 import { isElectron } from "~/env";
 import {
   getPreviewPanelMaxWidth,
@@ -13,6 +21,9 @@ import { cn } from "~/lib/utils";
 import { RightPanelResizeHandle } from "./RightPanelResizeHandle";
 
 export type PreviewPanelMode = "inline" | "sheet" | "sidebar" | "embedded";
+
+/** How far one `rightPanel.widen`/`rightPanel.narrow` press moves the divider; held keys repeat it. */
+const KEYBOARD_RESIZE_STEP = 80;
 
 /**
  * Shell for the preview panel. In inline mode the panel is user-resizable
@@ -68,7 +79,17 @@ function PreviewPanelShellFrame(
   const maximized = props.maximized ?? false;
   const localHostRef = useRef<HTMLDivElement | null>(null);
   const hostRef = props.hostRef ?? localHostRef;
-  const { width, handlers } = props.inlineSize;
+  const { width, handlers, resizeBy } = props.inlineSize;
+  // Only the right panel answers resize shortcuts, and only while its width is the user's to set.
+  const keyboardResizable = props.modalSurface === "rightPanel" && isInline && open && !maximized;
+  useEffect(() => {
+    if (!keyboardResizable) return;
+    return registerAppCommands((command) => {
+      if (command !== "rightPanel.widen" && command !== "rightPanel.narrow") return false;
+      resizeBy(command === "rightPanel.widen" ? KEYBOARD_RESIZE_STEP : -KEYBOARD_RESIZE_STEP);
+      return true;
+    });
+  }, [keyboardResizable, resizeBy]);
   // Derive suppression before the layout commits so the browser never creates
   // a width transition for resize or maximize changes.
   const [layoutTransition, setLayoutTransition] = useState(() => ({

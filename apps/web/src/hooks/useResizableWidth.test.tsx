@@ -241,3 +241,23 @@ describe("panel width storage changes", () => {
     expect(result.width).toBe(400);
   });
 });
+
+describe("keyboard resizing", () => {
+  it("steps within the panel bounds, accumulating held steps, and saves each step", async () => {
+    await act(() => {
+      result.resizeBy(150);
+      result.resizeBy(150);
+    });
+    expect(result.width).toBe(700);
+    expect(savedWidths.get("test-panel-width")).toBe("700");
+    await act(() => {
+      result.resizeBy(150);
+    });
+    expect(result.width).toBe(800);
+    await act(() => {
+      result.resizeBy(-1000);
+    });
+    expect(result.width).toBe(200);
+    expect(savedWidths.get("test-panel-width")).toBe("200");
+  });
+});

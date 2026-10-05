@@ -12,34 +12,36 @@ Turn on **Vim navigation** in **Settings** → **Keybindings**. This preference
 applies to the current web or desktop client. You can also toggle it with `mod+alt+v`.
 
 In **Normal** mode, direct keys run common actions and `w`, `t`, and `f` open command
-groups. Space focuses the active right-panel content; `?` shows the shortcut reference.
+groups. `?` shows the shortcut reference. Reading a conversation with the keyboard is covered in
+[Using modal keyboard navigation](./modal-keyboard.md).
 
-| Keys                         | Action                                                                 |
-| ---------------------------- | ---------------------------------------------------------------------- |
-| `1`–`9`                      | Select thread as with `Cmd+1`–`Cmd+9`                                  |
-| `q` / `F` / `i` / `A`        | Focus Flow bar / toggle Flow mode / composer / pending question        |
-| `n` or `a` / `m` / `e` / `r` | New-thread chooser / model / reasoning effort / open and focus changes |
-| `/` / `,`                    | Switch thread / keyboard settings                                      |
-| `j` / `k`                    | Next/previous Flow card or sidebar item; scroll the conversation       |
-| `[` / `]`                    | Open previous/next Flow session in Normal mode                         |
-| `gg` / `G`                   | First/last item; top/bottom of conversation                            |
-| `Enter`                      | Enter Insert mode in the conversation, or open focused item            |
-| `w w`                        | Alternate between the previous two navigation areas                    |
-| `w s` / `w q` / `w Space`    | Toggle sidebar / Flow mode / right panel visibility                    |
-| `w t` / `w m`                | Toggle terminal / maximize or restore open right panel                 |
-| `t p` / `t s`                | Pin/unpin / settle/unsettle the open thread                            |
-| `f f` / `f s`                | Find file / search project contents                                    |
-| `g k`                        | Commit changes                                                         |
-| `H` / `L`                    | Toggle sidebar / right panel visibility                                |
-| `h` / `l`                    | Navigate within Flow cards or panel tabs; otherwise between panes      |
-| `Esc`                        | Focus conversation, or return from Flow inspection                     |
+| Keys                         | Action                                                                  |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `1`–`9`                      | Select thread as with `Cmd+1`–`Cmd+9`                                   |
+| `q` / `F` / `i` / `A`        | Focus Flow bar / toggle Flow mode / composer / pending question         |
+| `n` or `a` / `m` / `e` / `r` | New-thread chooser / model / reasoning effort / open and focus changes  |
+| `/` / `,`                    | Switch thread / keyboard settings                                       |
+| `j` / `k` (or `Space`)       | Next/previous Flow card or sidebar item; next/previous reading block    |
+| `gT` / `gt`                  | Open previous/next Flow session in Normal mode                          |
+| `gg` / `G`                   | First/last item; top/bottom of conversation                             |
+| `Enter`                      | Open or toggle the reading cursor's item, else write; open focused item |
+| `w w`                        | Alternate between the previous two navigation areas                     |
+| `w s` / `w q` / `w Space`    | Toggle sidebar / Flow mode / right panel visibility                     |
+| `w t` / `w m`                | Toggle terminal / maximize or restore open right panel                  |
+| `t p` / `t s`                | Pin/unpin / settle/unsettle the open thread                             |
+| `f f` / `f s`                | Find file / search project contents                                     |
+| `g k`                        | Commit changes                                                          |
+| `H` / `L`                    | Toggle sidebar / right panel visibility                                 |
+| `h` / `l`                    | Within Flow cards or panel tabs; collapse/expand in a conversation      |
+| `w h` / `w l`                | Focus the area to the left/right                                        |
+| `Esc`                        | Focus conversation, or return from Flow inspection                      |
 
 `?` opens the complete shortcut reference. Help shows current toggle states, thread-action targets, and reasons for unavailable
 commands. Panel labels identify the active area. In the right-panel tab strip, h/l or Left/Right arrow keys
 select tabs and Enter enters their controls; `ctrl+shift+space` returns to the selected tab.
 Pickers restore the control you left when dismissed. Enter on a model or reasoning effort from Normal mode stays in Normal mode.
 
-Use `[` / `]` to open the previous/next Flow session immediately, staying in Normal mode.
+Use `gT` / `gt` to open the previous/next Flow session immediately, staying in Normal mode.
 Press `s`, type a duration such as `30s`, `15m`, `24h`, or `2d`, and press Enter to snooze the open thread.
 A bare number means minutes. The duration field receives focus immediately; Escape cancels. If the thread is already
 snoozed, `s` wakes it instead.
@@ -96,6 +98,10 @@ These shortcuts run inside the focused web or desktop client. `mod` uses Command
 on macOS and Ctrl on Windows and Linux, including GNOME, KDE Plasma, Niri, and
 Hyprland. If a custom desktop shortcut takes the same keys, choose another binding
 in Settings.
+
+## Resize the right panel
+
+Use `ctrl+alt+h` to move the divider between the chat and the right panel to the left, widening the panel, and `ctrl+alt+l` to move it right. Hold either to keep resizing. The width is remembered like a dragged one. They work while the panel sits beside the chat, not when it is maximized or shown over the chat in a narrow window. Change them under **Right Panel: Widen** and **Right Panel: Narrow** in Settings.
 
 ## Copy pull request references
 

@@ -10,6 +10,7 @@ vi.mock("../../hooks/useSettings", () => ({
 }));
 
 const { dispatchTimelineCommand, useHuyChatIntegration } = await import("./useHuyChatIntegration");
+const { registerToolGroupList } = await import("./toolGroupLists");
 
 const CONTEXT: ModalThreadContext = {
   title: "Thread",
@@ -209,4 +210,171 @@ it("reads afresh after scrolling by hand, instead of treating k as a reversal", 
   // A fresh step up lands block 2's bottom on the band's bottom line (clamped to the top); a
   // reversal would have landed its top on the band's top line, at 82px.
   expect(node.scrollTop).toBe(0);
+});
+
+it("hands Enter to the cursor's changed file and leaves it to the composer elsewhere", async () => {
+  const { list, node } = fakeTimeline("a");
+  const file = document.createElement("button");
+  file.dataset.changedFilesEntry = "file";
+  file.dataset.changedFilesPath = "README.md";
+  file.getBoundingClientRect = () =>
+    ({ top: 20 * 110 - node.scrollTop, bottom: 20 * 110 + 30, height: 30, left: 0 }) as DOMRect;
+  const opened = vi.fn();
+  file.addEventListener("click", opened);
+  const card = document.createElement("div");
+  card.dataset.changedFilesState = "tree";
+  card.append(file);
+  node.querySelector("[data-timeline-row-id]")!.append(card);
+  await render("a", list);
+  press("next");
+  expect(dispatchTimelineCommand("activate")).toBe(false);
+  for (let step = 0; step < 20; step++) press("next");
+  wait(1000);
+  expect(file.hasAttribute("data-reading-cursor")).toBe(true);
+  expect(dispatchTimelineCommand("activate")).toBe(true);
+  expect(opened).toHaveBeenCalledOnce();
+});
+
+it("steps h out of a changed file to the card's header without a full motion", async () => {
+  const { list, node } = fakeTimeline("a");
+  const card = document.createElement("div");
+  card.dataset.changedFilesState = "tree";
+  const header = document.createElement("div");
+  header.dataset.changedFilesHeader = "";
+  const file = document.createElement("button");
+  file.dataset.changedFilesEntry = "file";
+  file.dataset.changedFilesPath = "README.md";
+  card.getBoundingClientRect = header.getBoundingClientRect = () =>
+    ({ top: 20 * 110 - node.scrollTop, bottom: 0, height: 30, left: 0 }) as DOMRect;
+  file.getBoundingClientRect = () =>
+    ({ top: 20 * 110 + 30 - node.scrollTop, bottom: 0, height: 30, left: 0 }) as DOMRect;
+  card.append(header, file);
+  node.querySelector("[data-timeline-row-id]")!.append(card);
+  Object.defineProperty(node, "scrollHeight", { configurable: true, value: 20 * 110 + 60 });
+  await render("a", list);
+  press("next");
+  // Off a card, h and l leave the key to the caller's feedback.
+  expect(dispatchTimelineCommand("tree.out")).toBe(false);
+  for (let step = 0; step < 21; step++) press("next");
+  wait(1000);
+  expect(file.hasAttribute("data-reading-cursor")).toBe(true);
+  expect(dispatchTimelineCommand("tree.out")).toBe(true);
+  expect(header.hasAttribute("data-reading-cursor")).toBe(true);
+});
+
+/**
+ * A tool group header at 100px over an expanded group whose scroller shows 100px from 130px down.
+ * Its calls sit 150px apart, so each one past the first starts out of the group's view; only the
+ * `mounted` ones are rendered until the group's list renders more.
+ */
+function toolGroupTimeline(calls: number, mounted: readonly number[]) {
+  const node = document.createElement("div");
+  const rect = (top: number, height: number) =>
+    ({ top, bottom: top + height, height, left: 0, right: 600, width: 600 }) as DOMRect;
+  const header = document.createElement("div");
+  Object.assign(header.dataset, { timelineRowId: "work-toggle:w", timelineRowKind: "work-toggle" });
+  header.innerHTML = `<button aria-expanded="true">Ran ${calls} commands</button>`;
+  header.getBoundingClientRect = () => rect(100 - node.scrollTop, 30);
+  const details = document.createElement("div");
+  Object.assign(details.dataset, {
+    timelineRowId: "work-group:w:details",
+    timelineRowKind: "work",
+    toolGroupHeader: "work-toggle:w",
+  });
+  const scroller = document.createElement("div");
+  scroller.dataset.toolGroupScroll = "";
+  details.append(scroller);
+  scroller.getBoundingClientRect = () => rect(130 - node.scrollTop, 100);
+  const mountCall = (index: number) => {
+    const call = document.createElement("div");
+    call.dataset.workEntryIndex = String(index);
+    call.innerHTML = `<div role="button" aria-expanded="false">call ${index}</div>`;
+    call.getBoundingClientRect = () =>
+      rect(130 + index * 150 - scroller.scrollTop - node.scrollTop, 30);
+    scroller.append(call);
+    return call;
+  };
+  for (const index of mounted) mountCall(index);
+  const callElement = (index: number) =>
+    scroller.querySelector<HTMLElement>(`[data-work-entry-index="${index}"]`);
+  details.getBoundingClientRect = () => rect(130 - node.scrollTop, 100);
+  node.append(header, details);
+  node.getBoundingClientRect = () => rect(0, VIEWPORT);
+  Object.defineProperty(node, "clientHeight", { configurable: true, value: VIEWPORT });
+  Object.defineProperty(node, "scrollHeight", { configurable: true, value: VIEWPORT });
+  document.body.append(node);
+  const rows = [
+    { id: "work-toggle:w", kind: "work-toggle" },
+    { id: "work-group:w:details", kind: "work" },
+  ];
+  const list = {
+    getState: () => ({
+      data: rows,
+      indexByKey: (key: string) => {
+        const index = rows.findIndex((row) => row.id === key);
+        return index < 0 ? undefined : index;
+      },
+      positionAtIndex: (index: number) => (index === 0 ? 100 : 130),
+    }),
+    getScrollableNode: () => node,
+    scrollToIndex: vi.fn(),
+  };
+  // Like Legend, the group's own list renders a call when asked to scroll to it.
+  const groupList = {
+    getState: () => ({ data: Array.from({ length: calls }) }),
+    scrollToIndex: vi.fn(({ index }: { index: number }) => {
+      if (!callElement(index)) mountCall(index);
+    }),
+  };
+  const unregister = registerToolGroupList(scroller, groupList as unknown as LegendListRef);
+  return { node, list, header, scroller, callElement, groupList, unregister };
+}
+
+it("scrolls a tool call into its group's scroller and steps h out to the group header", async () => {
+  const { list, header, scroller, callElement } = toolGroupTimeline(2, [0, 1]);
+  await render("a", list);
+  press("next");
+  press("next");
+  press("next");
+  wait(1000);
+  // The second call scrolled up inside the group, clear of its bottom fade.
+  expect(callElement(1)!.hasAttribute("data-reading-cursor")).toBe(true);
+  expect(scroller.scrollTop).toBe(150 + 30 - 100 + 24);
+  expect(dispatchTimelineCommand("tree.out")).toBe(true);
+  wait(1000);
+  expect(header.hasAttribute("data-reading-cursor")).toBe(true);
+});
+
+it("has the group render the next call instead of stepping past the calls it has not rendered", async () => {
+  const { list, callElement, groupList } = toolGroupTimeline(4, [0, 1]);
+  await render("a", list);
+  press("next");
+  press("next");
+  press("next");
+  wait(1000);
+  expect(callElement(1)!.hasAttribute("data-reading-cursor")).toBe(true);
+  press("next");
+  wait(1000);
+  expect(groupList.scrollToIndex).toHaveBeenCalledWith(expect.objectContaining({ index: 2 }));
+  expect(callElement(2)!.hasAttribute("data-reading-cursor")).toBe(true);
+});
+
+it("drops the cursor once its call scrolls out of the group's own view", async () => {
+  const { list, scroller, callElement } = toolGroupTimeline(2, [0, 1]);
+  await render("a", list);
+  press("next");
+  press("next");
+  press("next");
+  wait(1000);
+  expect(callElement(1)!.hasAttribute("data-reading-cursor")).toBe(true);
+  // Scrolling the group back by hand hides the call below the group's view; scroll events do
+  // not bubble out of the group.
+  act(() => {
+    scroller.scrollTop = 0;
+    scroller.dispatchEvent(new Event("scroll"));
+  });
+  wait(40);
+  expect(callElement(1)!.hasAttribute("data-reading-cursor")).toBe(false);
+  // Enter no longer reaches the hidden call.
+  expect(dispatchTimelineCommand("activate")).toBe(false);
 });

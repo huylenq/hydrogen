@@ -5,6 +5,7 @@ import { type ResizableWidthHandlers, useResizableWidth } from "./useResizableWi
 export interface PreviewPanelInlineSize {
   readonly width: number;
   readonly handlers: ResizableWidthHandlers;
+  readonly resizeBy: (delta: number) => void;
 }
 
 const PREVIEW_PANEL_WIDTH_STORAGE_KEY = "t3code:preview-panel-width";

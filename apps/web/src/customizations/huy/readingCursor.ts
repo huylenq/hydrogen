@@ -38,7 +38,8 @@ let barFrame: HTMLElement | null = null;
 const BAR_VARS = ["--reading-bar-top", "--reading-bar-height", "--reading-bar-left"] as const;
 /** Gap between the bar and the text it marks. */
 const BAR_GAP = 10;
-// The bar follows its block as the block, or anything above it in its row, changes size.
+// The bar follows its block as the block, or anything above it in its row, changes size, and as
+// the row's frame resizes: a narrower chat recenters the text column without resizing it.
 const barObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measureBar);
 
 function measureBar(): void {
@@ -46,9 +47,11 @@ function measureBar(): void {
   if (!cursor || !barFrame) return;
   const frame = barFrame.getBoundingClientRect();
   const rect = cursor.getBoundingClientRect();
-  // Answer blocks, list items included, share their text column's edge; any other row uses its
-  // own.
-  const edge = (cursor.closest(".chat-markdown") ?? cursor).getBoundingClientRect().left;
+  // Answer blocks, list items included, share their text column's edge, and changed-files rows
+  // their card's; any other row uses its own.
+  const edge = (
+    cursor.closest(".chat-markdown, [data-changed-files-state]") ?? cursor
+  ).getBoundingClientRect().left;
   const [top, height, left] = BAR_VARS;
   barFrame.style.setProperty(top, `${rect.top - frame.top}px`);
   barFrame.style.setProperty(height, `${rect.height}px`);
@@ -73,6 +76,7 @@ function placeBar(): void {
   frame.setAttribute("data-reading-bar", "");
   measureBar();
   barObserver?.observe(cursor);
+  barObserver?.observe(frame);
   const row = markedPath.at(-1);
   if (row && row !== cursor) barObserver?.observe(row);
 }
@@ -97,7 +101,8 @@ export function markReadingCursor(
   markedRoot = root;
   if (root && path.length > 0) root.dataset.reading = lamp ? "lamp" : "cursor";
   if (path.length === markedPath.length && path.every((node, index) => node === markedPath[index]))
-    return;
+    // The block can move without resizing, as when its tool group scrolls.
+    return measureBar();
   // A marker flash belongs to the block it explains.
   endMarkerFlash();
   for (const node of markedPath) {
@@ -143,7 +148,7 @@ function endMarkerFlash(): void {
 }
 
 /**
- * Shows why `h`/`l` stopped on the cursor's block: its heading or bold lead highlights briefly,
+ * Shows why `[[`/`]]` stopped on the cursor's block: its heading or bold lead highlights briefly,
  * like a cited quote. A user message flashes its border, and a plain message start pulses.
  */
 export function flashReadingMarker(): void {

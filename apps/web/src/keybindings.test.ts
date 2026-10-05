@@ -1606,3 +1606,23 @@ describe("Usage shortcuts", () => {
     );
   });
 });
+
+describe("right panel resize shortcuts", () => {
+  const resize = (overrides: Partial<ShortcutEventLike>, platform: string, terminalFocus = false) =>
+    resolveShortcutCommand(
+      event({ ctrlKey: true, altKey: true, ...overrides }),
+      DEFAULT_RESOLVED_KEYBINDINGS,
+      { platform, context: { terminalFocus } },
+    );
+
+  it("resolves Ctrl+Alt+H/L on every platform, through Option's symbols on macOS", () => {
+    assert.equal(resize({ key: "˙", code: "KeyH" }, "MacIntel"), "rightPanel.widen");
+    assert.equal(resize({ key: "¬", code: "KeyL" }, "MacIntel"), "rightPanel.narrow");
+    assert.equal(resize({ key: "h", code: "KeyH" }, "Linux"), "rightPanel.widen");
+    assert.equal(resize({ key: "l", code: "KeyL" }, "Win32"), "rightPanel.narrow");
+  });
+
+  it("leaves the chords to a focused terminal", () => {
+    assert.isNull(resize({ key: "h", code: "KeyH" }, "Linux", true));
+  });
+});

@@ -176,6 +176,7 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
+import { PANEL_KEY_COMMANDS, runAppCommandFromKey } from "../appCommands";
 import { isElectron } from "../env";
 import { readLocalApi } from "../localApi";
 import { useDiffPanelStore } from "../diffPanelStore";
@@ -7598,6 +7599,12 @@ export default function ChatView(props: ChatViewProps) {
         context: shortcutContext,
       });
       if (!command) return;
+
+      // The right panel's shell owns its width; a hidden, maximized, or sheet panel leaves the key.
+      if (PANEL_KEY_COMMANDS.has(command)) {
+        runAppCommandFromKey(command, event);
+        return;
+      }
 
       if (executeChatCommand(command, event.repeat)) {
         event.preventDefault();

@@ -50,7 +50,7 @@ import { dispatchTimelineCommand } from "../customizations/huy/useHuyChatIntegra
 import { useSidebar } from "./ui/sidebar";
 
 const GROUP_LABELS: Record<string, string> = {
-  g: "Git",
+  g: "Go",
   w: "Workspace",
   t: "Thread actions",
   f: "Find",
@@ -232,7 +232,9 @@ export function ModalKeyboard({
           return;
         case "activate":
           if (useModalKeyboardStore.getState().surface === "conversation" && hasThread) {
-            execute("composer");
+            // What the reading cursor is on (a changed file, a fold, a tool call) takes Enter;
+            // otherwise it writes.
+            if (!dispatchTimelineCommand("activate")) execute("composer");
             return;
           }
           if (useModalKeyboardStore.getState().surface === "rightPanel") {
@@ -257,6 +259,8 @@ export function ModalKeyboard({
         case "reading.cite":
           dispatchTimelineCommand("cite");
           return;
+        case "section.next":
+        case "section.previous":
         case "message.next":
         case "message.previous":
         case "scroll.down":
@@ -266,21 +270,20 @@ export function ModalKeyboard({
         case "view.bottom":
           dispatchTimelineCommand(command);
           return;
+        case "left":
+        case "right":
+          // In an open conversation h/l work what folds under the reading cursor.
+          if (useModalKeyboardStore.getState().surface === "conversation" && hasThread) {
+            if (!dispatchTimelineCommand(command === "left" ? "tree.out" : "tree.in"))
+              showModalFeedback("Nothing to open or close at the reading cursor");
+          } else moveModalFocus(command);
+          return;
         case "first":
         case "last":
         case "next":
         case "previous":
-        case "left":
-        case "right":
-          // In an open conversation h/l step by section; elsewhere they move within the area.
           if (useModalKeyboardStore.getState().surface === "conversation" && hasThread)
-            dispatchTimelineCommand(
-              command === "left"
-                ? "section.previous"
-                : command === "right"
-                  ? "section.next"
-                  : command,
-            );
+            dispatchTimelineCommand(command);
           else moveModalFocus(command);
           return;
         default:

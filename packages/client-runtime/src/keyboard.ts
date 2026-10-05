@@ -49,6 +49,9 @@ export const MODAL_COMMANDS = [
   // Control+J/K: callers pass these tokens only when no app shortcut claims the chord.
   { keys: ["Ctrl+j"], command: "scroll.down", label: "Scroll down" },
   { keys: ["Ctrl+k"], command: "scroll.up", label: "Scroll up" },
+  // Like Vim's section motions.
+  { keys: ["]", "]"], command: "section.next", label: "Next section" },
+  { keys: ["[", "["], command: "section.previous", label: "Previous section" },
   { keys: ["J"], command: "message.next", label: "Next user message" },
   { keys: ["K"], command: "message.previous", label: "Previous user message" },
   // Like Vim's z commands: place the reading cursor's block, or toggle a view mode (`zi`).
@@ -57,12 +60,13 @@ export const MODAL_COMMANDS = [
   { keys: ["z", "b"], command: "view.bottom", label: "Scroll block to bottom" },
   { keys: ["z", "i"], command: "reading.lamp", label: "Toggle reading lamp" },
   { keys: ["c"], command: "reading.cite", label: "Cite block in composer" },
-  { keys: ["["], command: "flow.previous", label: "Open previous Flow session" },
-  { keys: ["]"], command: "flow.next", label: "Open next Flow session" },
+  // Like Vim's tab motions: Flow sessions are the open work to cycle through.
+  { keys: ["g", "T"], command: "flow.previous", label: "Open previous Flow session" },
+  { keys: ["g", "t"], command: "flow.next", label: "Open next Flow session" },
   { keys: ["s"], command: "thread.snooze", label: "Snooze / wake open thread" },
   { keys: ["L"], command: "rightPanel.toggle", label: "Toggle right panel" },
-  { keys: ["h"], command: "left", label: "Move left / previous section" },
-  { keys: ["l"], command: "right", label: "Move right / next section" },
+  { keys: ["h"], command: "left", label: "Move left / collapse" },
+  { keys: ["l"], command: "right", label: "Move right / expand" },
   { keys: ["ArrowLeft"], command: "left", label: "Previous panel tab" },
   { keys: ["ArrowRight"], command: "right", label: "Next panel tab" },
   { keys: ["i"], command: "composer", label: "Write in composer" },
@@ -82,6 +86,20 @@ export type ModalSequenceResult =
   | { kind: "pending"; keys: readonly string[] }
   | { kind: "command"; command: ModalCommand };
 
+/** Motions that keep stepping while their key is held. */
+const REPEATABLE_COMMANDS: ReadonlySet<ModalCommand> = new Set([
+  "next",
+  "previous",
+  "scroll.down",
+  "scroll.up",
+  "message.next",
+  "message.previous",
+  "section.next",
+  "section.previous",
+  "left",
+  "right",
+]);
+
 /** Prefixes stay pending until completed or explicitly cancelled, with no typing deadline. */
 export function resolveModalSequence(
   pending: readonly string[],
@@ -91,6 +109,17 @@ export function resolveModalSequence(
 ): ModalSequenceResult {
   if (key === "Escape" && pending.length > 0) return { kind: "cancel" };
   if (["Shift", "Control", "Alt", "Meta"].includes(key)) return { kind: "pass" };
+  if (repeat && pending.every((part) => part === key)) {
+    // Holding the key of a doubled motion, such as `]]`, keeps stepping.
+    const doubled = MODAL_COMMANDS.find(
+      (binding) =>
+        binding.keys.length === 2 &&
+        binding.keys.every((part) => part === key) &&
+        REPEATABLE_COMMANDS.has(binding.command) &&
+        available(binding.command),
+    );
+    if (doubled) return { kind: "command", command: doubled.command };
+  }
   if (repeat && pending.length > 0) return { kind: "pending", keys: pending };
   const keys = [...pending, key];
   const matches = MODAL_COMMANDS.filter(
@@ -98,22 +127,12 @@ export function resolveModalSequence(
       available(binding.command) && keys.every((part, index) => binding.keys[index] === part),
   );
   const exact = matches.find((binding) => binding.keys.length === keys.length);
-  if (exact) {
-    const repeatable = [
-      "next",
-      "previous",
-      "scroll.down",
-      "scroll.up",
-      "message.next",
-      "message.previous",
-      "left",
-      "right",
-      "flow.previous",
-      "flow.next",
-    ].includes(exact.command);
-    return repeat && !repeatable ? { kind: "cancel" } : { kind: "command", command: exact.command };
-  }
-  if (matches.length > 0) return { kind: "pending", keys: [...pending, key] };
+  if (exact)
+    return repeat && !REPEATABLE_COMMANDS.has(exact.command)
+      ? { kind: "cancel" }
+      : { kind: "command", command: exact.command };
+  // A held key never starts a sequence, so holding the end of `g t` leaves nothing pending.
+  if (matches.length > 0) return repeat ? { kind: "cancel" } : { kind: "pending", keys };
   return { kind: pending.length > 0 ? "cancel" : "pass" };
 }
 

@@ -1,6 +1,7 @@
 import { ComputerUseAppIcon } from "~/components/Icons";
 import { useChatCanvas } from "./ChatCanvasContext";
 import { WorkLogBlock, WorkLogButton, WorkLogDetails, WorkLogList, WorkLogRow } from "./WorkLog";
+import { registerToolGroupList } from "../../customizations/huy/toolGroupLists";
 import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";
 import type { WorktreeSetupSnapshot } from "@t3tools/contracts";
 import { ReadOnlySourcePreview } from "../files/AttachmentFilePreview";
@@ -1772,6 +1773,8 @@ const TimelineRowContent = memo(function TimelineRowContent({ row }: { row: Time
         row.kind === "message" || row.kind === "assistant-meta" ? row.message.id : undefined
       }
       data-message-role={row.kind === "message" ? row.message.role : undefined}
+      data-turn-fold={row.turnFoldRunId}
+      data-tool-group-header={row.kind === "work" ? row.groupHeaderRowId : undefined}
     >
       {isWorkLogRow ? (
         <WorkLogBlock
@@ -3279,18 +3282,26 @@ function ExpandedWorkGroupEntries({
   }, [initialScrollIndex]);
 
   useLayoutEffect(() => {
-    const element = listRef.current?.getScrollableNode();
-    if (!element) return;
+    const list = listRef.current;
+    const element = list?.getScrollableNode();
+    if (!list || !element) return;
     updateScrollFades();
     const observer = new ResizeObserver(updateScrollFades);
     observer.observe(element);
     if (element.firstElementChild) observer.observe(element.firstElementChild);
-    return () => observer.disconnect();
+    const unregister = registerToolGroupList(element, list);
+    return () => {
+      observer.disconnect();
+      unregister();
+    };
   }, [updateScrollFades]);
 
+  // The index lets the Vim reading cursor follow an entry while the list recycles its rows.
   const renderEntry = useCallback(
-    ({ item }: { item: TimelineWorkEntry }) => (
-      <SimpleWorkEntryRow key={item.id} workEntry={item} workspaceRoot={workspaceRoot} />
+    ({ item, index }: { item: TimelineWorkEntry; index: number }) => (
+      <div key={item.id} data-work-entry-index={index}>
+        <SimpleWorkEntryRow workEntry={item} workspaceRoot={workspaceRoot} />
+      </div>
     ),
     [workspaceRoot],
   );

@@ -116,6 +116,8 @@ describe("modal keyboard sequences", () => {
       ["t", "p", "thread.pin"],
       ["t", "s", "thread.settle"],
       ["g", "k", "git.commit"],
+      ["g", "t", "flow.next"],
+      ["g", "T", "flow.previous"],
       ["f", "f", "filePicker.toggle"],
       ["f", "s", "projectSearch.toggle"],
     ] as const) {
@@ -241,16 +243,19 @@ describe("modal focus bookmarks", () => {
   });
 });
 
-describe("flow navigation bindings", () => {
+describe("section bindings", () => {
   it.each([
-    ["[", "flow.previous"],
-    ["]", "flow.next"],
-  ] as const)("resolves %s and allows holding it", (key, command) => {
-    for (const repeat of [false, true]) {
-      expect(resolveModalSequence([], key, repeat, () => true)).toEqual({
-        kind: "command",
-        command,
-      });
-    }
+    ["[", "section.previous"],
+    ["]", "section.next"],
+  ] as const)("resolves %s%s and keeps stepping while the key is held", (key, command) => {
+    expect(resolveModalSequence([], key, false, all)).toEqual({ kind: "pending", keys: [key] });
+    expect(resolveModalSequence([key], key, false, all)).toEqual({ kind: "command", command });
+    // Held from the first press, or again after a step.
+    expect(resolveModalSequence([key], key, true, all)).toEqual({ kind: "command", command });
+    expect(resolveModalSequence([], key, true, all)).toEqual({ kind: "command", command });
+  });
+
+  it("leaves nothing pending when the end of a sequence is held", () => {
+    expect(resolveModalSequence([], "t", true, all)).toEqual({ kind: "cancel" });
   });
 });

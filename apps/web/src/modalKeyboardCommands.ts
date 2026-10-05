@@ -112,6 +112,8 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
   if (
     (command === "message.previous" ||
       command === "message.next" ||
+      command === "section.previous" ||
+      command === "section.next" ||
       command === "scroll.down" ||
       command === "scroll.up" ||
       command === "view.top" ||
@@ -137,7 +139,7 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
     else if (context.workingSessionGrid) {
       label = command === "left" ? "Previous preview" : "Next preview";
     } else if (reading) {
-      label = command === "left" ? "Previous section" : "Next section";
+      label = command === "left" ? "Collapse / step out" : "Expand / open";
     } else {
       reason =
         context.surface === "conversation"
@@ -160,7 +162,7 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
   }
   if (command === "activate" && context.surface === "rightPanel") label = "Enter selected panel";
   if (command === "activate" && context.surface === "conversation") {
-    if (thread) label = "Focus composer";
+    if (thread) label = "Open or toggle at the reading cursor, else write";
     else label = "Open selected item";
   }
   return { label, reason, target };
