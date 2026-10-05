@@ -26,6 +26,8 @@ export interface FlowBenchEntry {
 export interface FlowModel {
   readonly attention: ReadonlyArray<FlowAttentionEntry>;
   readonly bench: ReadonlyArray<FlowBenchEntry>;
+  /** Off the conveyor; the overview lists them, soonest wake first. */
+  readonly snoozed: ReadonlyArray<EnvironmentThreadShell>;
 }
 
 /** The keyboard conveyor follows the visual order: attention, then working sessions. */
@@ -150,13 +152,17 @@ export function deriveFlow(
 ): FlowModel {
   const attention: FlowAttentionEntry[] = [];
   const bench: FlowBenchEntry[] = [];
+  const snoozed: EnvironmentThreadShell[] = [];
 
   for (const thread of threads) {
     if (thread.archivedAt !== null || thread.settledOverride === "settled") continue;
     // Subagent threads have no run of their own (they would always read as
     // Review); their parent carries the activity, as in the sidebar.
     if (thread.lineage.relationshipToParent === "subagent") continue;
-    if (effectiveSnoozed(thread, options)) continue;
+    if (effectiveSnoozed(thread, options)) {
+      snoozed.push(thread);
+      continue;
+    }
 
     const timestamp = attentionTimestamp(thread);
     const workingStatus = benchStatus(thread);
@@ -184,7 +190,13 @@ export function deriveFlow(
       flowThreadKey(left.thread).localeCompare(flowThreadKey(right.thread)),
   );
 
-  return { attention, bench };
+  snoozed.sort(
+    (left, right) =>
+      Date.parse(left.snoozedUntil ?? "") - Date.parse(right.snoozedUntil ?? "") ||
+      flowThreadKey(left).localeCompare(flowThreadKey(right)),
+  );
+
+  return { attention, bench, snoozed };
 }
 
 /** Stay on a queued session, on a session the user opened themselves, or on

@@ -223,7 +223,7 @@ describe("deriveFlow", () => {
     expect(model.bench).toHaveLength(0);
   });
 
-  it("omits archived, settled, and still-snoozed threads", () => {
+  it("omits archived, settled, and still-snoozed threads from the conveyor", () => {
     const model = deriveFlow(
       [
         thread("archived", { archivedAt: "2026-09-04T09:00:00.000Z" }),
@@ -236,7 +236,32 @@ describe("deriveFlow", () => {
       { now: NOW },
     );
 
-    expect(model).toEqual({ attention: [], bench: [] });
+    expect(model.attention).toEqual([]);
+    expect(model.bench).toEqual([]);
+    expect(model.snoozed.map((shell) => shell.id)).toEqual(["snoozed"]);
+  });
+
+  it("lists snoozed threads soonest wake first, running or not", () => {
+    const model = deriveFlow(
+      [
+        thread("later", { snoozedAt: NOW, snoozedUntil: "2026-09-05T12:00:00.000Z" }),
+        thread("sooner", {
+          snoozedAt: NOW,
+          snoozedUntil: "2026-09-04T13:00:00.000Z",
+          ...runtime("running"),
+        }),
+        thread("woken", { snoozedAt: NOW, snoozedUntil: "2026-09-04T09:00:00.000Z" }),
+        thread("archived", {
+          archivedAt: NOW,
+          snoozedAt: NOW,
+          snoozedUntil: "2026-09-05T12:00:00.000Z",
+        }),
+      ],
+      { now: NOW },
+    );
+
+    expect(model.snoozed.map((shell) => shell.id)).toEqual(["sooner", "later"]);
+    expect(model.bench).toHaveLength(0);
   });
 
   it("omits subagent threads, which have no run of their own", () => {
@@ -375,7 +400,11 @@ describe("isFlowSessionInspection", () => {
 
   it("opens a sidebar session that is not on the working bench", () => {
     expect(
-      isFlowSessionInspection({ attention: [], bench: [] }, key("settled"), key("settled")),
+      isFlowSessionInspection(
+        { attention: [], bench: [], snoozed: [] },
+        key("settled"),
+        key("settled"),
+      ),
     ).toBe(true);
   });
 

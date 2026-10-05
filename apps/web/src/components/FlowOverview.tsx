@@ -18,6 +18,7 @@ import {
 } from "./Flow.logic";
 import { useFlowModel } from "../hooks/useFlowModel";
 import { FlowSessionPreview } from "./FlowSessionPreview";
+import { FlowSnoozedRow } from "./FlowSnoozedRow";
 import { ModalKeyboard } from "./ModalKeyboard";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
 import { SidebarInset } from "./ui/sidebar";
@@ -101,21 +102,26 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
         data-modal-surface="conversation"
         tabIndex={-1}
       >
-        <div className="flex min-h-full items-center justify-center">
-          {entries.length === 0 ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">
-              No sessions are working right now.
-            </p>
-          ) : (
-            <WorkingSessionGrid>
-              {entries.map((entry) => (
-                <FlowSessionPreview
-                  key={scopedThreadKey(scopeThreadRef(entry.thread.environmentId, entry.thread.id))}
-                  entry={entry}
-                />
-              ))}
-            </WorkingSessionGrid>
-          )}
+        <div className="flex min-h-full flex-col items-center gap-6">
+          <div className="flex w-full flex-1 items-center justify-center">
+            {entries.length === 0 ? (
+              <p className="py-16 text-center text-sm text-muted-foreground">
+                No sessions are working right now.
+              </p>
+            ) : (
+              <WorkingSessionGrid>
+                {entries.map((entry) => (
+                  <FlowSessionPreview
+                    key={scopedThreadKey(
+                      scopeThreadRef(entry.thread.environmentId, entry.thread.id),
+                    )}
+                    entry={entry}
+                  />
+                ))}
+              </WorkingSessionGrid>
+            )}
+          </div>
+          <FlowSnoozedRow threads={model.snoozed} />
         </div>
       </main>
       {hostModalKeyboard ? <ModalKeyboard hasThread={false} workingSessionGrid /> : null}
