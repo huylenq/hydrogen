@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { shouldControlFlowRoute } from "./FlowOverview";
+import { shouldControlFlowRoute } from "./Flow.logic";
 
 describe("shouldControlFlowRoute", () => {
   it("leaves a new-session draft visible while Flow mode is open", () => {

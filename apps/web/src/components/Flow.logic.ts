@@ -230,3 +230,17 @@ export function isFlowSessionInspection(
     currentThreadKey === inspectedThreadKey
   );
 }
+
+export function shouldControlFlowRoute({
+  open,
+  bootstrapped,
+  chatRoute,
+  draftRoute,
+}: {
+  open: boolean;
+  bootstrapped: boolean;
+  chatRoute: boolean;
+  draftRoute: boolean;
+}) {
+  return open && bootstrapped && chatRoute && !draftRoute;
+}

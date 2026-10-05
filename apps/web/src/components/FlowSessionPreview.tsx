@@ -20,7 +20,7 @@ import { buildThreadRouteParams } from "../threadRoutes";
 import type { FlowAttentionEntry, FlowBenchEntry } from "./Flow.logic";
 import { FLOW_STATUS_CLASS } from "./FlowBar";
 import { ProjectFavicon } from "./ProjectFavicon";
-import { WorkEntryPreview } from "./chat/ToolActivity";
+import { WorkEntryPreview } from "../customizations/huy/WorkEntryPreview";
 import { shouldPreserveAssistantLineBreaks } from "./chat/MessagesTimeline.logic";
 import ChatMarkdown from "./ChatMarkdown";
 import { cn } from "../lib/utils";

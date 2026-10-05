@@ -357,6 +357,11 @@ interface TimelineRowActivityState {
 }
 
 const TimelineRowCtx = createContext<TimelineRowSharedState>(null!);
+/** Lets tool icons render outside the timeline (Flow session previews) without a full row context. */
+export const ToolActivityIconCtx = createContext<Pick<
+  TimelineRowSharedState,
+  "resolvedTheme" | "activeThreadEnvironmentId"
+> | null>(null);
 const TimelineRowActivityCtx = createContext<TimelineRowActivityState>(null!);
 
 interface WorkGroupViewState {
@@ -3403,11 +3408,11 @@ function ActivityShimmerOverlay({ children }: { children: ReactNode }) {
   );
 }
 
-const failedToolIconClassName = "text-tool-error-icon/40";
+export const failedToolIconClassName = "text-tool-error-icon/40";
 
 /** Image icons and the gradient computer-use mark cannot take a currentColor
  *  tint, so failed rows using them get a trailing x instead. */
-function toolIconAcceptsTint(
+export function toolIconAcceptsTint(
   iconName: WorkEntryIconName,
   toolIcon: ToolActivityIcon | undefined,
 ): boolean {
@@ -4603,13 +4608,13 @@ function BrowserAppIcon({ className }: { className: string }) {
   );
 }
 
-function ToolActivityIconView(props: {
+export function ToolActivityIconView(props: {
   icon: ToolActivityIcon | undefined;
   fallbackName: WorkEntryIconName;
   className: string;
   muted: boolean;
 }) {
-  const { resolvedTheme } = use(TimelineRowCtx);
+  const { resolvedTheme } = use(ToolActivityIconCtx) ?? use(TimelineRowCtx);
   const fallbackClassName = cn(props.className, props.muted && "opacity-70 light:brightness-60");
   if (!props.icon) {
     return <WorkEntryIcon name={props.fallbackName} className={fallbackClassName} />;
@@ -4661,7 +4666,7 @@ function NativeAppToolActivityIcon(props: {
   className: string;
   muted: boolean;
 }) {
-  const { activeThreadEnvironmentId } = use(TimelineRowCtx);
+  const { activeThreadEnvironmentId } = use(ToolActivityIconCtx) ?? use(TimelineRowCtx);
   const asset = useAssetUrlState(activeThreadEnvironmentId, {
     _tag: "native-app-icon",
     app: props.app,
@@ -4896,7 +4901,7 @@ function buildToolCallExpandedBody(
 const toolCallExpandedBodyClassName =
   "max-h-64 cursor-text overflow-auto whitespace-pre-wrap break-words font-mono text-secondary-label text-(length:--font-size-code,var(--text-2xs)) leading-relaxed select-text";
 
-function workEntryIconName(workEntry: TimelineWorkEntry): WorkEntryIconName {
+export function workEntryIconName(workEntry: TimelineWorkEntry): WorkEntryIconName {
   if (workEntry.structuredPayload?.type === "notification") {
     if (workEntry.structuredPayload.outcome === "failed") return "circle-alert";
     const source = workEntry.structuredPayload.source;

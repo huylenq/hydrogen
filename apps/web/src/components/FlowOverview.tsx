@@ -14,6 +14,7 @@ import {
   flowNavigationEntries,
   isFlowOverviewAvailable,
   isFlowSessionInspection,
+  shouldControlFlowRoute,
   shouldReleaseFlowInspection,
 } from "./Flow.logic";
 import { useFlowModel } from "../hooks/useFlowModel";
@@ -23,20 +24,6 @@ import { ModalKeyboard } from "./ModalKeyboard";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
 import { SidebarInset } from "./ui/sidebar";
 import { WorkingSessionGrid } from "../customizations/huy/BalancedWorkingSessions";
-
-export function shouldControlFlowRoute({
-  open,
-  bootstrapped,
-  chatRoute,
-  draftRoute,
-}: {
-  open: boolean;
-  bootstrapped: boolean;
-  chatRoute: boolean;
-  draftRoute: boolean;
-}) {
-  return open && bootstrapped && chatRoute && !draftRoute;
-}
 
 /** Keep chat effects and editing shortcuts unmounted while watching the working bench. */
 export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
