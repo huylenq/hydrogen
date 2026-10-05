@@ -131,7 +131,7 @@
   }
 }
 .wco [data-modal-right-panel-sheet] {
-  margin-top: env(titlebar-area-height);
-  height: calc(100% - env(titlebar-area-height));
-  max-height: calc(100% - env(titlebar-area-height));
+  margin-top: var(--workspace-topbar-height);
+  height: calc(100% - var(--workspace-topbar-height));
+  max-height: calc(100% - var(--workspace-topbar-height));
 }
