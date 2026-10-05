@@ -235,6 +235,45 @@ describe("working-session grid navigation", () => {
     expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
     expect(items.every((item) => item.click.mock.calls.length === 0)).toBe(true);
   });
+  it("re-lands on the remembered card when focus has left the cards", () => {
+    const boxes = [rect(0, 0), rect(120, 0)];
+    const documentState = { activeElement: null as unknown, querySelector: () => root };
+    const items = boxes.map((box, index) => {
+      const item = {
+        dataset: { modalKey: `card-${index}` },
+        matches: () => false,
+        closest: () => null,
+        getClientRects: () => [box],
+        getBoundingClientRect: () => box,
+        contains: () => false,
+        focus: vi.fn(() => {
+          documentState.activeElement = item;
+        }),
+        click: vi.fn(),
+        scrollIntoView: vi.fn(),
+      };
+      return item;
+    });
+    const root = {
+      dataset: { modalGrid: "working-sessions" },
+      getClientRects: () => [{}],
+      querySelectorAll: () => items,
+      focus: vi.fn(),
+    };
+    // Focus sits on the grid root after a route change or app switch.
+    documentState.activeElement = root;
+    vi.stubGlobal("document", documentState);
+    useModalKeyboardStore.setState({
+      surface: "conversation",
+      focusRequest: null,
+      bookmarks: { conversation: { key: "card-1", index: 1 } },
+    });
+
+    moveModalFocus("next");
+
+    expect(items[1]?.focus).toHaveBeenCalledOnce();
+    expect(items[0]?.focus).not.toHaveBeenCalled();
+  });
 });
 
 describe("right-panel focus destination", () => {

@@ -212,9 +212,13 @@ export function moveModalFocus(motion: ModalMotion): void {
     root?.dataset?.modalGrid === "working-sessions" &&
     (motion === "left" || motion === "right" || motion === "next" || motion === "previous")
   ) {
-    // A live preview can remount between keypresses. Keep its grid boundary
-    // even while no card owns DOM focus.
-    if (current < 0) return;
+    // Focus can leave the cards (a preview remounts, a route change or app
+    // switch leaves it on the grid root or body). The first motion then lands
+    // on the remembered card instead of being dropped.
+    if (current < 0) {
+      focusModalSurface("conversation");
+      return;
+    }
     const index = modalGridTargetIndex(
       items.map((item) => item.getBoundingClientRect()),
       current,
