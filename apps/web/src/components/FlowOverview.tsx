@@ -24,6 +24,7 @@ import { ModalKeyboard } from "./ModalKeyboard";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
 import { SidebarInset } from "./ui/sidebar";
 import { WorkingSessionGrid } from "../customizations/huy/BalancedWorkingSessions";
+import { useFlowOverviewTransition } from "../customizations/huy/flowOverviewTransition";
 
 /** Keep chat effects and editing shortcuts unmounted while watching the working bench. */
 export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
@@ -70,12 +71,19 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
     if (!shouldReleaseFlowInspection(model, currentKey, inspectedThreadKey)) return;
     useFlowStore.getState().inspectSession(null);
   }, [model, currentKey, inspectedThreadKey]);
-  if (
-    !controlled ||
-    !isFlowOverviewAvailable(model, overviewOpen) ||
-    isFlowSessionInspection(model, currentKey, inspectedThreadKey)
-  )
-    return children;
+  const overview =
+    controlled &&
+    isFlowOverviewAvailable(model, overviewOpen) &&
+    !isFlowSessionInspection(model, currentKey, inspectedThreadKey);
+  const showOverview = useFlowOverviewTransition({
+    overview,
+    sessionKey: !controlled
+      ? currentKey
+      : (inspectedThreadKey ??
+        (target ? scopedThreadKey(scopeThreadRef(target.environmentId, target.id)) : currentKey)),
+    routeKey: currentKey,
+  });
+  if (!showOverview) return children;
   // Waiting threads only appear while the overview is held open; they lead, as in the Flow bar.
   const entries = flowNavigationEntries(model);
 

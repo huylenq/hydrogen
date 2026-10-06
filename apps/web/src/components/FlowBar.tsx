@@ -225,9 +225,14 @@ export function FlowBar() {
                 <div className="flex min-w-0 items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-2">
                     {project ? (
-                      <ProjectFavicon project={project} className="size-3.5 shrink-0" />
+                      <span data-flow-session-icon="" className="flex shrink-0">
+                        <ProjectFavicon project={project} className="size-3.5" />
+                      </span>
                     ) : null}
-                    <span className="truncate text-xs font-medium text-foreground">
+                    <span
+                      data-flow-session-title=""
+                      className="truncate text-xs font-medium text-foreground"
+                    >
                       {entry.thread.title}
                     </span>
                   </span>

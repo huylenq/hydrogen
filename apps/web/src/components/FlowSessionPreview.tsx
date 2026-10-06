@@ -215,6 +215,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
     // The live status row can appear without new turn items.
   }, [visibleTurnItems, liveStatus?.label]);
 
+  const flowCardPeer = entry.kind === "attention" ? "" : undefined;
   const openSession = () => {
     useFlowStore.getState().inspectSession(scopedThreadKey(ref));
     void navigate({
@@ -246,10 +247,21 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
       className="flex h-96 w-full min-w-0 max-w-lg cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-card/40 outline-hidden hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring"
     >
       <header className="flex items-center gap-2.5 border-b border-border/60 px-4 py-3">
-        {project ? <ProjectFavicon project={project} className="size-8 shrink-0" /> : null}
+        {/* Waiting sessions have a Flow bar card; their favicon and title morph into it
+            (flowOverviewTransition). */}
+        {project ? (
+          <span data-flow-session-icon={flowCardPeer} className="flex shrink-0">
+            <ProjectFavicon project={project} className="size-8" />
+          </span>
+        ) : null}
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-baseline gap-2">
-            <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{thread.title}</h2>
+            <h2
+              data-flow-session-title={flowCardPeer}
+              className="min-w-0 flex-1 truncate text-sm font-medium"
+            >
+              {thread.title}
+            </h2>
             {entry.kind === "attention" ? (
               <span className={cn("shrink-0 text-xs font-medium", FLOW_STATUS_CLASS[entry.status])}>
                 {entry.status}

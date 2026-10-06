@@ -1,0 +1,69 @@
+/* Flow overview <-> session: the session's tile and the chat pane share
+   `flow-session`, so one grows into the other while the rest crossfades.
+   `flowOverviewTransition.ts` names the elements. */
+html[data-flow-transition] {
+  --flow-transition-duration: 240ms;
+  --flow-transition-easing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html[data-flow-transition]::view-transition-group(*),
+html[data-flow-transition]::view-transition-old(*),
+html[data-flow-transition]::view-transition-new(*) {
+  animation-duration: var(--flow-transition-duration);
+  animation-timing-function: var(--flow-transition-easing);
+}
+
+/* The tile's title and favicon fly to ChatHeader's breadcrumb (and back). Both
+   titles are the same text at nearly the same size, so slide them unstretched. */
+html[data-flow-transition]::view-transition-old(flow-session-title),
+html[data-flow-transition]::view-transition-new(flow-session-title) {
+  height: 100%;
+  width: auto;
+  object-fit: none;
+  object-position: left center;
+}
+
+/* Tile and pane differ in shape and size: keep both at their native size and let
+   the moving box clip them, instead of magnifying the tile into blur. */
+html[data-flow-transition]::view-transition-image-pair(flow-session) {
+  overflow: clip;
+  border-radius: var(--radius-xl, 0.75rem);
+}
+
+html[data-flow-transition]::view-transition-old(flow-session),
+html[data-flow-transition]::view-transition-new(flow-session) {
+  height: 100%;
+  object-fit: none;
+  object-position: top;
+  mix-blend-mode: normal;
+}
+
+html[data-flow-transition]::view-transition-old(flow-session) {
+  animation: flow-session-out var(--flow-transition-duration) linear both;
+}
+
+html[data-flow-transition]::view-transition-new(flow-session) {
+  animation: flow-session-in var(--flow-transition-duration) linear both;
+}
+
+@keyframes flow-session-out {
+  0%,
+  20% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes flow-session-in {
+  0%,
+  20% {
+    opacity: 0;
+  }
+  60%,
+  100% {
+    opacity: 1;
+  }
+}
