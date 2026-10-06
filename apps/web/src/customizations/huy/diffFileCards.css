@@ -16,3 +16,11 @@
   outline: 1px solid color-mix(in srgb, var(--code-background) 86%, var(--code-foreground));
   outline-offset: -1px;
 }
+
+/* The file holding the Vim cursor, like magit's section at point: its header marks it
+   (data-diff-active-file), and the card takes the cursor's accent. Paint only, as above. */
+.diff-render-surface.diff-render-surface diffs-container:has([data-diff-active-file]) {
+  --diff-file-header-bg: color-mix(in srgb, var(--code-background) 80%, var(--diffs-modified-base));
+  outline: 2px solid color-mix(in srgb, var(--diffs-modified-base) 75%, transparent);
+  outline-offset: -2px;
+}

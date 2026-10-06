@@ -333,6 +333,7 @@ export function AnnotatableCodeView({
         renderHeaderPrefix={(item) =>
           item.type === "diff" ? (
             <>
+              {vim.activeFileKey === item.id ? <span hidden data-diff-active-file /> : null}
               {vim.headerCursorKey === item.id ? (
                 // The header's Vim cursor: the line cursor's gutter bar, against the sticky header.
                 <span

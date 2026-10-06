@@ -676,6 +676,8 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
   return {
     enabled,
     headerCursorKey: enabled && cursor?.kind === "header" ? cursor.fileKey : null,
+    /** The file the cursor is in, highlighted as a whole (diffFileCards.css). */
+    activeFileKey: enabled && cursor ? cursor.fileKey : null,
     searchOpen: enabled && searchOpen,
     closeSearch,
     onPointerSelection,
