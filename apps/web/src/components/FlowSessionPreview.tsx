@@ -4,9 +4,9 @@ import {
   scopeThreadRef,
 } from "@t3tools/client-runtime/environment";
 import { presentPendingBackgroundWork } from "@t3tools/client-runtime/state/thread-execution";
-import type { OrchestrationV2PendingBackgroundTask } from "@t3tools/contracts";
+import type { OrchestrationV2PendingBackgroundTask, ScopedThreadRef } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
-import { memo, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { deriveTimelineEntriesFromVisibleTurnItems } from "../session-logic";
 import { useTheme } from "../hooks/useTheme";
 import { useFlowStore } from "../flowStore";
@@ -69,6 +69,57 @@ function previewMarkdownTail(text: string): string {
   return `${fencesBefore % 2 === 1 ? "```\n" : ""}${text.slice(cut + 1)}`;
 }
 
+const PROMPT_FADE_MASK = "linear-gradient(to bottom, black calc(100% - 0.875rem), transparent)";
+
+/** The tile's latest user message: a long one collapses to two lines and fades out; its shadow softens the replies' cut beneath it. */
+function PromptBubble({
+  text,
+  cwd,
+  threadRef,
+}: {
+  text: string;
+  cwd: string | undefined;
+  threadRef: ScopedThreadRef;
+}) {
+  const clipRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  useLayoutEffect(() => {
+    const clip = clipRef.current;
+    const content = contentRef.current;
+    if (!clip || !content) return;
+    // The content's height follows both the text and the tile's width.
+    const observer = new ResizeObserver(() => {
+      setCollapsed(clip.scrollHeight > clip.clientHeight);
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div className="relative z-10 max-w-full shrink-0 self-end rounded-2xl bg-message p-3 text-message-foreground shadow-lg shadow-black/30">
+      {/* Two lines of the text-xs + leading-relaxed markdown below. */}
+      <div
+        ref={clipRef}
+        className="max-h-10 overflow-hidden"
+        style={
+          collapsed ? { WebkitMaskImage: PROMPT_FADE_MASK, maskImage: PROMPT_FADE_MASK } : undefined
+        }
+      >
+        <div ref={contentRef}>
+          <ChatMarkdown
+            text={text.slice(0, PREVIEW_MESSAGE_CHARS)}
+            cwd={cwd}
+            threadRef={threadRef}
+            lineBreaks
+            parseRawHtml={false}
+            className="text-xs leading-relaxed"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const FlowSessionPreview = memo(function FlowSessionPreview({
   entry,
 }: {
@@ -107,7 +158,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
   const latestRun = thread.latestRun;
   const runningRunId = thread.runtime?.activeRunId ?? null;
   const loaded = visibleTurnItems.length > 0;
-  const { messages, activities, liveToolId, thinking } = useMemo(() => {
+  const { prompt, messages, activities, liveToolId, thinking } = useMemo(() => {
     const entries = deriveTimelineEntriesFromVisibleTurnItems({
       visibleTurnItems,
       optimisticMessages: [],
@@ -126,13 +177,20 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
           })
         : [];
     const liveRow = rows.findLast((row) => row.kind === "work-live" && row.active);
+    const allMessages = entries.flatMap((entry) =>
+      entry.kind === "message" ? [entry.message] : [],
+    );
+    // Found before blank messages are dropped, so an attachment-only prompt still splits the turn.
+    const promptIndex = allMessages.findLastIndex((message) => message.role === "user");
+    const latestUserMessage = allMessages[promptIndex];
     return {
       liveToolId: liveRow?.kind === "work-live" ? liveRow.entry.id : null,
       thinking: rows.some((row) => row.kind === "thinking"),
-      messages: entries
-        .flatMap((entry) =>
-          entry.kind === "message" && entry.message.text.trim() ? [entry.message] : [],
-        )
+      // The latest user message heads the tile; only its replies scroll below it.
+      prompt: latestUserMessage?.text.trim() ? latestUserMessage : null,
+      messages: allMessages
+        .slice(promptIndex + 1)
+        .filter((message) => message.text.trim())
         .slice(-3),
       activities: entries
         .flatMap((entry) => (entry.kind === "work" ? [entry.entry] : []))
@@ -227,6 +285,14 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
         </div>
       </header>
       <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-4 py-3">
+        {prompt ? (
+          <PromptBubble
+            key={prompt.id}
+            text={prompt.text}
+            cwd={thread.worktreePath ?? project?.workspaceRoot}
+            threadRef={ref}
+          />
+        ) : null}
         <div
           ref={scrollRef}
           onScroll={(event) => {
@@ -234,26 +300,22 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
             followLatest.current =
               element.scrollHeight - element.scrollTop - element.clientHeight < 32;
           }}
-          className="overflow-y-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          // Starts at the prompt bubble's edge, so replies vanish there; the padding is
+          // the gap below it at rest.
+          className={cn(
+            "overflow-y-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            prompt && "pt-1.5",
+          )}
         >
           {messages.map((message) => (
-            <div
-              key={message.id}
-              className={
-                message.role === "user"
-                  ? "mb-3 ml-auto w-fit max-w-[80%] rounded-2xl bg-message p-3 text-message-foreground"
-                  : "mb-3"
-              }
-            >
+            <div key={message.id} className="mb-3">
               <ChatMarkdown
                 text={previewMarkdownTail(message.text)}
                 cwd={thread.worktreePath ?? project?.workspaceRoot}
                 threadRef={ref}
                 isStreaming={Boolean(message.streaming)}
-                lineBreaks={
-                  message.role === "user" || shouldPreserveAssistantLineBreaks(message.text)
-                }
-                parseRawHtml={message.role !== "user"}
+                lineBreaks={shouldPreserveAssistantLineBreaks(message.text)}
+                parseRawHtml
                 className="text-xs"
               />
             </div>
@@ -278,7 +340,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
               </ul>
             </ToolActivityIconCtx>
           ) : null}
-          {messages.length === 0 && activities.length === 0 && !liveStatus ? (
+          {!prompt && messages.length === 0 && activities.length === 0 && !liveStatus ? (
             <p className="text-xs text-muted-foreground">
               {disconnected
                 ? "Waiting for connection…"
