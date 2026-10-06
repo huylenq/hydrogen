@@ -3,6 +3,8 @@ import {
   scopedThreadKey,
   scopeThreadRef,
 } from "@t3tools/client-runtime/environment";
+import { presentPendingBackgroundWork } from "@t3tools/client-runtime/state/thread-execution";
+import type { OrchestrationV2PendingBackgroundTask } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import { deriveTimelineEntriesFromVisibleTurnItems } from "../session-logic";
@@ -12,6 +14,7 @@ import { useEnvironments } from "../state/environments";
 import { useProject, useServerConfigs, useThreadVisibleTurnItems } from "../state/entities";
 import { getProviderInstanceEntry } from "../providerInstances";
 import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
+import { ToolActivityIconCtx, type WorkEntryIconName } from "./chat/MessagesTimeline";
 import {
   getTriggerDisplayModelLabel,
   stripIconRedundantModelPrefix,
@@ -20,12 +23,42 @@ import { buildThreadRouteParams } from "../threadRoutes";
 import type { FlowAttentionEntry, FlowBenchEntry } from "./Flow.logic";
 import { FLOW_STATUS_CLASS } from "./FlowBar";
 import { ProjectFavicon } from "./ProjectFavicon";
-import { WorkEntryPreview } from "../customizations/huy/WorkEntryPreview";
-import { shouldPreserveAssistantLineBreaks } from "./chat/MessagesTimeline.logic";
+import {
+  LiveStatusPreview,
+  WorkEntryPreview,
+  type LiveStatus,
+} from "../customizations/huy/WorkEntryPreview";
+import {
+  deriveMessagesTimelineRows,
+  shouldPreserveAssistantLineBreaks,
+} from "./chat/MessagesTimeline.logic";
 import ChatMarkdown from "./ChatMarkdown";
 import { cn } from "../lib/utils";
 
 const PREVIEW_MESSAGE_CHARS = 2000;
+
+// Matches the chat's icons for background-work notifications (`workEntryIconName`).
+const BACKGROUND_WORK_ICON = {
+  subagent: "bot",
+  command: "terminal",
+  monitor: "eye",
+  background_task: "zap",
+} as const satisfies Record<OrchestrationV2PendingBackgroundTask["kind"], WorkEntryIconName>;
+
+const THINKING_STATUS: LiveStatus = { label: "Thinking", iconName: "brain", sweeping: true };
+
+/** Work a finished turn left running, titled as in the chat's composer banner; only work that will wake the agent sweeps. */
+function backgroundWorkStatus(
+  tasks: ReadonlyArray<OrchestrationV2PendingBackgroundTask>,
+): LiveStatus | null {
+  const work = presentPendingBackgroundWork(tasks);
+  if (work === null) return null;
+  return {
+    label: work.title,
+    iconName: BACKGROUND_WORK_ICON[work.items[0]!.kind],
+    sweeping: work.waiting,
+  };
+}
 
 /** Keeps a message's tail for the tile, cut at a line start and reopening a code fence the cut lands inside. */
 function previewMarkdownTail(text: string): string {
@@ -69,12 +102,33 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
   const modelLabel = providerEntry
     ? stripIconRedundantModelPrefix(rawModelLabel, providerEntry.driverKind)
     : rawModelLabel;
-  const { messages, activities } = useMemo(() => {
+  const status = entry.kind === "bench" ? entry.status : null;
+  const working = status === "Working";
+  const latestRun = thread.latestRun;
+  const runningRunId = thread.runtime?.activeRunId ?? null;
+  const loaded = visibleTurnItems.length > 0;
+  const { messages, activities, liveToolId, thinking } = useMemo(() => {
     const entries = deriveTimelineEntriesFromVisibleTurnItems({
       visibleTurnItems,
       optimisticMessages: [],
     });
+    // The chat's own row derivation decides which tool row is live, or that
+    // the session is thinking.
+    const rows =
+      working && entries.length > 0
+        ? deriveMessagesTimelineRows({
+            timelineEntries: entries,
+            latestRun,
+            runningRunId,
+            isWorking: true,
+            turnDiffSummaries: [],
+            supportsConversationRollback: false,
+          })
+        : [];
+    const liveRow = rows.findLast((row) => row.kind === "work-live" && row.active);
     return {
+      liveToolId: liveRow?.kind === "work-live" ? liveRow.entry.id : null,
+      thinking: rows.some((row) => row.kind === "thinking"),
       messages: entries
         .flatMap((entry) =>
           entry.kind === "message" && entry.message.text.trim() ? [entry.message] : [],
@@ -84,15 +138,24 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
         .flatMap((entry) => (entry.kind === "work" ? [entry.entry] : []))
         .slice(-3),
     };
-  }, [visibleTurnItems]);
-  const loaded = visibleTurnItems.length > 0;
+  }, [visibleTurnItems, working, latestRun, runningRunId]);
+  const liveStatus = thinking
+    ? THINKING_STATUS
+    : status === "Monitoring"
+      ? backgroundWorkStatus(thread.pendingBackgroundTasks)
+      : null;
+  const iconContext = useMemo(
+    () => ({ activeThreadEnvironmentId: thread.environmentId, resolvedTheme }),
+    [thread.environmentId, resolvedTheme],
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const followLatest = useRef(true);
   useLayoutEffect(() => {
     if (followLatest.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [visibleTurnItems]);
+    // The live status row can appear without new turn items.
+  }, [visibleTurnItems, liveStatus?.label]);
 
   const openSession = () => {
     useFlowStore.getState().inspectSession(scopedThreadKey(ref));
@@ -195,21 +258,27 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
               />
             </div>
           ))}
-          {activities.length > 0 ? (
-            <ul className="space-y-0.5 border-t border-border/50 pt-2">
-              {activities.map((activity) => (
-                <li key={activity.id}>
-                  <WorkEntryPreview
-                    entry={activity}
-                    environmentId={thread.environmentId}
-                    resolvedTheme={resolvedTheme}
-                    workspaceRoot={thread.worktreePath ?? project?.workspaceRoot}
-                  />
-                </li>
-              ))}
-            </ul>
+          {activities.length > 0 || liveStatus ? (
+            <ToolActivityIconCtx value={iconContext}>
+              <ul className="space-y-0.5 border-t border-border/50 pt-2">
+                {activities.map((activity) => (
+                  <li key={activity.id}>
+                    <WorkEntryPreview
+                      entry={activity}
+                      workspaceRoot={thread.worktreePath ?? project?.workspaceRoot}
+                      active={activity.id === liveToolId}
+                    />
+                  </li>
+                ))}
+                {liveStatus ? (
+                  <li>
+                    <LiveStatusPreview {...liveStatus} />
+                  </li>
+                ) : null}
+              </ul>
+            </ToolActivityIconCtx>
           ) : null}
-          {messages.length === 0 && activities.length === 0 ? (
+          {messages.length === 0 && activities.length === 0 && !liveStatus ? (
             <p className="text-xs text-muted-foreground">
               {disconnected
                 ? "Waiting for connection…"

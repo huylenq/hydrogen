@@ -3395,7 +3395,7 @@ function ExpandedWorkGroupEntries({
 
 const workEntryKey = (entry: TimelineWorkEntry) => entry.id;
 
-function ActivityShimmerOverlay({ children }: { children: ReactNode }) {
+export function ActivityShimmerOverlay({ children }: { children: ReactNode }) {
   return (
     <span
       aria-hidden
@@ -4567,7 +4567,7 @@ function useStableRows(rows: MessagesTimelineRow[], identity: string): MessagesT
 // Pure helpers
 // ---------------------------------------------------------------------------
 
-type WorkEntryIconName =
+export type WorkEntryIconName =
   | "bot"
   | "brain"
   | "browser"
