@@ -1,4 +1,3 @@
-import { THREAD_JUMP_KEYBINDING_COMMANDS } from "@t3tools/contracts";
 import { MODAL_COMMANDS, type ModalCommand } from "@t3tools/client-runtime/keyboard";
 import type { ModalSurface } from "./modalKeyboardStore";
 
@@ -39,7 +38,6 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
     "flow.toggle",
     "flow.overview.toggle",
     "focus.conversation",
-    ...THREAD_JUMP_KEYBINDING_COMMANDS,
     "focus.previous",
     "sidebar.toggle",
     "chat.new",

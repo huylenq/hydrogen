@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
+  layerModalBindings,
   MODAL_COMMANDS,
   modalReturnIndex,
   modalTargetIndex,
@@ -9,25 +10,10 @@ import {
 const all = () => true;
 
 describe("modal keyboard sequences", () => {
-  it("selects threads with bare digits without accepting counts or repeating actions", () => {
-    for (const [key, command] of [
-      ["1", "thread.jump.1"],
-      ["2", "thread.jump.2"],
-      ["3", "thread.jump.3"],
-      ["4", "thread.jump.4"],
-      ["5", "thread.jump.5"],
-      ["6", "thread.jump.6"],
-      ["7", "thread.jump.7"],
-      ["8", "thread.jump.8"],
-      ["9", "thread.jump.9"],
-    ]) {
-      expect(resolveModalSequence([], key!, false, all)).toEqual({ kind: "command", command });
-      expect(resolveModalSequence([], key!, true, all)).toEqual({ kind: "cancel" });
+  it("leaves bare digits to the app's own thread shortcuts", () => {
+    for (const key of ["0", "1", "5", "9"]) {
+      expect(resolveModalSequence([], key, false, all)).toEqual({ kind: "pass" });
     }
-    expect(resolveModalSequence([], "3", false, (command) => command === "thread.jump.1")).toEqual({
-      kind: "pass",
-    });
-    expect(resolveModalSequence([], "0", false, all)).toEqual({ kind: "pass" });
   });
 
   it("navigates a flow, opens an item, enters the composer, and returns through a workspace command", () => {
@@ -132,7 +118,7 @@ describe("modal keyboard sequences", () => {
     expect(resolveModalSequence(["f"], "q", false, all)).toEqual({ kind: "cancel" });
   });
 
-  it("toggles panes without repeating and cancels prefixes before returning to content", () => {
+  it("moves between areas without repeating and cancels prefixes before returning to content", () => {
     for (const [key, command] of [
       ["h", "left"],
       ["l", "right"],
@@ -142,8 +128,8 @@ describe("modal keyboard sequences", () => {
       }
     }
     for (const [key, command] of [
-      ["H", "sidebar.toggle"],
-      ["L", "rightPanel.toggle"],
+      ["H", "focus.left"],
+      ["L", "focus.right"],
       ["Escape", "focus.conversation"],
     ] as const) {
       expect(resolveModalSequence([], key, false, all)).toEqual({ kind: "command", command });
@@ -199,7 +185,7 @@ describe("modal keyboard sequences", () => {
     }
   });
 
-  it("moves between areas only through the workspace prefix", () => {
+  it("moves between areas through H/L or the workspace prefix", () => {
     expect(resolveModalSequence(["w"], "h", false, all)).toEqual({
       kind: "command",
       command: "focus.left",
@@ -255,5 +241,51 @@ describe("section bindings", () => {
 
   it("leaves nothing pending when the end of a sequence is held", () => {
     expect(resolveModalSequence([], "t", true, all)).toEqual({ kind: "cancel" });
+  });
+});
+
+describe("layered keymaps", () => {
+  const overlay = [
+    { keys: ["["], command: "hunk.previous", label: "Previous hunk", repeatable: true },
+    { keys: ["j"], command: "line.next", label: "Next line", repeatable: true },
+    { keys: ["g", "h"], command: "parent", label: "Parent" },
+  ] as const;
+  const layered = layerModalBindings(overlay, MODAL_COMMANDS);
+
+  it("retires app sequences an overlay key shadows or prefixes", () => {
+    const keys = layered.map((binding) => binding.keys.join(" "));
+    expect(keys).not.toContain("[ [");
+    expect(keys.filter((key) => key === "j")).toHaveLength(1);
+    expect(keys).toContain("] ]");
+    expect(keys).toContain("g k");
+    for (const left of layered) {
+      for (const right of layered) {
+        if (left === right) continue;
+        expect(left.keys.every((key, index) => key === right.keys[index])).toBe(false);
+      }
+    }
+  });
+
+  it("resolves overlay keys first and repeats overlay motions marked repeatable", () => {
+    expect(resolveModalSequence([], "[", false, all, layered)).toEqual({
+      kind: "command",
+      command: "hunk.previous",
+    });
+    expect(resolveModalSequence([], "[", true, all, layered)).toEqual({
+      kind: "command",
+      command: "hunk.previous",
+    });
+    expect(resolveModalSequence([], "j", true, all, layered)).toEqual({
+      kind: "command",
+      command: "line.next",
+    });
+    expect(resolveModalSequence(["g"], "h", true, all, layered)).toEqual({
+      kind: "pending",
+      keys: ["g"],
+    });
+    expect(resolveModalSequence(["w"], "h", false, all, layered)).toEqual({
+      kind: "command",
+      command: "focus.left",
+    });
   });
 });

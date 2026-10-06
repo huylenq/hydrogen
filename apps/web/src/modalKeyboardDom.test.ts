@@ -301,7 +301,11 @@ describe("right-panel focus destination", () => {
       querySelectorAll: () => [tab],
       querySelector: () => ({ querySelector: () => content }),
     };
-    const doc = { activeElement: null as unknown, querySelector: () => root };
+    const doc = {
+      activeElement: null as unknown,
+      querySelector: () => root,
+      addEventListener: vi.fn(),
+    };
     vi.stubGlobal("document", doc);
     return { tab, content, doc };
   }

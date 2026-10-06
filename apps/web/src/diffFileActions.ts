@@ -9,6 +9,8 @@ interface OpenDiffFilePrimaryActionInput {
   readonly filePath: string;
   readonly activeCwd: string | undefined;
   readonly repositoryRoot?: string | undefined;
+  /** A new-file line to open at. */
+  readonly line?: number | undefined;
   readonly openInEditor: (targetPath: string) => void;
 }
 
@@ -82,6 +84,7 @@ export function openDiffFilePrimaryAction({
   filePath,
   activeCwd,
   repositoryRoot,
+  line,
   openInEditor,
 }: OpenDiffFilePrimaryActionInput): void {
   const workspaceFilePath = resolveDiffPathForWorkspace({
@@ -92,9 +95,10 @@ export function openDiffFilePrimaryAction({
   if (!workspaceFilePath) return;
 
   if (threadRef) {
-    useRightPanelStore.getState().openFile(threadRef, workspaceFilePath);
+    useRightPanelStore.getState().openFile(threadRef, workspaceFilePath, line);
     return;
   }
 
-  openInEditor(activeCwd ? resolvePathLinkTarget(workspaceFilePath, activeCwd) : workspaceFilePath);
+  const target = line === undefined ? workspaceFilePath : `${workspaceFilePath}:${line}`;
+  openInEditor(activeCwd ? resolvePathLinkTarget(target, activeCwd) : target);
 }

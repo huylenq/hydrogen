@@ -90,6 +90,8 @@ import { createGitDiffFileContentsLoader } from "../lib/diffFileContents";
 import { useReviewFilePatches } from "./diffs/useReviewFilePatches";
 import { DiffFileLoadingBoundary } from "./diffs/DiffFileLoadingBoundary";
 import { DiffFileStatus } from "./diffs/DiffFileStatus";
+import { useDiffVimScope } from "../customizations/huy/useDiffVim";
+import { DiffVimCheatsheet } from "../customizations/huy/DiffVimCheatsheet";
 
 type DiffThemeType = "light" | "dark";
 const AUTOMATIC_BASE_REF = "__automatic_base_ref__";
@@ -111,12 +113,16 @@ function getCachedFileEntry(fileDiff: FileDiffMetadata) {
   return entry;
 }
 
+/**
+ * Keyed by path, not file key: a lazily loaded file's placeholder guesses its change type, so an
+ * added or deleted file's key changes when its patch arrives.
+ */
 interface CollapsedDiffFilesState {
   readonly scopeKey: string | null;
-  readonly fileKeys: ReadonlySet<string>;
+  readonly filePaths: ReadonlySet<string>;
 }
 
-const EMPTY_COLLAPSED_DIFF_FILE_KEYS: ReadonlySet<string> = new Set();
+const EMPTY_COLLAPSED_DIFF_FILE_PATHS: ReadonlySet<string> = new Set();
 
 interface DiffPanelProps {
   mode?: DiffPanelMode;
@@ -143,10 +149,13 @@ export default function DiffPanel({
   const [baseRefQuery, setBaseRefQuery] = useState("");
   const [collapsedDiffFiles, setCollapsedDiffFiles] = useState<CollapsedDiffFilesState>(() => ({
     scopeKey: null,
-    fileKeys: EMPTY_COLLAPSED_DIFF_FILE_KEYS,
+    filePaths: EMPTY_COLLAPSED_DIFF_FILE_PATHS,
   }));
   const [codeViewRevision, setCodeViewRevision] = useState(0);
   const [codeView, setCodeView] = useState<AnnotatableCodeViewHandle | null>(null);
+  const [shellRoot, setShellRoot] = useState<HTMLDivElement | null>(null);
+  useDiffVimScope(shellRoot);
+  const [diffKeysOpen, setDiffKeysOpen] = useState(false);
 
   const routeThreadRef = useParams({
     strict: false,
@@ -432,17 +441,17 @@ export default function DiffPanel({
     () => renderableFiles.map(getCachedFileEntry),
     [renderableFiles],
   );
-  const defaultCollapsedDiffFileKeys = useMemo(
+  const defaultCollapsedDiffFilePaths = useMemo(
     () =>
       settings.diffFilesCollapsed
-        ? new Set(renderableFileEntries.map((file) => file.fileKey))
-        : EMPTY_COLLAPSED_DIFF_FILE_KEYS,
+        ? new Set(renderableFileEntries.map((file) => resolveFileDiffPath(file.fileDiff)))
+        : EMPTY_COLLAPSED_DIFF_FILE_PATHS,
     [renderableFileEntries, settings.diffFilesCollapsed],
   );
-  const collapsedDiffFileKeys =
+  const collapsedDiffFilePaths =
     collapsedDiffFiles.scopeKey === collapseScopeKey
-      ? collapsedDiffFiles.fileKeys
-      : defaultCollapsedDiffFileKeys;
+      ? collapsedDiffFiles.filePaths
+      : defaultCollapsedDiffFilePaths;
   const renderLoadingBoundary = useCallback(
     () =>
       settledFileCount < renderableFiles.length ? (
@@ -458,24 +467,25 @@ export default function DiffPanel({
       renderableFileEntries
         .filter(({ fileDiff }) => !lazySource || readyFilePaths.has(resolveFileDiffPath(fileDiff)))
         .map(({ fileDiff, fileKey, fileVersion }) => {
+          const filePath = resolveFileDiffPath(fileDiff);
           return {
             fileDiff,
-            filePath: resolveFileDiffPath(fileDiff),
+            filePath,
             fileKey,
             fileVersion,
             // Header-only placeholders use the viewer's collapsed geometry until their patch arrives.
             collapsed:
-              collapsedDiffFileKeys.has(fileKey) ||
+              collapsedDiffFilePaths.has(filePath) ||
               fileDiff.cacheKey?.endsWith(":pending") === true,
           };
         }),
-    [collapsedDiffFileKeys, renderableFileEntries, lazySource, readyFilePaths],
+    [collapsedDiffFilePaths, renderableFileEntries, lazySource, readyFilePaths],
   );
-  const diffFileKeys = useMemo(
-    () => renderableFileEntries.map((file) => file.fileKey),
+  const diffFilePaths = useMemo(
+    () => renderableFileEntries.map((file) => resolveFileDiffPath(file.fileDiff)),
     [renderableFileEntries],
   );
-  const allDiffFilesCollapsed = areAllDiffFilesCollapsed(diffFileKeys, collapsedDiffFileKeys);
+  const allDiffFilesCollapsed = areAllDiffFilesCollapsed(diffFilePaths, collapsedDiffFilePaths);
   const diffLineStat = useMemo(() => {
     if (!selectedTurn && selectedGitSource?.files) {
       return selectedGitSource.files.reduce(
@@ -516,10 +526,10 @@ export default function DiffPanel({
       if (!file) return;
       setCollapsedDiffFiles((current) => {
         const next = new Set(
-          current.scopeKey === collapseScopeKey ? current.fileKeys : defaultCollapsedDiffFileKeys,
+          current.scopeKey === collapseScopeKey ? current.filePaths : defaultCollapsedDiffFilePaths,
         );
-        next.delete(file.fileKey);
-        return { scopeKey: collapseScopeKey, fileKeys: next };
+        next.delete(filePath);
+        return { scopeKey: collapseScopeKey, filePaths: next };
       });
       if (lazySource && index >= settledFileCount) {
         requestFile(index);
@@ -529,7 +539,7 @@ export default function DiffPanel({
     [
       renderableFileEntries,
       collapseScopeKey,
-      defaultCollapsedDiffFileKeys,
+      defaultCollapsedDiffFilePaths,
       requestTreeReveal,
       lazySource,
       settledFileCount,
@@ -551,12 +561,13 @@ export default function DiffPanel({
   }, [lazySource, selectedFilePath, selectedFileRevealRequestId, filePatchScope, revealDiffFile]);
 
   const openDiffFile = useCallback(
-    (filePath: string) => {
+    (filePath: string, line?: number) => {
       openDiffFilePrimaryAction({
         threadRef: routeThreadRef,
         filePath,
         activeCwd,
         repositoryRoot: activeRepositoryRoot,
+        line,
         openInEditor: (targetPath) => {
           void (async () => {
             const result = await openInPreferredEditor(targetPath);
@@ -579,34 +590,45 @@ export default function DiffPanel({
     [activeCwd, activeRepositoryRoot, openInPreferredEditor, routeThreadRef],
   );
   const toggleDiffFileCollapsed = useCallback(
-    (fileKey: string) => {
+    (filePath: string) => {
       setCollapsedDiffFiles((current) => {
         const next = new Set(
-          current.scopeKey === collapseScopeKey ? current.fileKeys : defaultCollapsedDiffFileKeys,
+          current.scopeKey === collapseScopeKey ? current.filePaths : defaultCollapsedDiffFilePaths,
         );
-        if (next.has(fileKey)) {
-          next.delete(fileKey);
+        if (next.has(filePath)) {
+          next.delete(filePath);
         } else {
-          next.add(fileKey);
+          next.add(filePath);
         }
-        return { scopeKey: collapseScopeKey, fileKeys: next };
+        return { scopeKey: collapseScopeKey, filePaths: next };
       });
     },
-    [collapseScopeKey, defaultCollapsedDiffFileKeys],
+    [collapseScopeKey, defaultCollapsedDiffFilePaths],
+  );
+
+  const setAllDiffFilesCollapsed = useCallback(
+    (collapsed: boolean) => {
+      setCodeViewRevision((current) => current + 1);
+      setCollapsedDiffFiles({
+        scopeKey: collapseScopeKey,
+        filePaths: collapsed ? new Set(diffFilePaths) : new Set(),
+      });
+    },
+    [collapseScopeKey, diffFilePaths],
   );
 
   const toggleDiffFileCollapse = useCallback(() => {
     setCodeViewRevision((current) => current + 1);
     setCollapsedDiffFiles((current) => {
       const currentKeys =
-        current.scopeKey === collapseScopeKey ? current.fileKeys : defaultCollapsedDiffFileKeys;
+        current.scopeKey === collapseScopeKey ? current.filePaths : defaultCollapsedDiffFilePaths;
 
       return {
         scopeKey: collapseScopeKey,
-        fileKeys: toggleAllDiffFiles(diffFileKeys, currentKeys),
+        filePaths: toggleAllDiffFiles(diffFilePaths, currentKeys),
       };
     });
-  }, [collapseScopeKey, defaultCollapsedDiffFileKeys, diffFileKeys]);
+  }, [collapseScopeKey, defaultCollapsedDiffFilePaths, diffFilePaths]);
 
   const selectTurn = (runId: RunId) => {
     if (!routeThreadRef) return;
@@ -839,7 +861,7 @@ export default function DiffPanel({
             </TooltipPopup>
           </Tooltip>
         )}
-        {diffFileKeys.length > 0 && (
+        {diffFilePaths.length > 0 && (
           <Tooltip>
             <TooltipTrigger
               render={
@@ -923,7 +945,7 @@ export default function DiffPanel({
             {diffIgnoreWhitespace ? "Show whitespace changes" : "Hide whitespace changes"}
           </TooltipPopup>
         </Tooltip>
-        {diffFileKeys.length > 0 && (
+        {diffFilePaths.length > 0 && (
           <Tooltip>
             <TooltipTrigger
               render={
@@ -943,12 +965,15 @@ export default function DiffPanel({
             </TooltipPopup>
           </Tooltip>
         )}
+        {settings.modalKeyboardEnabled && (
+          <DiffVimCheatsheet open={diffKeysOpen} onOpenChange={setDiffKeysOpen} />
+        )}
       </div>
     </>
   );
 
   return (
-    <DiffPanelShell mode={mode} header={headerRow}>
+    <DiffPanelShell mode={mode} header={headerRow} onRootChange={setShellRoot}>
       {!activeThread ? (
         <div className="flex flex-1 items-center justify-center px-5 text-center text-xs text-muted-foreground/70">
           Select a thread to inspect turn diffs.
@@ -1028,7 +1053,7 @@ export default function DiffPanel({
                     const file = codeViewFiles.find(
                       (candidate) => candidate.filePath === headerFilePath,
                     );
-                    if (file) toggleDiffFileCollapsed(file.fileKey);
+                    if (file) toggleDiffFileCollapsed(file.filePath);
                   }}
                   onContextMenuCapture={(event) => {
                     const composedPath = event.nativeEvent.composedPath?.() ?? [];
@@ -1060,6 +1085,11 @@ export default function DiffPanel({
                     sectionId={reviewSectionId}
                     sectionTitle={reviewSectionTitle}
                     composerDraftTarget={composerDraftTarget}
+                    onToggleFileCollapsed={toggleDiffFileCollapsed}
+                    onSetAllFilesCollapsed={setAllDiffFilesCollapsed}
+                    onOpenFile={(filePath, line) => openDiffFile(filePath, line ?? undefined)}
+                    {...(canRefreshGitDiff ? { onRefresh: refreshBranchDiffPreview } : {})}
+                    onShowKeys={() => setDiffKeysOpen(true)}
                     renderHeaderFilenameSuffix={(fileDiff) => {
                       const path = resolveFileDiffPath(fileDiff);
                       const stat = fileStats.get(path);
@@ -1087,10 +1117,10 @@ export default function DiffPanel({
                           },
                         }
                       : {})}
-                    renderHeaderPrefix={(fileDiff, fileKey) => {
+                    renderHeaderPrefix={(fileDiff) => {
                       const unavailable = fileDiff.cacheKey?.endsWith(":pending") === true;
-                      const collapsed = unavailable || collapsedDiffFileKeys.has(fileKey);
                       const filePath = resolveFileDiffPath(fileDiff);
+                      const collapsed = unavailable || collapsedDiffFilePaths.has(filePath);
                       return (
                         <Tooltip>
                           <TooltipTrigger
@@ -1106,7 +1136,7 @@ export default function DiffPanel({
                                 disabled={unavailable}
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  toggleDiffFileCollapsed(fileKey);
+                                  toggleDiffFileCollapsed(filePath);
                                 }}
                               />
                             }

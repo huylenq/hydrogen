@@ -1,0 +1,18 @@
+/* Diff files as cards (see diffFileCards.ts). Only paint here: Pierre measures each file, so a
+   border or margin would drift from its virtual layout. The ring is an outline drawn inside the
+   rounded edge, and the inset comes from the scroll root's inline padding. The doubled class
+   outranks the shared surface rule in index.css without depending on stylesheet order. */
+.diff-render-surface.diff-render-surface {
+  padding-inline: 8px;
+  background-color: var(--background);
+}
+
+/* Each file sits on the theme's raised surface over the app background, lifted a little further
+   in dark themes, where --card is only a few percent off the background. The viewer derives its
+   gutter, context, and change tints from --code-background, so they follow the card. */
+.diff-render-surface.diff-render-surface diffs-container {
+  --code-background: light-dark(var(--card), color-mix(in srgb, var(--card) 96%, white));
+  border-radius: 8px;
+  outline: 1px solid color-mix(in srgb, var(--code-background) 86%, var(--code-foreground));
+  outline-offset: -1px;
+}

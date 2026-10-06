@@ -1,6 +1,10 @@
-/* A steady focus outline remains visible after programmatic modal navigation. */
+/* A steady focus outline remains visible after programmatic modal navigation. Content that paints
+   over its own outline (the diff viewer) draws it on an overlay after it instead. */
 [data-modal-keyboard] [data-modal-surface]:focus,
-[data-modal-keyboard] [data-modal-surface] :focus:not(input):not(textarea):not([contenteditable]) {
+[data-modal-keyboard]
+  [data-modal-surface]
+  :focus:not(input):not(textarea):not([contenteditable]):not(:has(~ [data-focus-ring-overlay])),
+[data-modal-keyboard] [data-modal-surface] :focus ~ [data-focus-ring-overlay] {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }

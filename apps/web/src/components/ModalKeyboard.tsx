@@ -10,12 +10,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { runAppCommand } from "../appCommands";
 import { useComposerHandleContext } from "../composerHandleContext";
 import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
-import {
-  isShortcutBound,
-  resolveShortcutCommand,
-  shortcutLabelForCommand,
-  threadJumpIndexFromCommand,
-} from "../keybindings";
+import { isShortcutBound, resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
   activateModalItem,
@@ -47,6 +42,12 @@ import { useFlowStore } from "../flowStore";
 import { installFlowGridWindowFocus } from "../customizations/huy/flowGridWindowFocus";
 import { toggleReadingLamp, useReadingLampStore } from "../customizations/huy/readingCursor";
 import { dispatchTimelineCommand } from "../customizations/huy/useHuyChatIntegration";
+import {
+  DIFF_VIM_LAYERED_BINDINGS,
+  diffVimTargetFor,
+  focusedDiffVimTarget,
+  isDiffVimCommand,
+} from "../customizations/huy/diffVim";
 import { useSidebar } from "./ui/sidebar";
 
 const GROUP_LABELS: Record<string, string> = {
@@ -54,6 +55,7 @@ const GROUP_LABELS: Record<string, string> = {
   w: "Workspace",
   t: "Thread actions",
   f: "Find",
+  y: "Copy",
 };
 const keyLabel = (key: string) => (key === " " ? "Space" : key);
 
@@ -288,8 +290,6 @@ export function ModalKeyboard({
         default:
           if (!runAppCommand(command)) {
             showModalFeedback("This command is not available in the current view");
-          } else if (threadJumpIndexFromCommand(command) !== null) {
-            requestModalFocus("conversation");
           }
       }
     };
@@ -334,17 +334,31 @@ export function ModalKeyboard({
         clearModalSequence();
         return;
       }
+      const diffHost = diffVimTargetFor(event);
       // Control+J/K scroll unless an app shortcut uses the chord in any context: this listener
-      // cannot see the context the app's own dispatch checks (`mod` is Control off Mac).
+      // cannot see the context the app's own dispatch checks (`mod` is Control off Mac). A focused
+      // diff also takes Vim's Control+D/U/F/B page motions on the same terms.
       const controlScroll =
         event.ctrlKey &&
         !event.metaKey &&
         !event.altKey &&
         !event.shiftKey &&
-        (event.key === "j" || event.key === "k") &&
+        (diffHost ? /^[jkdufb]$/ : /^[jk]$/).test(event.key) &&
         !isShortcutBound(event, keybindings);
+      // A focused diff takes magit's Alt+1/Alt+2 levels. Option changes `key` on Mac, so read `code`.
+      const altLevel =
+        diffHost &&
+        event.altKey &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.shiftKey &&
+        /^Digit[12]$/.test(event.code) &&
+        !isShortcutBound(event, keybindings)
+          ? `Alt+${event.code.slice("Digit".length)}`
+          : null;
       if (
         !controlScroll &&
+        !altLevel &&
         (event.metaKey ||
           event.ctrlKey ||
           event.altKey ||
@@ -365,19 +379,26 @@ export function ModalKeyboard({
         requestModalFocus("conversation");
         return;
       }
-      if (modalEventIsEmbedded(event) || modalEventIsEditable(event) || modalEventIsQuestion(event))
+      if (
+        !diffHost &&
+        (modalEventIsEmbedded(event) || modalEventIsEditable(event) || modalEventIsQuestion(event))
+      )
         return;
       if (current.help && (event.key === "Escape" || event.key === "?")) {
         consume();
         if (!event.repeat) closeModalHelp();
         return;
       }
-      const key = controlScroll
-        ? `Ctrl+${event.key}`
-        : event.key === " " && event.shiftKey
-          ? "Shift+Space"
-          : event.key;
-      const result = resolveModalSequence(current.pending, key, event.repeat, (action) => {
+      const key =
+        altLevel ??
+        (controlScroll
+          ? `Ctrl+${event.key}`
+          : event.key === " " && event.shiftKey
+            ? "Shift+Space"
+            : event.key === "Tab" && event.shiftKey
+              ? "Shift+Tab"
+              : event.key);
+      const available = (action: ModalCommand) => {
         if (action === "activate") {
           const target = event.target;
           return (
@@ -387,7 +408,16 @@ export function ModalKeyboard({
           );
         }
         return true;
-      });
+      };
+      const result = diffHost
+        ? resolveModalSequence(
+            current.pending,
+            key,
+            event.repeat,
+            (action) => (isDiffVimCommand(action) ? diffHost.available(action) : available(action)),
+            DIFF_VIM_LAYERED_BINDINGS,
+          )
+        : resolveModalSequence(current.pending, key, event.repeat, available);
       if (result.kind === "pass") return;
       consume();
       if (result.kind === "pending") {
@@ -395,7 +425,12 @@ export function ModalKeyboard({
           useModalKeyboardStore.setState({ pending: result.keys });
       } else {
         clearModalSequence();
-        if (result.kind === "command") execute(result.command);
+        if (result.kind !== "command") return;
+        const command = result.command;
+        if (!isDiffVimCommand(command)) execute(command);
+        // An Escape the diff has no use for focuses the conversation, as everywhere else.
+        else if (!diffHost?.run(command) && command === "diff.escape")
+          execute("focus.conversation");
       }
     };
     const onFocus = (event: FocusEvent) => {
@@ -448,14 +483,21 @@ export function ModalKeyboard({
   const hints = state.help || (state.pending.length > 0 && hintPrefix === state.pending);
   if (!hints && !state.feedback) return null;
   const prefix = state.help ? [] : state.pending;
-  const entries = MODAL_COMMANDS.filter(
+  const diffHost = focusedDiffVimTarget();
+  const entries = (diffHost ? DIFF_VIM_LAYERED_BINDINGS : MODAL_COMMANDS).filter(
     (binding) => state.help || prefix.every((key, index) => binding.keys[index] === key),
   );
   const groups = new Map<string, { label: string; reason: string | null; matching: boolean }>();
   for (const binding of entries) {
     const rest = binding.keys.slice(prefix.length);
     const key = state.help ? binding.keys.map(keyLabel).join(" ") : keyLabel(rest[0] ?? "");
-    const description = describe(binding.command);
+    const description = isDiffVimCommand(binding.command)
+      ? {
+          label: binding.label,
+          reason:
+            diffHost?.available(binding.command) === false ? "Select lines with v first" : null,
+        }
+      : describe(binding.command);
     groups.set(key, {
       label:
         !state.help && rest.length > 1

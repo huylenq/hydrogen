@@ -40,7 +40,7 @@ These keys work in Normal mode, outside text fields, embedded tools, and open di
 
 | Key       | Action                                                          |
 | --------- | --------------------------------------------------------------- |
-| `H` / `L` | Toggle sidebar / right panel visibility                         |
+| `H` / `L` | Focus the area to the left/right                                |
 | `h` / `l` | Move within the current area; collapse/expand in a conversation |
 | `Esc`     | Focus Conversation or show Flow overview                        |
 | `Space`   | Same as `j`; `Shift+Space` is the same as `k`                   |
@@ -56,7 +56,6 @@ These keys work in Normal mode, outside text fields, embedded tools, and open di
 | `r`       | Open and focus review changes                                   |
 | `/`       | Search and switch threads                                       |
 | `,`       | Open keyboard settings                                          |
-| `1`–`9`   | Select thread as with `Cmd+1`–`Cmd+9`                           |
 | `?`       | Show the complete shortcut reference                            |
 
 Numbers follow the same thread order as the modified shortcuts: the Flow bar order while
@@ -153,6 +152,34 @@ keeps its scroll position. If a row has disappeared, focus falls back to its nea
 remaining item. `w w` alternates between your last two navigation areas without changing
 the open thread.
 
+## Review a diff
+
+Press `r` (or `w l` while the review panel is open) to focus the diff. Focus waits for the diff to load, and the keys work anywhere in the panel, including its toolbar. The keys follow Emacs magit with evil bindings. Your first `j` or `k` puts the cursor on the first line on screen; the cursor is the highlighted line, or a bar on a file's header. While the diff has focus, its keys replace the app's `/`, `n`, `c`, `?`, `Space`, `h`, `l`, `[`, and `]`. Other app keys such as `w h`, `H`/`L`, and `q` keep working. Press `?` or the keyboard button in the diff toolbar for a cheatsheet of these keys.
+
+| Keys                    | Action                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `j` / `k`               | Next / previous line, stepping through file headers                                                                |
+| `Ctrl+j` / `Ctrl+k`     | Next / previous file header or hunk                                                                                |
+| `]` / `[`               | Next / previous hunk in the file, or file to file from a header                                                    |
+| `^` or `g h`            | The file's header                                                                                                  |
+| `h` / `l`               | In split view, the old / new side; otherwise `h` goes to the header, which `h` collapses and `l` expands or enters |
+| `gg` / `G`              | First file / last line                                                                                             |
+| `Space` / `Shift+Space` | Scroll a page down / up (also `Ctrl+f` / `Ctrl+b`)                                                                 |
+| `Ctrl+d` / `Ctrl+u`     | Scroll half a page down / up                                                                                       |
+| `zt` / `zz` / `zb`      | Scroll the cursor's line to the top / center / bottom                                                              |
+| `Tab` / `Shift+Tab`     | Collapse or expand the file / all files                                                                            |
+| `1` / `2`               | The cursor's file: header only / show it all                                                                       |
+| `Alt+1` / `Alt+2`       | Every file: headers only / show them all                                                                           |
+| `+`                     | Show more unchanged lines around this file's hunks                                                                 |
+| `/`, then `n` / `N`     | Search lines and file paths, then the next / previous match                                                        |
+| `v` or `V`, then `y`    | Select lines, then copy them; `Esc` ends the selection                                                             |
+| `y y` / `y s`           | Copy the line / the hunk (the file path on a header)                                                               |
+| `c`                     | Comment on the line or selection                                                                                   |
+| `Enter`                 | Open the file at the cursor's line                                                                                 |
+| `g r`                   | Refresh the diff                                                                                                   |
+
+Search ignores case unless your search has a capital letter. It looks inside collapsed files and opens the one it lands in. The digits follow magit's section levels, but hunks can't be folded on their own, so there are two levels: file headers, then everything. `Esc` ends a selection first; otherwise it returns to the conversation.
+
 ## Answer a question
 
 Press `A` from Normal mode to expand and focus the pending question. This selects no
@@ -161,7 +188,7 @@ answers advance as usual; multiple-choice answers toggle the option. Tab and mou
 selection also work.
 
 While the expanded question has focus, its controls own the keys. Press `Esc` to return
-to the conversation, where `1`–`9` select threads again. Typed numbers in text fields remain
+to the conversation. Typed numbers in text fields remain
 ordinary input. With this profile off, numbered answers keep their usual global shortcuts
 outside text fields.
 
@@ -206,5 +233,5 @@ recording shortcuts and resolving conflicts.
 | A command does nothing                           | Open a thread if needed; `A` needs a pending question and `r` needs a Git-backed thread. |
 | You want ordinary keyboard behavior              | Turn the profile off in Settings or use its toggle shortcut.                             |
 
-This profile does not add Vim text operators, counts, macros, or file/hunk review motions.
+This profile does not add Vim text operators, counts, or macros.
 Native mobile does not yet offer it.

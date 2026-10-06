@@ -31,21 +31,8 @@ const context: ModalCommandContext = {
 };
 
 describe("context-aware modal commands", () => {
-  it("allows selecting a thread and focusing main content before a thread is open", () => {
-    for (const command of [
-      "thread.jump.1",
-      "thread.jump.2",
-      "thread.jump.3",
-      "thread.jump.4",
-      "thread.jump.5",
-      "thread.jump.6",
-      "thread.jump.7",
-      "thread.jump.8",
-      "thread.jump.9",
-      "focus.conversation",
-      "focus.flow",
-      "flow.toggle",
-    ] as const) {
+  it("allows focusing main content before a thread is open", () => {
+    for (const command of ["focus.conversation", "focus.flow", "flow.toggle"] as const) {
       expect(describeModalCommand(command, { ...context, thread: null }).reason).toBeNull();
     }
   });

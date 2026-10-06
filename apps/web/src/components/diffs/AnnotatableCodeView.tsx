@@ -8,7 +8,10 @@ import type {
 } from "@pierre/diffs";
 import type { CodeViewHandle } from "@pierre/diffs/react";
 import type { ScopedThreadRef } from "@t3tools/contracts";
-import { useCallback, useMemo, useState, type ReactNode, type Ref } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+
+import { DiffVimSearchBar } from "~/customizations/huy/DiffVimSearchBar";
+import { useDiffVim } from "~/customizations/huy/useDiffVim";
 
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
 import { fnv1a32 } from "~/lib/diffRendering";
@@ -84,7 +87,7 @@ interface AnnotatableCodeViewProps {
   sectionTitle: string;
   composerDraftTarget: ScopedThreadRef | DraftId;
   options: StyledDiffCodeViewOptions<DiffCommentAnnotationGroup>;
-  viewerRef?: Ref<AnnotatableCodeViewHandle>;
+  viewerRef?: (handle: AnnotatableCodeViewHandle | null) => void;
   className?: string;
   renderCodeViewFooter?: () => ReactNode;
   unsafeCSSExtra?: string;
@@ -95,6 +98,12 @@ interface AnnotatableCodeViewProps {
     fileKey: string,
     collapsed: boolean,
   ) => ReactNode;
+  /** Vim navigation folds, opens, refreshes, and shows its keys through these. */
+  onToggleFileCollapsed?: (filePath: string) => void;
+  onSetAllFilesCollapsed?: (collapsed: boolean) => void;
+  onOpenFile?: (filePath: string, line: number | null) => void;
+  onRefresh?: () => void;
+  onShowKeys?: () => void;
 }
 
 interface DiffSelectionContext {
@@ -115,6 +124,11 @@ export function AnnotatableCodeView({
   renderHeaderMetadata,
   renderHeaderFilenameSuffix,
   renderHeaderPrefix,
+  onToggleFileCollapsed,
+  onSetAllFilesCollapsed,
+  onOpenFile,
+  onRefresh,
+  onShowKeys,
 }: AnnotatableCodeViewProps) {
   const addReviewComment = useComposerDraftStore((store) => store.addReviewComment);
   const removeReviewComment = useComposerDraftStore((store) => store.removeReviewComment);
@@ -175,17 +189,84 @@ export function AnnotatableCodeView({
     [draft, files, reviewComments, sectionId],
   );
 
+  const beginComment = useCallback(
+    (fileKey: string, range: SelectedLineRange) => {
+      const file = filesByKey.get(fileKey);
+      if (!file) return;
+      const id = nextFileCommentId();
+      const comment = buildDiffReviewComment({
+        id,
+        sectionId,
+        sectionTitle,
+        filePath: file.filePath,
+        fileDiff: file.fileDiff,
+        range,
+        text: "",
+      });
+      if (!comment) return;
+      setDraftText("");
+      setDraft({
+        fileKey,
+        annotation: {
+          side: annotationSide(range),
+          lineNumber: range.end,
+          metadata: {
+            entries: [{ id, kind: "draft", range, rangeLabel: comment.rangeLabel, text: "" }],
+          },
+        },
+      });
+    },
+    [filesByKey, sectionId, sectionTitle],
+  );
+  const beginGutterComment = useCallback(
+    (range: SelectedLineRange | null, context: DiffSelectionContext) => {
+      if (range && context.item.type === "diff") beginComment(context.item.id, range);
+    },
+    [beginComment],
+  );
+
+  const hasOpenComment = draft !== null;
+  const [viewer, setViewer] = useState<AnnotatableCodeViewHandle | null>(null);
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  const attachViewer = useCallback(
+    (handle: AnnotatableCodeViewHandle | null) => {
+      setViewer(handle);
+      viewerRef?.(handle);
+    },
+    [viewerRef],
+  );
+  const vim = useDiffVim({
+    viewer,
+    root,
+    files,
+    style: (options.diffStyle ?? "split") === "split" ? "split" : "unified",
+    setSelectedLines,
+    commentOpen: hasOpenComment,
+    beginComment,
+    ...(onToggleFileCollapsed ? { toggleFile: onToggleFileCollapsed } : {}),
+    ...(onSetAllFilesCollapsed ? { setAllCollapsed: onSetAllFilesCollapsed } : {}),
+    ...(onOpenFile ? { openFile: onOpenFile } : {}),
+    ...(onRefresh ? { refresh: onRefresh } : {}),
+    ...(onShowKeys ? { showKeys: onShowKeys } : {}),
+  });
+  const { settleAfterComment } = vim;
+
   const removeEntry = useCallback(
     (entryId: string) => {
-      setSelectedLines(null);
-      if (draft?.annotation.metadata.entries.some((entry) => entry.id === entryId)) {
+      const draftEntry = draft?.annotation.metadata.entries.find((entry) => entry.id === entryId);
+      setSelectedLines(
+        draft && draftEntry
+          ? settleAfterComment({ id: draft.fileKey, range: draftEntry.range })
+          : null,
+      );
+      if (draftEntry) {
         setDraft(null);
         setDraftText("");
       } else {
         removeReviewComment(composerDraftTarget, entryId);
       }
     },
-    [composerDraftTarget, draft, removeReviewComment],
+    [composerDraftTarget, draft, removeReviewComment, settleAfterComment],
   );
 
   const submitEntry = useCallback(
@@ -205,98 +286,93 @@ export function AnnotatableCodeView({
         text,
       });
       if (comment) addReviewComment(composerDraftTarget, comment);
-      setSelectedLines(null);
+      setSelectedLines(settleAfterComment({ id: file.fileKey, range: entry.range }));
       setDraft(null);
       setDraftText("");
     },
-    [addReviewComment, composerDraftTarget, draft, filesByKey, sectionId, sectionTitle],
+    [
+      addReviewComment,
+      composerDraftTarget,
+      draft,
+      filesByKey,
+      sectionId,
+      sectionTitle,
+      settleAfterComment,
+    ],
   );
-
-  const beginComment = useCallback(
-    (range: SelectedLineRange | null, context: DiffSelectionContext) => {
-      if (!range) return;
-      const item = context.item;
-      if (item.type !== "diff") return;
-      const file = filesByKey.get(item.id);
-      if (!file) return;
-      const id = nextFileCommentId();
-      const comment = buildDiffReviewComment({
-        id,
-        sectionId,
-        sectionTitle,
-        filePath: file.filePath,
-        fileDiff: file.fileDiff,
-        range,
-        text: "",
-      });
-      if (!comment) return;
-      setDraftText("");
-      setDraft({
-        fileKey: item.id,
-        annotation: {
-          side: annotationSide(range),
-          lineNumber: range.end,
-          metadata: {
-            entries: [{ id, kind: "draft", range, rangeLabel: comment.rangeLabel, text: "" }],
-          },
-        },
-      });
-    },
-    [filesByKey, sectionId, sectionTitle],
-  );
-
-  const hasOpenComment = draft !== null;
   return (
-    <StyledDiffCodeView<DiffCommentAnnotationGroup>
-      key={codeViewKey}
-      {...(viewerRef ? { viewerRef } : {})}
-      {...(className ? { className } : {})}
-      {...(unsafeCSSExtra ? { unsafeCSSExtra } : {})}
-      {...(renderHeaderMetadata
-        ? {
-            renderHeaderMetadata: (item: CodeViewItem<DiffCommentAnnotationGroup>) =>
-              item.type === "diff" ? renderHeaderMetadata(item.fileDiff) : null,
-          }
-        : {})}
-      {...(renderCodeViewFooter ? { renderCodeViewFooter } : {})}
-      items={items}
-      selectedLines={selectedLines}
-      onSelectedLinesChange={setSelectedLines}
-      options={{
-        ...options,
-        enableGutterUtility: !hasOpenComment,
-        enableLineSelection: !hasOpenComment,
-        onGutterUtilityClick: beginComment,
-      }}
-      renderHeaderFilenameSuffix={(item) =>
-        item.type === "diff" ? renderHeaderFilenameSuffix(item.fileDiff) : null
-      }
-      renderHeaderPrefix={(item) =>
-        item.type === "diff"
-          ? renderHeaderPrefix(item.fileDiff, item.id, item.collapsed === true)
-          : null
-      }
-      renderAnnotation={(annotation) => {
-        const hasDraft = annotation.metadata.entries.some((entry) => entry.kind === "draft");
-        return (
-          <div
-            className={hasDraft ? "py-1" : "divide-y divide-border/30 border-y border-border/30"}
-          >
-            {annotation.metadata.entries.map((entry) => (
-              <DiffCommentAnnotation
-                key={entry.id}
-                kind={entry.kind}
-                rangeLabel={entry.rangeLabel}
-                text={entry.kind === "draft" ? draftText : entry.text}
-                onTextChange={setDraftText}
-                onCancel={() => removeEntry(entry.id)}
-                onComment={(text) => submitEntry(entry.id, text)}
-                onDelete={() => removeEntry(entry.id)}
-              />
-            ))}
-          </div>
-        );
-      }}
-    />
+    <div className="relative h-full min-h-0">
+      <StyledDiffCodeView<DiffCommentAnnotationGroup>
+        key={codeViewKey}
+        viewerRef={attachViewer}
+        containerRef={setRoot}
+        {...(className ? { className } : {})}
+        {...(unsafeCSSExtra ? { unsafeCSSExtra } : {})}
+        {...(renderHeaderMetadata
+          ? {
+              renderHeaderMetadata: (item: CodeViewItem<DiffCommentAnnotationGroup>) =>
+                item.type === "diff" ? renderHeaderMetadata(item.fileDiff) : null,
+            }
+          : {})}
+        {...(renderCodeViewFooter ? { renderCodeViewFooter } : {})}
+        items={items}
+        selectedLines={selectedLines}
+        onSelectedLinesChange={(selection) => {
+          setSelectedLines(selection);
+          vim.onPointerSelection(selection);
+        }}
+        options={{
+          ...options,
+          enableGutterUtility: !hasOpenComment,
+          enableLineSelection: !hasOpenComment,
+          onGutterUtilityClick: beginGutterComment,
+        }}
+        renderHeaderFilenameSuffix={(item) =>
+          item.type === "diff" ? renderHeaderFilenameSuffix(item.fileDiff) : null
+        }
+        renderHeaderPrefix={(item) =>
+          item.type === "diff" ? (
+            <>
+              {vim.headerCursorKey === item.id ? (
+                // The header's Vim cursor: the line cursor's gutter bar, against the sticky header.
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-(--diffs-modified-base)"
+                />
+              ) : null}
+              {renderHeaderPrefix(item.fileDiff, item.id, item.collapsed === true)}
+            </>
+          ) : null
+        }
+        renderAnnotation={(annotation) => {
+          const hasDraft = annotation.metadata.entries.some((entry) => entry.kind === "draft");
+          return (
+            <div
+              className={hasDraft ? "py-1" : "divide-y divide-border/30 border-y border-border/30"}
+            >
+              {annotation.metadata.entries.map((entry) => (
+                <DiffCommentAnnotation
+                  key={entry.id}
+                  kind={entry.kind}
+                  rangeLabel={entry.rangeLabel}
+                  text={entry.kind === "draft" ? draftText : entry.text}
+                  onTextChange={setDraftText}
+                  onCancel={() => removeEntry(entry.id)}
+                  onComment={(text) => submitEntry(entry.id, text)}
+                  onDelete={() => removeEntry(entry.id)}
+                />
+              ))}
+            </div>
+          );
+        }}
+      />
+      {/* The viewer's rows and sticky headers paint over its own focus outline; see workspace.css. */}
+      <div
+        aria-hidden
+        data-focus-ring-overlay
+        className="pointer-events-none absolute inset-0 z-20"
+      />
+      {vim.searchOpen ? <DiffVimSearchBar onClose={vim.closeSearch} /> : null}
+    </div>
   );
 }

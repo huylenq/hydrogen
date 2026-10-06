@@ -40,6 +40,7 @@ import {
   useState,
 } from "react";
 
+import { enterPanelContent } from "../customizations/huy/panelFocus";
 import { isElectron } from "~/env";
 import type { DesktopPreviewOverlay } from "~/previewStateStore";
 import type { RightPanelSurface } from "~/rightPanelStore";
@@ -816,12 +817,17 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           return false;
         const content = modalContentRef.current;
         if (!content) return false;
-        const target =
-          content.querySelector<HTMLElement>(
-            '[data-right-panel-launcher], iframe, webview, diffs-container, input:not([disabled]), textarea, [contenteditable="true"], button:not([disabled]), [tabindex="0"]',
-          ) ?? content;
-        target.focus({ preventScroll: true });
-        return document.activeElement === target;
+        // A surface that registers a focus anchor (the diff) takes focus when it mounts, even
+        // after this returns; others get their first control.
+        return (
+          enterPanelContent(
+            content,
+            () =>
+              content.querySelector<HTMLElement>(
+                '[data-right-panel-launcher], iframe, webview, diffs-container, input:not([disabled]), textarea, [contenteditable="true"], button:not([disabled]), [tabindex="0"]',
+              ) ?? content,
+          ) !== null
+        );
       }),
     [props.activeSurfaceId, props.open, props.surfaces],
   );

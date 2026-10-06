@@ -10,6 +10,10 @@ import {
 import type { Ref } from "react";
 
 import { DIFF_SURFACE_THEME_UNSAFE_CSS } from "~/lib/diffRendering";
+import {
+  DIFF_FILE_CARD_LAYOUT,
+  DIFF_FILE_CARD_UNSAFE_CSS,
+} from "~/customizations/huy/diffFileCards";
 import { DiffWorkerPoolProvider } from "../DiffWorkerPoolProvider";
 
 const DIFF_VIEW_UNSAFE_CSS = `${DIFF_SURFACE_THEME_UNSAFE_CSS}
@@ -301,8 +305,8 @@ export function StyledDiffCodeView<LAnnotation = undefined>({
         options={{
           ...options,
           unsafeCSS: unsafeCSSExtra
-            ? `${DIFF_VIEW_UNSAFE_CSS}\n${unsafeCSSExtra}`
-            : DIFF_VIEW_UNSAFE_CSS,
+            ? `${DIFF_VIEW_UNSAFE_CSS}\n${DIFF_FILE_CARD_UNSAFE_CSS}\n${unsafeCSSExtra}`
+            : `${DIFF_VIEW_UNSAFE_CSS}\n${DIFF_FILE_CARD_UNSAFE_CSS}`,
           itemMetrics: {
             diffHeaderHeight: 32,
             hunkSeparatorHeight: 24,
@@ -318,7 +322,7 @@ export function StyledDiffCodeView<LAnnotation = undefined>({
             // one clipped file row per expanded file above it.
             paddingBottom: 8,
           },
-          layout: { paddingTop: 0, paddingBottom: 0, gap: 0 },
+          layout: DIFF_FILE_CARD_LAYOUT,
         }}
       />
     </DiffWorkerPoolProvider>

@@ -17,7 +17,6 @@ groups. `?` shows the shortcut reference. Reading a conversation with the keyboa
 
 | Keys                         | Action                                                                  |
 | ---------------------------- | ----------------------------------------------------------------------- |
-| `1`–`9`                      | Select thread as with `Cmd+1`–`Cmd+9`                                   |
 | `q` / `F` / `i` / `A`        | Focus Flow bar / toggle Flow mode / composer / pending question         |
 | `n` or `a` / `m` / `e` / `r` | New-thread chooser / model / reasoning effort / open and focus changes  |
 | `/` / `,`                    | Switch thread / keyboard settings                                       |
@@ -31,7 +30,7 @@ groups. `?` shows the shortcut reference. Reading a conversation with the keyboa
 | `t p` / `t s`                | Pin/unpin / settle/unsettle the open thread                             |
 | `f f` / `f s`                | Find file / search project contents                                     |
 | `g k`                        | Commit changes                                                          |
-| `H` / `L`                    | Toggle sidebar / right panel visibility                                 |
+| `H` / `L`                    | Focus the area to the left/right, like `w h` / `w l`                    |
 | `h` / `l`                    | Within Flow cards or panel tabs; collapse/expand in a conversation      |
 | `w h` / `w l`                | Focus the area to the left/right                                        |
 | `Esc`                        | Focus conversation, or return from Flow inspection                      |

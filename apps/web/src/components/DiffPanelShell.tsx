@@ -18,17 +18,24 @@ function getDiffPanelHeaderRowClassName(mode: DiffPanelMode) {
   );
 }
 
-export function DiffPanelShell(props: {
+export function DiffPanelShell({
+  onRootChange,
+  ...props
+}: {
   mode: DiffPanelMode;
   header: ReactNode;
   children: ReactNode;
+  /** Makes the root focusable and reports it, for keyboard navigation of the whole panel. */
+  onRootChange?: (element: HTMLDivElement | null) => void;
 }) {
   const shouldUseDragRegion = isElectron && props.mode !== "sheet" && props.mode !== "embedded";
 
   return (
     <div
+      ref={onRootChange}
+      tabIndex={onRootChange ? -1 : undefined}
       className={cn(
-        "flex h-full min-w-0 flex-col bg-background",
+        "flex h-full min-w-0 flex-col bg-background outline-none",
         props.mode === "inline"
           ? "w-[42vw] min-w-[360px] max-w-[560px] shrink-0 border-l border-border"
           : "w-full",

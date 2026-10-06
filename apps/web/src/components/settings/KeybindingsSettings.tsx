@@ -1518,7 +1518,7 @@ export function KeybindingsSettingsPanel() {
       <SettingsSection title="Keyboard navigation">
         <SettingsRow
           {...searchableSetting("modal-keyboard")}
-          description="Use q for the queue, i to write, and w for layout commands. H/L toggle the sidebar/right panel. h/l navigate within the current area or between panes. Space focuses the right panel. Esc returns to the conversation, or to the working-session grid from Flow inspection. Applies to this web or desktop client."
+          description="Use q for the queue, i to write, and w for layout commands. H/L move between the sidebar, conversation, and right panel; w s/w Space toggle the sidebar/right panel. h/l navigate within the current area. Esc returns to the conversation, or to the working-session grid from Flow inspection. Applies to this web or desktop client."
           control={
             <Switch
               checked={modalKeyboardEnabled}

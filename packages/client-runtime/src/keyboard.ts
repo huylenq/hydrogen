@@ -1,13 +1,9 @@
-import { THREAD_JUMP_KEYBINDING_COMMANDS } from "@t3tools/contracts";
-
-/** App navigation keys. Embedded editors keep their own editing vocabulary. */
+/**
+ * App navigation keys. Embedded editors keep their own editing vocabulary. Bare digits stay free:
+ * the app's own `mod+1`–`mod+9` select threads, and surfaces such as the diff bind them.
+ */
 export const MODAL_COMMANDS = [
-  ...THREAD_JUMP_KEYBINDING_COMMANDS.map((command, index) => ({
-    keys: [String(index + 1)],
-    command,
-    label: `Select thread ${index + 1}`,
-  })),
-  { keys: ["H"], command: "sidebar.toggle", label: "Toggle sidebar" },
+  { keys: ["H"], command: "focus.left", label: "Focus area to the left" },
   {
     keys: ["Escape"],
     command: "focus.conversation",
@@ -62,7 +58,7 @@ export const MODAL_COMMANDS = [
   { keys: ["z", "i"], command: "reading.lamp", label: "Toggle reading lamp" },
   { keys: ["c"], command: "reading.cite", label: "Cite block in composer" },
   { keys: ["s"], command: "thread.snooze", label: "Snooze / wake open thread" },
-  { keys: ["L"], command: "rightPanel.toggle", label: "Toggle right panel" },
+  { keys: ["L"], command: "focus.right", label: "Focus area to the right" },
   { keys: ["h"], command: "left", label: "Move left / collapse" },
   { keys: ["l"], command: "right", label: "Move right / expand" },
   { keys: ["ArrowLeft"], command: "left", label: "Previous panel tab" },
@@ -78,11 +74,19 @@ export type ModalMotion = Extract<
   ModalCommand,
   "first" | "last" | "next" | "previous" | "left" | "right"
 >;
-export type ModalSequenceResult =
+export type ModalSequenceResult<C extends string = ModalCommand> =
   | { kind: "pass" }
   | { kind: "cancel" }
   | { kind: "pending"; keys: readonly string[] }
-  | { kind: "command"; command: ModalCommand };
+  | { kind: "command"; command: C };
+
+/** A key sequence in a keymap; `repeatable` motions keep stepping while their key is held. */
+export interface ModalBinding<C extends string = string> {
+  readonly keys: readonly string[];
+  readonly command: C;
+  readonly label: string;
+  readonly repeatable?: boolean;
+}
 
 /** Motions that keep stepping while their key is held. */
 const REPEATABLE_COMMANDS: ReadonlySet<ModalCommand> = new Set([
@@ -104,34 +108,71 @@ export function resolveModalSequence(
   key: string,
   repeat: boolean,
   available: (command: ModalCommand) => boolean,
-): ModalSequenceResult {
+): ModalSequenceResult;
+/** Resolves against another keymap, such as a surface's own keys layered over the app's. */
+export function resolveModalSequence<C extends string>(
+  pending: readonly string[],
+  key: string,
+  repeat: boolean,
+  available: (command: C) => boolean,
+  bindings: readonly ModalBinding<C>[],
+): ModalSequenceResult<C>;
+export function resolveModalSequence<C extends string>(
+  pending: readonly string[],
+  key: string,
+  repeat: boolean,
+  available: (command: C) => boolean,
+  // Only the first overload omits bindings, and there C is ModalCommand.
+  bindings: readonly ModalBinding<C>[] = MODAL_COMMANDS as readonly ModalBinding<string>[] as readonly ModalBinding<C>[],
+): ModalSequenceResult<C> {
+  const repeatable = (binding: ModalBinding<C>) =>
+    binding.repeatable === true || REPEATABLE_COMMANDS.has(binding.command as ModalCommand);
   if (key === "Escape" && pending.length > 0) return { kind: "cancel" };
   if (["Shift", "Control", "Alt", "Meta"].includes(key)) return { kind: "pass" };
   if (repeat && pending.every((part) => part === key)) {
     // Holding the key of a doubled motion, such as `]]`, keeps stepping.
-    const doubled = MODAL_COMMANDS.find(
+    const doubled = bindings.find(
       (binding) =>
         binding.keys.length === 2 &&
         binding.keys.every((part) => part === key) &&
-        REPEATABLE_COMMANDS.has(binding.command) &&
+        repeatable(binding) &&
         available(binding.command),
     );
     if (doubled) return { kind: "command", command: doubled.command };
   }
   if (repeat && pending.length > 0) return { kind: "pending", keys: pending };
   const keys = [...pending, key];
-  const matches = MODAL_COMMANDS.filter(
+  const matches = bindings.filter(
     (binding) =>
       available(binding.command) && keys.every((part, index) => binding.keys[index] === part),
   );
   const exact = matches.find((binding) => binding.keys.length === keys.length);
   if (exact)
-    return repeat && !REPEATABLE_COMMANDS.has(exact.command)
+    return repeat && !repeatable(exact)
       ? { kind: "cancel" }
       : { kind: "command", command: exact.command };
   // A held key never starts a sequence, so holding the end of `g t` leaves nothing pending.
   if (matches.length > 0) return repeat ? { kind: "cancel" } : { kind: "pending", keys };
   return { kind: pending.length > 0 ? "cancel" : "pass" };
+}
+
+/**
+ * Lays a surface's keymap over the app's, like an Emacs major-mode map over the global map: an
+ * app binding survives only when no overlay sequence equals it or is a prefix of it (or it of
+ * one), so `[` in the overlay retires the app's `[[` instead of making it unreachable.
+ */
+export function layerModalBindings<O extends string, U extends string>(
+  over: readonly ModalBinding<O>[],
+  under: readonly ModalBinding<U>[],
+): readonly ModalBinding<O | U>[] {
+  const related = (left: readonly string[], right: readonly string[]) =>
+    left
+      .slice(0, Math.min(left.length, right.length))
+      .every((part, index) => part === right[index]);
+  return [
+    ...over,
+    ...under.filter((binding) => !over.some((overlay) => related(overlay.keys, binding.keys))),
+  ];
 }
 
 export function modalTargetIndex(

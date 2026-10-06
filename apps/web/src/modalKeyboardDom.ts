@@ -1,4 +1,5 @@
 import { runAppCommand } from "./appCommands";
+import { enterPanelContent } from "./customizations/huy/panelFocus";
 import {
   modalReturnIndex,
   modalTargetIndex,
@@ -58,7 +59,7 @@ export function modalGridTargetIndex(
 }
 
 const EDITABLE =
-  'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], diffs-container, iframe';
+  'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], diffs-container:not([data-diff-vim] diffs-container), iframe';
 const OVERLAY =
   '[role="dialog"], [role="alertdialog"], [role="menu"], [data-slot="select-popup"], [role="listbox"], [data-slot="popover-popup"], [data-slot="combobox-popup"], [data-slot="autocomplete-popup"], [data-command-palette]';
 
@@ -165,12 +166,14 @@ export function focusModalSurface(surface: ModalSurface, focusRightPanelTabs = f
     // Newly mounted panels may not have registered their command handler yet.
     const content = root.querySelector<HTMLElement>("[data-right-panel-surface-content]");
     if (!content) return false;
-    const target =
-      content.querySelector<HTMLElement>(
-        '[data-right-panel-launcher], iframe, webview, diffs-container, input:not([disabled]), textarea, [contenteditable="true"], button:not([disabled]), [tabindex="0"]',
-      ) ?? content;
-    target.focus({ preventScroll: true });
-    if (document.activeElement !== target) return false;
+    const target = enterPanelContent(
+      content,
+      () =>
+        content.querySelector<HTMLElement>(
+          '[data-right-panel-launcher], iframe, webview, diffs-container, input:not([disabled]), textarea, [contenteditable="true"], button:not([disabled]), [tabindex="0"]',
+        ) ?? content,
+    );
+    if (!target) return false;
     rememberModalFocus(target);
     return true;
   }
