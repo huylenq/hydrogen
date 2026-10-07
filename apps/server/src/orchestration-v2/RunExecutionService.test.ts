@@ -3337,6 +3337,40 @@ it.effect("refreshes pull requests after a provider stream exits with an error",
   }),
 );
 
+it.effect("fails tool items left running when the provider stream dies mid-call", () =>
+  Effect.gen(function* () {
+    const settledItemId = TurnItemId.make("turn-item:stream-died-mid-call:settled");
+    const { written, observed } = yield* captureRootRunTermination({
+      key: "stream-died-mid-call",
+      shouldFinalizeRun: () => Effect.succeed(true),
+      events: (ids) =>
+        Stream.fromIterable([
+          backgroundTurnItemEvent(ids, "command_execution", "running", 1, settledItemId),
+          backgroundTurnItemEvent(ids, "command_execution", "completed", 1, settledItemId),
+          backgroundTurnItemEvent(ids, "dynamic_tool", "running", 2),
+        ]).pipe(
+          Stream.concat(
+            Stream.fail(
+              new ProviderAdapterEventStreamError({
+                driver,
+                providerSessionId: ProviderSessionId.make("session:released"),
+                cause: "Provider session released: manual_shutdown.",
+              }),
+            ),
+          ),
+        ),
+    });
+    assert.deepEqual(observed, ["run:failed", "pull-requests-refreshed"]);
+    assert.deepEqual(
+      written.map((item) => [item.id, item.type, item.status]),
+      [
+        [TurnItemId.make("turn-item:stream-died-mid-call"), "dynamic_tool", "failed"],
+        [written.at(-1)?.id, "error", "failed"],
+      ],
+    );
+  }),
+);
+
 it.effect("refreshes pull requests only once when startup failure closes its event stream", () =>
   Effect.gen(function* () {
     const ingestionStarted = yield* Deferred.make<void>();
