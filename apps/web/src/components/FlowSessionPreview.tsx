@@ -28,6 +28,7 @@ import {
   WorkEntryPreview,
   type LiveStatus,
 } from "../customizations/huy/WorkEntryPreview";
+import { FlowSessionCheckoutStrip } from "../customizations/huy/FlowSessionCheckoutStrip";
 import {
   deriveMessagesTimelineRows,
   shouldPreserveAssistantLineBreaks,
@@ -225,144 +226,150 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
   };
 
   return (
-    <section
-      role="button"
-      tabIndex={0}
-      data-modal-item=""
-      data-modal-key={scopedThreadKey(ref)}
-      aria-label={`Open ${thread.title}`}
-      onClick={(event) => {
-        if (window.getSelection()?.isCollapsed === false) return;
-        // Markdown links and code-block controls keep their own action.
-        if ((event.target as Element).closest("a, button")) return;
-        openSession();
-      }}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        event.stopPropagation();
-        openSession();
-      }}
-      className="flex h-96 w-full min-w-0 max-w-lg cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-card/40 outline-hidden hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <header className="flex items-center gap-2.5 border-b border-border/60 px-4 py-3">
-        {/* Waiting sessions have a Flow bar card; their favicon and title morph into it
+    // The checkout strip sits under the tile, outside its frame and click target.
+    <div className="flex w-full min-w-0 max-w-lg flex-col gap-1">
+      <section
+        role="button"
+        tabIndex={0}
+        data-modal-item=""
+        data-modal-key={scopedThreadKey(ref)}
+        aria-label={`Open ${thread.title}`}
+        onClick={(event) => {
+          if (window.getSelection()?.isCollapsed === false) return;
+          // Markdown links and code-block controls keep their own action.
+          if ((event.target as Element).closest("a, button")) return;
+          openSession();
+        }}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return;
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.stopPropagation();
+          openSession();
+        }}
+        className="flex h-96 w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-card/40 outline-hidden hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <header className="flex items-center gap-2.5 border-b border-border/60 px-4 py-3">
+          {/* Waiting sessions have a Flow bar card; their favicon and title morph into it
             (flowOverviewTransition). */}
-        {project ? (
-          <span data-flow-session-icon={flowCardPeer} className="flex shrink-0">
-            <ProjectFavicon project={project} className="size-8" />
-          </span>
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-baseline gap-2">
-            <h2
-              data-flow-session-title={flowCardPeer}
-              className="min-w-0 flex-1 truncate text-sm font-medium"
-            >
-              {thread.title}
-            </h2>
-            {entry.kind === "attention" ? (
-              <span className={cn("shrink-0 text-xs font-medium", FLOW_STATUS_CLASS[entry.status])}>
-                {entry.status}
+          {project ? (
+            <span data-flow-session-icon={flowCardPeer} className="flex shrink-0">
+              <ProjectFavicon project={project} className="size-8" />
+            </span>
+          ) : null}
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 items-baseline gap-2">
+              <h2
+                data-flow-session-title={flowCardPeer}
+                className="min-w-0 flex-1 truncate text-sm font-medium"
+              >
+                {thread.title}
+              </h2>
+              {entry.kind === "attention" ? (
+                <span
+                  className={cn("shrink-0 text-xs font-medium", FLOW_STATUS_CLASS[entry.status])}
+                >
+                  {entry.status}
+                </span>
+              ) : null}
+            </div>
+            <p className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
+              <span className="min-w-0 shrink truncate">
+                {environments.length > 1 ? `${environment?.label ?? "Unknown environment"} · ` : ""}
+                {project?.title ?? "Unknown project"}
               </span>
+              <span className="ml-auto flex min-w-0 shrink-[2] items-center gap-1">
+                {providerEntry ? (
+                  <ProviderInstanceIcon
+                    driverKind={providerEntry.driverKind}
+                    displayName={providerEntry.displayName}
+                    acpRegistryAgentId={providerEntry.acpRegistryAgentId}
+                    acpRegistryIconUrl={providerEntry.acpRegistryIconUrl}
+                    iconClassName="size-3 shrink-0"
+                  />
+                ) : null}
+                <span className="min-w-0 truncate">
+                  {modelLabel} ·{" "}
+                  {String(
+                    thread.modelSelection.options?.find((option) =>
+                      ["reasoningEffort", "effort", "reasoning", "variant"].includes(option.id),
+                    )?.value ?? "Default effort",
+                  )}
+                  {disconnected ? " · Disconnected" : ""}
+                </span>
+              </span>
+            </p>
+          </div>
+        </header>
+        <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-4 py-3">
+          {prompt ? (
+            <PromptBubble
+              key={prompt.id}
+              text={prompt.text}
+              cwd={thread.worktreePath ?? project?.workspaceRoot}
+              threadRef={ref}
+            />
+          ) : null}
+          <div
+            ref={scrollRef}
+            onScroll={(event) => {
+              const element = event.currentTarget;
+              followLatest.current =
+                element.scrollHeight - element.scrollTop - element.clientHeight < 32;
+            }}
+            // Starts at the prompt bubble's edge, so replies vanish there; the padding is
+            // the gap below it at rest.
+            className={cn(
+              "overflow-y-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              prompt && "pt-1.5",
+            )}
+          >
+            {messages.map((message) => (
+              <div key={message.id} className="mb-3">
+                <ChatMarkdown
+                  text={previewMarkdownTail(message.text)}
+                  cwd={thread.worktreePath ?? project?.workspaceRoot}
+                  threadRef={ref}
+                  isStreaming={Boolean(message.streaming)}
+                  lineBreaks={shouldPreserveAssistantLineBreaks(message.text)}
+                  parseRawHtml
+                  className="text-xs"
+                />
+              </div>
+            ))}
+            {activities.length > 0 || liveStatus ? (
+              <ToolActivityIconCtx value={iconContext}>
+                <ul className="space-y-0.5 border-t border-border/50 pt-2">
+                  {activities.map((activity) => (
+                    <li key={activity.id}>
+                      <WorkEntryPreview
+                        entry={activity}
+                        workspaceRoot={thread.worktreePath ?? project?.workspaceRoot}
+                        active={activity.id === liveToolId}
+                      />
+                    </li>
+                  ))}
+                  {liveStatus ? (
+                    <li>
+                      <LiveStatusPreview {...liveStatus} />
+                    </li>
+                  ) : null}
+                </ul>
+              </ToolActivityIconCtx>
+            ) : null}
+            {!prompt && messages.length === 0 && activities.length === 0 && !liveStatus ? (
+              <p className="text-xs text-muted-foreground">
+                {disconnected
+                  ? "Waiting for connection…"
+                  : loaded
+                    ? "Waiting for agent activity…"
+                    : "Loading session…"}
+              </p>
             ) : null}
           </div>
-          <p className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
-            <span className="min-w-0 shrink truncate">
-              {environments.length > 1 ? `${environment?.label ?? "Unknown environment"} · ` : ""}
-              {project?.title ?? "Unknown project"}
-            </span>
-            <span className="ml-auto flex min-w-0 shrink-[2] items-center gap-1">
-              {providerEntry ? (
-                <ProviderInstanceIcon
-                  driverKind={providerEntry.driverKind}
-                  displayName={providerEntry.displayName}
-                  acpRegistryAgentId={providerEntry.acpRegistryAgentId}
-                  acpRegistryIconUrl={providerEntry.acpRegistryIconUrl}
-                  iconClassName="size-3 shrink-0"
-                />
-              ) : null}
-              <span className="min-w-0 truncate">
-                {modelLabel} ·{" "}
-                {String(
-                  thread.modelSelection.options?.find((option) =>
-                    ["reasoningEffort", "effort", "reasoning", "variant"].includes(option.id),
-                  )?.value ?? "Default effort",
-                )}
-                {disconnected ? " · Disconnected" : ""}
-              </span>
-            </span>
-          </p>
         </div>
-      </header>
-      <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-4 py-3">
-        {prompt ? (
-          <PromptBubble
-            key={prompt.id}
-            text={prompt.text}
-            cwd={thread.worktreePath ?? project?.workspaceRoot}
-            threadRef={ref}
-          />
-        ) : null}
-        <div
-          ref={scrollRef}
-          onScroll={(event) => {
-            const element = event.currentTarget;
-            followLatest.current =
-              element.scrollHeight - element.scrollTop - element.clientHeight < 32;
-          }}
-          // Starts at the prompt bubble's edge, so replies vanish there; the padding is
-          // the gap below it at rest.
-          className={cn(
-            "overflow-y-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            prompt && "pt-1.5",
-          )}
-        >
-          {messages.map((message) => (
-            <div key={message.id} className="mb-3">
-              <ChatMarkdown
-                text={previewMarkdownTail(message.text)}
-                cwd={thread.worktreePath ?? project?.workspaceRoot}
-                threadRef={ref}
-                isStreaming={Boolean(message.streaming)}
-                lineBreaks={shouldPreserveAssistantLineBreaks(message.text)}
-                parseRawHtml
-                className="text-xs"
-              />
-            </div>
-          ))}
-          {activities.length > 0 || liveStatus ? (
-            <ToolActivityIconCtx value={iconContext}>
-              <ul className="space-y-0.5 border-t border-border/50 pt-2">
-                {activities.map((activity) => (
-                  <li key={activity.id}>
-                    <WorkEntryPreview
-                      entry={activity}
-                      workspaceRoot={thread.worktreePath ?? project?.workspaceRoot}
-                      active={activity.id === liveToolId}
-                    />
-                  </li>
-                ))}
-                {liveStatus ? (
-                  <li>
-                    <LiveStatusPreview {...liveStatus} />
-                  </li>
-                ) : null}
-              </ul>
-            </ToolActivityIconCtx>
-          ) : null}
-          {!prompt && messages.length === 0 && activities.length === 0 && !liveStatus ? (
-            <p className="text-xs text-muted-foreground">
-              {disconnected
-                ? "Waiting for connection…"
-                : loaded
-                  ? "Waiting for agent activity…"
-                  : "Loading session…"}
-            </p>
-          ) : null}
-        </div>
-      </div>
-    </section>
+      </section>
+      <FlowSessionCheckoutStrip thread={thread} />
+    </div>
   );
 });

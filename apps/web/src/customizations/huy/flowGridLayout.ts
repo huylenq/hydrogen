@@ -1,7 +1,10 @@
 const MIN_CARD_WIDTH = 360;
-// Matches FlowSessionPreview's `max-w-lg` and `h-96`.
+// Matches FlowSessionPreview's `max-w-lg`.
 const MAX_CARD_WIDTH = 512;
-const CARD_HEIGHT = 384;
+/** FlowSessionCheckoutStrip's fixed height, reserved under every tile so rows stay aligned. */
+export const FLOW_CHECKOUT_STRIP_HEIGHT = 22;
+// FlowSessionPreview's `h-96` tile, its `gap-1`, and the checkout strip under it.
+const CARD_HEIGHT = 384 + 4 + FLOW_CHECKOUT_STRIP_HEIGHT;
 const GAP = 16;
 
 function rowCapacity(availableWidth: number, cardWidth: number) {
