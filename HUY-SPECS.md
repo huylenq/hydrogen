@@ -80,6 +80,14 @@ Hermes is a selectable ACP provider with settings, icon, model discovery/switchi
 
 Web and desktop show a Lexicon prompt's user text as a normal message, with the injected context behind a collapsed disclosure. Unrecognized prompts render in full. Storage, provider input, and copy keep the full prompt. Mobile shows the full prompt unchanged.
 
+## Expanded shell commands
+
+Web and desktop automatically format unfolded shell tool calls into readable lines: command chains and pipelines break at syntax boundaries, and conditional/loop bodies indent. Quoted shell launcher scripts (such as `bash -lc`) receive the same layout. Syntax highlighting continues to recognize embedded languages.
+
+- Formatting loads only when a command is unfolded. Quotes, escapes, comments, and heredoc contents survive; invalid, non-Bash, or oversized commands retain their original layout.
+- A **Copy original command** button copies the original input, independent of display formatting. Execution, stored tool input, and native mobile behavior stay unchanged.
+- Mouse disclosure and Vim tool-call expansion use the same renderer, for standalone calls and calls inside groups. Coverage: [`shellCommandFormat.test.ts`](apps/web/src/customizations/huy/shellCommandFormat.test.ts).
+
 ## Diff repository identity
 
 The diff panel shows the selected thread's own repository/worktree. If that workspace is unavailable, show the error; never fall back to the server's working directory and show another repo's diff. Review requests are accepted for registered projects outside the server's startup directory.

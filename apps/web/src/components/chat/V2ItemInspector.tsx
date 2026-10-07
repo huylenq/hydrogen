@@ -174,7 +174,7 @@ function ToolCallBody(
   const call = toolCallLines({ command: props.command, args: props.args });
   return (
     <div className={cn("space-y-1.5", monoClassName)}>
-      {call.command ? <ShellCommandBlock command={call.command} /> : null}
+      {call.command ? <ShellCommandBlock command={props.command ?? call.command} /> : null}
       {call.args ? (
         <div className="text-foreground/85">
           {call.args.map(([key, value]) => (
