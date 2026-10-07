@@ -95,6 +95,39 @@ export const WorktreeMcpHandoffResult = Schema.Struct({
 });
 export type WorktreeMcpHandoffResult = typeof WorktreeMcpHandoffResult.Type;
 
+/**
+ * Input for the `t3_worktree_attach` MCP tool (Huy's fork; see HUY-SPECS.md).
+ *
+ * Re-points the calling thread at an existing checkout of its project without
+ * running any git command in it. If upstream ships an equivalent tool, prefer
+ * upstream's implementation when merging and drop this one.
+ */
+export const WorktreeMcpAttachInput = Schema.Struct({
+  worktreePath: TrimmedNonEmptyString.check(
+    // Absolute POSIX (/...), Windows drive (C:\ or C:/), or UNC (\\host).
+    Schema.isPattern(/^(?:[A-Za-z]:[\\/]|[\\/])/),
+  ).annotate({
+    description:
+      "Absolute path of an existing checkout of this thread's project that has a branch checked out: a linked worktree, or the project's main workspace root to return to it.",
+  }),
+  continuationPrompt: WorktreeMcpHandoffInput.fields.continuationPrompt,
+});
+export type WorktreeMcpAttachInput = typeof WorktreeMcpAttachInput.Type;
+
+export const WorktreeMcpAttachResult = Schema.Struct({
+  worktreePath: Schema.NullOr(TrimmedNonEmptyString).annotate({
+    description: "The new worktree binding; null when the thread now uses the main workspace.",
+  }),
+  previousWorktreePath: Schema.NullOr(TrimmedNonEmptyString),
+  branch: TrimmedNonEmptyString,
+  changed: Schema.Boolean.annotate({
+    description: "False when the thread was already bound to that checkout.",
+  }),
+  continuation: WorktreeMcpContinuationStatus,
+  note: Schema.String,
+});
+export type WorktreeMcpAttachResult = typeof WorktreeMcpAttachResult.Type;
+
 export const WorktreeMcpStatusResult = Schema.Struct({
   attached: Schema.Boolean.annotate({
     description: "True when this thread is already attached to a git worktree.",

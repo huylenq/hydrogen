@@ -292,6 +292,13 @@ export function summarizeT3ToolCalls(
         quantity(countEntities(entityIds("worktreePath")), "worktree"),
       );
       break;
+    case "worktree-attach":
+      label = phrase(
+        "Attached to",
+        "attach to",
+        quantity(countEntities(entityIds("worktreePath")), "checkout"),
+      );
+      break;
     case "worktree-list":
       label = phrase("Listed", "list", `workspace branches ${times}`);
       break;

@@ -3,6 +3,8 @@ import {
   MessageId,
   type ProjectId,
   WorktreeMcpFailure,
+  type WorktreeMcpAttachInput,
+  type WorktreeMcpAttachResult,
   type WorktreeMcpContinuationStatus,
   type WorktreeMcpHandoffInput,
   type WorktreeMcpHandoffResult,
@@ -16,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { normalizeProjectPathForComparison } from "@t3tools/shared/path";
 
 import * as GitWorkflowService from "../git/GitWorkflowService.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
@@ -32,6 +35,10 @@ export class WorktreeMcpService extends Context.Service<
       scope: McpInvocationScope,
       input: WorktreeMcpHandoffInput,
     ) => Effect.Effect<WorktreeMcpHandoffResult, WorktreeMcpFailure>;
+    readonly attach: (
+      scope: McpInvocationScope,
+      input: WorktreeMcpAttachInput,
+    ) => Effect.Effect<WorktreeMcpAttachResult, WorktreeMcpFailure>;
     readonly status: (
       scope: McpInvocationScope,
     ) => Effect.Effect<WorktreeMcpStatusResult, WorktreeMcpFailure>;
@@ -472,6 +479,159 @@ const make = Effect.gen(function* () {
     },
   );
 
+  // Huy's fork (HUY-SPECS.md, "Thread worktree attach"). If upstream main ever
+  // ships an equivalent way to re-point a thread at an existing checkout,
+  // favor upstream's implementation when merging and remove this one.
+  const attach: WorktreeMcpService["Service"]["attach"] = Effect.fn("WorktreeMcpService.attach")(
+    function* (callerScope, input) {
+      yield* requireCapability(callerScope);
+      const scope = yield* requireThreadScope(callerScope);
+      const projection = yield* loadThread(scope);
+      if (projection.thread.archivedAt !== null) {
+        return yield* failure(
+          "invalid_request",
+          `Thread '${scope.thread.threadId}' is archived and cannot be attached to a checkout.`,
+        );
+      }
+      const samePath = (left: string, right: string) =>
+        normalizeProjectPathForComparison(path.resolve(left)) ===
+        normalizeProjectPathForComparison(path.resolve(right));
+      const targetPath = path.resolve(input.worktreePath);
+      const [project, target] = yield* Effect.all(
+        [
+          loadProject(scope, projection.thread.projectId),
+          gitWorkflow
+            .localStatus({ cwd: targetPath })
+            .pipe(asOperationFailed(`Unable to read git status of '${targetPath}'`)),
+        ],
+        { concurrency: "unbounded" },
+      );
+      if (!target.isRepo) {
+        return yield* failure("invalid_request", `'${targetPath}' is not a git checkout.`);
+      }
+      const branch = target.refName;
+      if (branch === null) {
+        return yield* failure(
+          "invalid_request",
+          `'${targetPath}' has no branch checked out (detached HEAD). Check out a branch there first.`,
+        );
+      }
+
+      const findCheckout = (refresh: boolean) =>
+        gitWorkflow
+          .listRefs({ cwd: project.workspaceRoot, query: branch, refKind: "local", refresh })
+          .pipe(
+            Effect.map((result) =>
+              result.refs.find(
+                (ref) =>
+                  ref.name === branch &&
+                  ref.worktreePath !== null &&
+                  samePath(ref.worktreePath, targetPath),
+              ),
+            ),
+            asOperationFailed("Unable to list the project's checkouts"),
+          );
+      // A worktree created with shell git moments ago is not in the cached ref
+      // inventory yet, so a miss retries against a fresh scan.
+      const checkout = (yield* findCheckout(false)) ?? (yield* findCheckout(true));
+      if (checkout?.worktreePath == null) {
+        return yield* failure(
+          "invalid_request",
+          `'${targetPath}' is not a checkout of project '${project.workspaceRoot}'. Use t3_worktree_list to see the project's checkouts.`,
+        );
+      }
+
+      const worktreePath = samePath(targetPath, project.workspaceRoot)
+        ? null
+        : checkout.worktreePath;
+      const previousWorktreePath = projection.thread.worktreePath;
+      const unchanged = samePath(previousWorktreePath ?? project.workspaceRoot, targetPath);
+      if (unchanged) {
+        const result: WorktreeMcpAttachResult = {
+          worktreePath,
+          previousWorktreePath,
+          branch,
+          changed: false,
+          continuation: { status: "skipped" },
+          note: "The thread is already attached to this checkout; nothing changed and the session keeps running.",
+        };
+        return result;
+      }
+
+      const uuid = yield* crypto.randomUUIDv4.pipe(Effect.orDie);
+      const idPart = (kind: string, operation: string) =>
+        [kind, "mcp", encodeURIComponent(scope.thread.providerSessionId), operation, uuid].join(
+          ":",
+        );
+
+      // uninterruptible: the metadata update schedules a session detach that
+      // can sever this request, so the continuation must be queued in the same
+      // uninterruptible step as the binding.
+      const continuation = yield* Effect.uninterruptible(
+        Effect.gen(function* () {
+          yield* threadManagement
+            .dispatch({
+              type: "thread.metadata.update",
+              commandId: CommandId.make(idPart("command", "worktree-attach")),
+              threadId: scope.thread.threadId,
+              branch,
+              worktreePath,
+              expectedWorktreePath: previousWorktreePath,
+            })
+            .pipe(asOperationFailed("Unable to re-point the thread at the checkout"));
+
+          if (input.continuationPrompt === undefined) {
+            return { status: "skipped" } satisfies WorktreeMcpContinuationStatus;
+          }
+          return yield* threadManagement
+            .sendToThread({
+              projectId: projection.thread.projectId,
+              commandId: CommandId.make(idPart("command", "worktree-attach-continuation")),
+              threadId: scope.thread.threadId,
+              messageId: MessageId.make(idPart("message", "worktree-attach-continuation")),
+              text: input.continuationPrompt,
+              attachments: [],
+              mode: "queue",
+              createdBy: "agent",
+              creationSource: "mcp",
+            })
+            .pipe(
+              Effect.map((sendResult): WorktreeMcpContinuationStatus => ({
+                status: "scheduled",
+                delivery: sendResult.delivery,
+              })),
+              // The binding is already recorded, so report rather than fail.
+              Effect.catchCause((cause) => {
+                const detail = errorMessage(Cause.squash(cause));
+                return Effect.logWarning("worktree attach continuation failed to queue", {
+                  threadId: scope.thread.threadId,
+                  worktreePath: targetPath,
+                  detail,
+                }).pipe(Effect.as<WorktreeMcpContinuationStatus>({ status: "failed", detail }));
+              }),
+            );
+        }),
+      );
+
+      yield* vcsStatusBroadcaster
+        .refreshStatus(targetPath)
+        .pipe(Effect.ignoreCause({ log: true }), Effect.forkDetach);
+
+      const result: WorktreeMcpAttachResult = {
+        worktreePath,
+        previousWorktreePath,
+        branch,
+        changed: true,
+        continuation,
+        note:
+          continuation.status === "scheduled"
+            ? "Attached. Changing the workspace detaches this provider session, so the current turn ends shortly after this call; the queued continuation prompt then starts the next turn in the new checkout with the conversation preserved."
+            : "Attached. Changing the workspace detaches this provider session, so the current turn ends shortly after this call; the conversation continues in the new checkout when the thread receives its next message. Pass continuationPrompt to resume automatically.",
+      };
+      return result;
+    },
+  );
+
   const status: WorktreeMcpService["Service"]["status"] = Effect.fn("WorktreeMcpService.status")(
     function* (callerScope) {
       yield* requireCapability(callerScope);
@@ -492,7 +652,7 @@ const make = Effect.gen(function* () {
     },
   );
 
-  return WorktreeMcpService.of({ handoff, status });
+  return WorktreeMcpService.of({ handoff, attach, status });
 });
 
 export const layer: Layer.Layer<

@@ -39,6 +39,7 @@ export type T3McpToolSummaryAction =
   | "question-read"
   | "question-respond"
   | "worktree-handoff"
+  | "worktree-attach"
   | "worktree-list"
   | "worktree-status"
   | "project-list"
@@ -141,6 +142,10 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
   t3_worktree_handoff: tool(
     ["Hand off", "Handing off", "Handed off", "thread to a git worktree"],
     "worktree-handoff",
+  ),
+  t3_worktree_attach: tool(
+    ["Attach", "Attaching", "Attached", "thread to a checkout"],
+    "worktree-attach",
   ),
   t3_worktree_status: tool(["Get", "Getting", "Got", "thread worktree status"], "worktree-status"),
   preview_status: tool(["Get", "Getting", "Got", "preview browser status"], "browser", "browser"),

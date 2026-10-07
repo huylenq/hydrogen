@@ -85,6 +85,14 @@ The diff panel shows the selected thread's own repository/worktree. If that work
 
 Web and desktop remember each thread's last diff scope (Changes, turn, or Worktree) when navigating back, reopening the panel through tabs, commands or shortcuts, and opening it automatically after a turn completes. Threads without a saved selection default to Changes; a timeline diff action still selects its requested turn/file. Prefer an equivalent upstream main fix when merging. Selection coverage: [`diffPanelStore.test.ts`](apps/web/src/diffPanelStore.test.ts); opening paths: [`ChatView.tsx`](apps/web/src/components/ChatView.tsx).
 
+## Thread worktree attach
+
+Agents can re-point their own thread at an existing checkout of its project with the `t3_worktree_attach` MCP tool: a linked worktree (for example one created with shell `git worktree add`, or after the thread started in the wrong worktree) or the project's main workspace root. This is the agent-side counterpart of picking a branch already open in another worktree from the branch menu.
+
+- It never runs a git command in the checkout or changes its branch. The target must be a checkout of the thread's own repository with a branch checked out, verified against the ref inventory, rescanned when the cached one misses a just-created worktree.
+- Re-attaching to the current binding is a no-op that keeps the session. Otherwise the binding change detaches the session like `t3_worktree_handoff`, and `continuationPrompt` resumes in the new checkout.
+- Upstream has `t3_worktree_handoff` (new worktree only). If upstream main ships an equivalent attach, favor upstream's implementation when merging and remove this one. Coverage: [`WorktreeMcpService.test.ts`](apps/server/src/mcp/WorktreeMcpService.test.ts).
+
 ## Integrating upstream
 
 Web customizations live in [`apps/web/src/customizations/huy`](apps/web/src/customizations/huy); keep fork policy there and hand upstream components narrow typed state/actions. Add new customizations there before adding effects or layout policy directly to large upstream components like `ChatView` or `AppSidebarLayout`. Schema, provider, and safety edits may need direct upstream changes; keep them small.

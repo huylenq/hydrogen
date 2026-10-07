@@ -3,6 +3,8 @@ import {
   OrchestratorMcpFailure,
   VcsListRefsInput,
   VcsListRefsResult,
+  WorktreeMcpAttachInput,
+  WorktreeMcpAttachResult,
   WorktreeMcpHandoffInput,
   WorktreeMcpHandoffResult,
   WorktreeMcpStatusResult,
@@ -36,6 +38,24 @@ const WorktreeHandoffTool = Tool.make("t3_worktree_handoff", {
   .annotate(Tool.Destructive, true)
   .annotate(Tool.Idempotent, false)
   .annotate(Tool.OpenWorld, true);
+
+// Huy's fork (HUY-SPECS.md, "Thread worktree attach"). If upstream main ever
+// ships an equivalent tool, favor upstream's implementation when merging and
+// remove this one.
+const WorktreeAttachTool = Tool.make("t3_worktree_attach", {
+  description:
+    "Needs an agent running inside a T3 thread. Re-point this agent thread at an existing checkout of its project: a linked worktree, or the project's main workspace root. Use it when the thread is bound to the wrong checkout, or after creating a worktree with shell git, so T3 Code shows diffs and runs the next turn in the right place. Runs no git command in the checkout and never changes its branch; the checkout must already have a branch checked out. Use t3_worktree_list to find checkout paths. Changing the workspace detaches the live provider session, so the current turn ends shortly after the call; call this as the last action of the turn and pass continuationPrompt to resume automatically in the new checkout.",
+  parameters: WorktreeMcpAttachInput,
+  success: WorktreeMcpAttachResult,
+  failure: WorktreeMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Attach thread to an existing checkout")
+  .annotate(Tool.Readonly, false)
+  .annotate(Tool.Destructive, true)
+  .annotate(Tool.Idempotent, true)
+  .annotate(Tool.OpenWorld, false);
 
 const WorktreeStatusTool = Tool.make("t3_worktree_status", {
   description:
@@ -80,6 +100,7 @@ const WorktreeListTool = Tool.make("t3_worktree_list", {
   .annotate(Tool.Destructive, false);
 export const WorktreeToolkit = Toolkit.make(
   WorktreeHandoffTool,
+  WorktreeAttachTool,
   WorktreeStatusTool,
   WorktreeListTool,
 );
