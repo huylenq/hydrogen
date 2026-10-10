@@ -101,6 +101,8 @@ whole sequence without waiting. There is no typing deadline.
 For example, `q` opens Flow and focuses its bar when visible; the Flow overview keeps the bar hidden.
 `F` or `w q` toggles Flow mode.
 
+The commit dialog opens on its file list. `j`/`k` move between files, `Space` includes or excludes a file, `Enter` opens it in your editor, and `i` moves to the message. `Esc` in the message returns to the list, and `Cmd+Enter` (`Ctrl+Enter` off macOS) commits.
+
 Use direct sequences such as `w q` for grouped commands, and `?` for the full reference.
 The `?` reference stays visible while you navigate and run commands. Press `?` again or
 `Esc` in Normal mode to close it. Text fields, questions, and embedded tools keep their

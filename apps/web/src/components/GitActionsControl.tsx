@@ -102,6 +102,9 @@ import { Textarea } from "~/components/ui/textarea";
 import { stackedThreadToast, toastManager } from "~/components/ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
 import { useOpenInPreferredEditor } from "~/editorPreferences";
+import { useCommitFileListKeys } from "~/customizations/huy/useCommitFileListKeys";
+import { useCommitDialogRequest } from "~/customizations/huy/commitDialogRequest";
+import { showModalFeedback } from "~/modalKeyboardStore";
 import {
   useGitStackedAction,
   useSourceControlActionRunning,
@@ -1573,15 +1576,34 @@ export default function GitActionsControl({
     setIsCommitDialogOpen(true);
   };
 
-  // Vim `g k` reaches whichever git actions are mounted.
-  const handleGitCommand = useEffectEvent((command: AppCommand) => {
-    if (command !== "git.commit") return false;
+  // Vim `g k` reaches whichever git actions are mounted; with none, ChatView opens the thread
+  // details card and its git actions answer the request once their status loads.
+  const openCommitDialogFromCommand = () => {
     const commitItem = gitActionMenuItems.find((item) => item.id === "commit");
-    if (!commitItem || commitItem.disabled) return false;
+    if (!commitItem) return false;
+    if (commitItem.disabled) {
+      showModalFeedback(
+        getMenuActionDisabledReason({
+          item: commitItem,
+          gitStatus: gitStatusForActions,
+          isBusy: isGitActionRunning,
+          hasPrimaryRemote,
+        }) ?? "Commit is currently unavailable.",
+      );
+      return true;
+    }
     openDialogForMenuItem(commitItem);
     return true;
-  });
+  };
+  const handleGitCommand = useEffectEvent(
+    (command: AppCommand) => command === "git.commit" && openCommitDialogFromCommand(),
+  );
   useEffect(() => registerAppCommands((command) => handleGitCommand(command)), []);
+  useCommitDialogRequest(
+    activeThreadRef ?? null,
+    Boolean(gitStatusForActions) || Boolean(gitStatusError),
+    openCommitDialogFromCommand,
+  );
 
   const runDialogAction = () => {
     if (!isCommitDialogOpen) return;
@@ -1626,6 +1648,36 @@ export default function GitActionsControl({
     },
     [gitCwd, openInPreferredEditor, threadToastData],
   );
+
+  const toggleExcludedFile = (path: string) => {
+    setExcludedFiles((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
+  const {
+    cursor: commitFileCursor,
+    optionId: commitFileOptionId,
+    activeOptionId: commitFileActiveOptionId,
+    listRef: commitFileListRef,
+    messageRef: commitMessageRef,
+    initialFocus: commitDialogInitialFocus,
+    onListKeyDown: onCommitFileListKeyDown,
+    onPopupKeyDown: onCommitDialogKeyDown,
+    keepOpen: keepCommitDialogOpen,
+  } = useCommitFileListKeys({
+    files: allFiles,
+    onToggle: toggleExcludedFile,
+    onOpen: openChangedFileInEditor,
+    onCommit: () => {
+      if (!noneSelected) runDialogAction();
+    },
+  });
 
   const canPublishRepository = isRepo && gitStatusForActions !== null && !hasPrimaryRemote;
 
@@ -1957,8 +2009,8 @@ export default function GitActionsControl({
 
       <Dialog
         open={isCommitDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
+        onOpenChange={(open, eventDetails) => {
+          if (!open && !keepCommitDialogOpen(eventDetails)) {
             setIsCommitDialogOpen(false);
             setDialogCommitMessage("");
             setExcludedFiles(new Set());
@@ -1966,7 +2018,11 @@ export default function GitActionsControl({
           }
         }}
       >
-        <DialogPopup>
+        <DialogPopup
+          className="sm:max-w-3xl"
+          initialFocus={commitDialogInitialFocus}
+          onKeyDown={onCommitDialogKeyDown}
+        >
           <DialogHeader>
             <DialogTitle>{COMMIT_DIALOG_TITLE}</DialogTitle>
             <DialogDescription>{COMMIT_DIALOG_DESCRIPTION}</DialogDescription>
@@ -2017,34 +2073,39 @@ export default function GitActionsControl({
                   <p className="font-medium">none</p>
                 ) : (
                   <div className="space-y-2">
-                    <div className="h-44 rounded-lg bg-card ring-1 ring-black/5 dark:bg-white/[0.025] dark:ring-white/5">
-                      <ScrollArea>
-                        <div className="space-y-1 p-1">
-                          {allFiles.map((file) => {
+                    <div className="rounded-lg bg-card ring-1 ring-black/5 dark:bg-white/[0.025] dark:ring-white/5">
+                      <ScrollArea className="h-auto max-h-[50vh]" viewportTabIndex={-1}>
+                        <div
+                          ref={commitFileListRef}
+                          tabIndex={0}
+                          role="listbox"
+                          aria-multiselectable
+                          aria-activedescendant={commitFileActiveOptionId}
+                          aria-label="Files to commit"
+                          className="group/files space-y-1 p-1 font-mono text-xs outline-none"
+                          onKeyDown={onCommitFileListKeyDown}
+                        >
+                          {allFiles.map((file, index) => {
                             const isExcluded = excludedFiles.has(file.path);
                             return (
                               <div
                                 key={file.path}
-                                className="flex w-full items-center gap-2 rounded-md px-2 py-1 font-mono hover:bg-accent/50"
+                                id={commitFileOptionId(index)}
+                                role="option"
+                                aria-selected={!isExcluded}
+                                data-commit-file
+                                data-cursor={index === commitFileCursor || undefined}
+                                className="flex w-full items-center gap-2 rounded-md px-2 py-1 hover:bg-accent/50 group-focus-within/files:data-cursor:bg-accent"
                               >
                                 {isEditingFiles && (
                                   <Checkbox
                                     checked={!excludedFiles.has(file.path)}
-                                    onCheckedChange={() => {
-                                      setExcludedFiles((prev) => {
-                                        const next = new Set(prev);
-                                        if (next.has(file.path)) {
-                                          next.delete(file.path);
-                                        } else {
-                                          next.add(file.path);
-                                        }
-                                        return next;
-                                      });
-                                    }}
+                                    onCheckedChange={() => toggleExcludedFile(file.path)}
                                   />
                                 )}
                                 <button
                                   type="button"
+                                  tabIndex={-1}
                                   className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
                                   onClick={() => openChangedFileInEditor(file.path)}
                                 >
@@ -2074,7 +2135,7 @@ export default function GitActionsControl({
                         </div>
                       </ScrollArea>
                     </div>
-                    <div className="flex justify-end font-mono">
+                    <div className="flex justify-end font-mono text-xs">
                       <span className="text-diff-addition">
                         +{selectedFiles.reduce((sum, f) => sum + f.insertions, 0)}
                       </span>
@@ -2090,6 +2151,7 @@ export default function GitActionsControl({
             <div className="space-y-1">
               <p className="text-sm font-medium">Commit message (optional)</p>
               <Textarea
+                ref={commitMessageRef}
                 value={dialogCommitMessage}
                 onChange={(event) => setDialogCommitMessage(event.target.value)}
                 placeholder="Leave empty to auto-generate"

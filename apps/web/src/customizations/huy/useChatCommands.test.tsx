@@ -48,10 +48,8 @@ describe("chat action integration", () => {
     expect(runAppCommand("thread.pin")).toBe(false);
   });
 
-  it("leaves git commands to their owner and does not dispatch a handled command twice", async () => {
-    const git = vi.fn(() => true);
+  it("does not dispatch a handled command twice", async () => {
     const execute = vi.fn(() => true);
-    releases.push(registerAppCommands((command) => command === "git.commit" && git()));
     function Chat() {
       useChatCommands(execute, () => true);
       return null;
@@ -59,9 +57,6 @@ describe("chat action integration", () => {
     await act(() => {
       renderer = create(<Chat />);
     });
-    expect(runAppCommand("git.commit")).toBe(true);
-    expect(git).toHaveBeenCalledTimes(1);
-    expect(execute).not.toHaveBeenCalled();
     expect(runAppCommand("thread.pin")).toBe(true);
     expect(execute).toHaveBeenCalledExactlyOnceWith("thread.pin", false);
   });

@@ -6,6 +6,7 @@ import { HuyChatHeader } from "../customizations/huy/HuyFlowHeader";
 import { ModalKeyboard } from "./ModalKeyboard";
 import { useHuyChatFocus } from "../customizations/huy/useHuyChatFocus";
 import { useChatCommands } from "../customizations/huy/useChatCommands";
+import { requestCommitDialog } from "../customizations/huy/commitDialogRequest";
 import { getClientSettings } from "../hooks/useSettings";
 import { requestModalFocus, useModalKeyboardStore } from "../modalKeyboardStore";
 import { useFlowStore } from "../flowStore";
@@ -7810,7 +7811,8 @@ export default function ChatView(props: ChatViewProps) {
     }
 
     if (command === "git.commit") {
-      return false;
+      if (!activeThreadRef || !gitCwd || !isGitRepo || !activeProject) return false;
+      return requestCommitDialog(activeThreadRef, threadPanelPresentation);
     }
 
     const scriptId = projectScriptIdFromCommand(command);

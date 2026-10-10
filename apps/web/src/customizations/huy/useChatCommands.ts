@@ -22,8 +22,7 @@ export function useChatCommands(
         if (
           command === "question.focus" ||
           command === "rightPanel.enter" ||
-          command === "thread.snooze" ||
-          command === "git.commit"
+          command === "thread.snooze"
         )
           return false;
         return executeCurrent(command, false);
