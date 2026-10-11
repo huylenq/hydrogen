@@ -96,7 +96,7 @@ export const WorktreeMcpHandoffResult = Schema.Struct({
 export type WorktreeMcpHandoffResult = typeof WorktreeMcpHandoffResult.Type;
 
 /**
- * Input for the `t3_worktree_attach` MCP tool (Huy's fork; see HUY-SPECS.md).
+ * Input for the `t3_worktree_attach` MCP tool (Huy's fork; see HYDROGEN-SPECS.md).
  *
  * Re-points the calling thread at an existing checkout of its project without
  * running any git command in it. If upstream ships an equivalent tool, prefer

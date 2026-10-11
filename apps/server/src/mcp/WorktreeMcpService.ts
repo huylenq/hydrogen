@@ -479,7 +479,7 @@ const make = Effect.gen(function* () {
     },
   );
 
-  // Huy's fork (HUY-SPECS.md, "Thread worktree attach"). If upstream main ever
+  // Huy's fork (HYDROGEN-SPECS.md, "Thread worktree attach"). If upstream main ever
   // ships an equivalent way to re-point a thread at an existing checkout,
   // favor upstream's implementation when merging and remove this one.
   const attach: WorktreeMcpService["Service"]["attach"] = Effect.fn("WorktreeMcpService.attach")(

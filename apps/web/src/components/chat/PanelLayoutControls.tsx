@@ -136,7 +136,7 @@ export const PanelLayoutControls = memo(function PanelLayoutControls({
   );
 });
 
-// Hidden while Grok Bot is quarantined (HUY-SPECS.md); the keybinding and command palette still toggle it.
+// Hidden while Grok Bot is quarantined (HYDROGEN-SPECS.md); the keybinding and command palette still toggle it.
 const GROK_BOT_TOGGLE_VISIBLE = false;
 
 export function GrokBotToggle({ shortcutLabel }: { shortcutLabel?: string | null | undefined }) {

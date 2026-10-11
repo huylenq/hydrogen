@@ -1,10 +1,10 @@
 # T3 Code
 
-## Huy's fork customizations
+## Hydrogen (Huy's fork) customizations
 
-Read [HUY-SPECS.md](./HUY-SPECS.md) before changing customized behavior or merging/rebasing upstream. Preserve its functional requirements when adapting to upstream refactors; do not resolve conflicts by replacing locally customized files wholesale. Check the affected requirements after integration, including entry points and focus behavior. Ask Huy before intentionally removing or changing a documented customization unless the current request already authorizes it.
+Read [HYDROGEN-SPECS.md](./HYDROGEN-SPECS.md) before changing customized behavior or merging/rebasing upstream. Preserve its functional requirements when adapting to upstream refactors; do not resolve conflicts by replacing locally customized files wholesale. Check the affected requirements after integration, including entry points and focus behavior. Ask Huy before intentionally removing or changing a documented customization unless the current request already authorizes it.
 
-When Huy adds or changes a customization, update the relevant section of [HUY-SPECS.md](./HUY-SPECS.md) in the same change. Record the intended behavior, affected surfaces, and useful verification links; keep it current rather than appending a change log.
+When Huy adds or changes a customization, update the relevant section of [HYDROGEN-SPECS.md](./HYDROGEN-SPECS.md) in the same change. Record the intended behavior, affected surfaces, and useful verification links; keep it current rather than appending a change log.
 
 T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity) and serves web, desktop, and mobile clients.
 

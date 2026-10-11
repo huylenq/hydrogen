@@ -18,6 +18,7 @@ import {
 } from "@t3tools/contracts";
 import * as NetService from "@t3tools/shared/Net";
 import * as DateTime from "effect/DateTime";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -149,6 +150,39 @@ it.effect("adds, renames, and removes projects through the V2 project CLI domain
 
     yield* runCli(["project", "remove", added?.id ?? "", "--base-dir", baseDir]);
     assert.deepEqual((yield* readProjects(baseDir)).projects, []);
+  }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+it.effect("moves a project whose old checkout no longer exists", () =>
+  Effect.gen(function* () {
+    const baseDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-v2-project-cli-"));
+    const oldRoot = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-v2-project-old-"));
+    const newRoot = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-v2-project-new-"));
+    const otherRoot = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "t3-v2-project-other-"));
+
+    yield* runCli(["project", "add", oldRoot, "--base-dir", baseDir]);
+    yield* runCli(["project", "add", otherRoot, "--base-dir", baseDir]);
+    const moved = (yield* readProjects(baseDir)).projects.find(
+      (project) => project.workspaceRoot === oldRoot,
+    );
+    NodeFS.rmSync(oldRoot, { recursive: true });
+
+    // The stored path, typed with a trailing slash, still names the project.
+    yield* runCli(["project", "move", `${oldRoot}/`, newRoot, "--base-dir", baseDir]);
+    const projects = (yield* readProjects(baseDir)).projects;
+    assert.equal(projects.find((project) => project.id === moved?.id)?.workspaceRoot, newRoot);
+
+    // A root another project owns is rejected.
+    const exit = yield* Effect.exit(
+      runCli(["project", "move", newRoot, otherRoot, "--base-dir", baseDir]),
+    );
+    assert.isTrue(exit._tag === "Failure");
+    assert.include(Cause.pretty(exit.cause), "already belongs to project");
+    assert.equal(
+      (yield* readProjects(baseDir)).projects.find((project) => project.id === moved?.id)
+        ?.workspaceRoot,
+      newRoot,
+    );
   }).pipe(Effect.provide(NodeServices.layer)),
 );
 

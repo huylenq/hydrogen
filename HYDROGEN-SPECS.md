@@ -1,10 +1,24 @@
-# Huy's functional customizations
+# Hydrogen functional customizations
 
-This file records intentional behavior in Huy's T3 Code fork that must survive upstream merges and refactors. It states what each feature must keep doing, not how it is built: exact keys, sizes, file names, and copy live in the code, tests, and linked user docs. Carry these requirements into whatever implementation upstream changes force.
+This file records intentional behavior in Hydrogen, Huy's fork of T3 Code, that must survive upstream merges and refactors. It states what each feature must keep doing, not how it is built: exact keys, sizes, file names, and copy live in the code, tests, and linked user docs. Carry these requirements into whatever implementation upstream changes force.
 
 ## Upstream runtime compatibility
 
 The unmodified upstream mobile client must be able to use this server. Do not add fork-only values to, or change the meaning of, shared runtime contracts or persisted thread/session state (runtime modes, approval policies, sandbox mappings and their defaults). Lexicon and Hermes must not add thread runtime modes or alter upstream approval behavior. Keep local data repairs out of the shipped migration history.
+
+## Rebrand
+
+The fork presents itself as Hydrogen: the web and desktop app name (`APP_BASE_NAME` in web and desktop branding, so window titles, menus, and About), the sidebar brand (a heavy "H₂" mark, `HydrogenMark`, drawn to match upstream's T3 wordmark, with no text label; `customizations/huy/HydrogenSidebarBrand.tsx` centers it on the sidebar unless the environment pill is shown, without raising the measured minimum sidebar width), the page title and boot splash label, the dev launcher's macOS bundle (`Hydrogen (Dev).app`), and the macOS permission helper, which names the running bundle as System Settings lists it. Only labels change. Everything upstream or the user's data depends on keeps its T3 name: package scopes (`@t3tools/*`), the `t3` CLI, `t3_*` MCP tool names, MCP/OAuth/provider client identities, protocol schemes, bundle IDs, `T3CODE_*` env vars, T3 home (`~/.t3`), Electron profile folders, and `productName` (packaged app and updater). Electron's runtime name (`app.setName`) stays `T3 Code <stage>` because macOS Safe Storage keys its keychain item by it; renaming it would orphan encrypted secrets and cookies. Hardcoded "T3 Code" copy elsewhere, including copy that upstream tests assert, is left as upstream wrote it to keep merges cheap.
+
+Known limitation: packaged builds show both names. Finder, the Dock, the bold app menu, and the installed bundle (`T3 Code (Alpha).app`) come from `productName` and the runtime name, so they say "T3 Code", while window titles, menu items, and About say Hydrogen. Renaming `productName` would change the install path and the updater identity, which this rebrand does not touch. The dev build is unaffected because the dev launcher names its own bundle `Hydrogen (Dev).app`.
+
+## Desktop app location
+
+On macOS the desktop app records its own `.app` bundle in `desktop-app.json` (`{"version":1,"appPath":…,"development":…}`) in its state directory, the same directory the app control socket address is derived from, each time it starts. Lexicon reads it to launch Hydrogen when the socket is not answering, so it never assumes a checkout path or `/Applications`. A development bundle only works while its dev runner serves the renderer, so Lexicon asks for `vp run dev:desktop` in that checkout instead of launching it. The file is replaced atomically and is fork-only; upstream ignores it.
+
+## Project move
+
+`t3 project move <project> <path>` repoints a project at its moved checkout and keeps its threads. It sends `project.update` with the new `workspaceRoot`, which the server already supports, through the running server like the other `t3 project` commands. The project may be named by id or by its stored path; a stored path whose directory is gone is matched after resolving `~`, relative segments, and trailing slashes. The server refuses a path that another active project already uses. Linked worktrees keep pointing at the old `.git` until `git worktree repair` runs in the new checkout, which the command reminds you of. For the desktop dev state, run it from the checkout with `VITE_DEV_SERVER_URL` set and no `--base-dir`, so it targets `~/.t3/dev`.
 
 ## Vim navigation
 

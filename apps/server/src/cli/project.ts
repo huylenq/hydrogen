@@ -37,6 +37,7 @@ import {
   readPersistedServerRuntimeState,
 } from "../serverRuntimeState.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
+import { expandHomePath } from "../os-jank.ts";
 import { type CliAuthLocationFlags, projectLocationFlags, resolveCliAuthConfig } from "./config.ts";
 
 type ProjectMutationTarget = {
@@ -569,7 +570,76 @@ const projectRenameCommand = Command.make("rename", {
   ),
 );
 
+// Hydrogen fork (HYDROGEN-SPECS.md, "Project move"): repoints a project after
+// its checkout moved, keeping its threads. The server already accepts a new
+// workspaceRoot in project.update (and rejects one another project owns);
+// upstream has no client for it.
+const projectMoveCommand = Command.make("move", {
+  ...projectLocationFlags,
+  project: Argument.String("project").pipe(
+    Argument.withDescription("Project id or current workspace root to move."),
+  ),
+  workspaceRoot: Argument.String("path").pipe(
+    Argument.withDescription("The project's new workspace root."),
+  ),
+}).pipe(
+  Command.withDescription("Point a project at its moved workspace root."),
+  Command.withHandler((flags) =>
+    runProjectMutation(
+      flags,
+      Effect.fn("projectMoveMutation")(function* ({
+        snapshot,
+        dispatch,
+      }: {
+        readonly snapshot: ProjectSnapshot;
+        readonly dispatch: (
+          command: ProjectCliDispatchCommand,
+        ) => Effect.Effect<void, Error, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path>;
+      }) {
+        const project = yield* findActiveProjectTarget({
+          snapshot,
+          identifier: flags.project,
+        }).pipe(
+          // The old checkout is usually gone, so its path can't be normalized on
+          // disk; retry with the path resolved lexically (home, relative, trailing slash).
+          Effect.catchTags({
+            ProjectNotFoundError: (error) =>
+              Effect.gen(function* () {
+                const path = yield* Path.Path;
+                const identifier = flags.project.trim();
+                const resolved = path.resolve(yield* expandHomePath(identifier));
+                if (resolved === identifier) return yield* error;
+                return yield* findActiveProjectTarget({ snapshot, identifier: resolved });
+              }),
+          }),
+        );
+        const workspaceRoot = yield* normalizeWorkspaceRootForProjectCommand(flags.workspaceRoot);
+        if (workspaceRoot === project.workspaceRoot) {
+          return `Project ${project.id} is already at ${workspaceRoot}.`;
+        }
+
+        yield* dispatch({
+          type: "project.update",
+          commandId: CommandId.make(yield* projectCommandUuid),
+          projectId: project.id,
+          workspaceRoot,
+        });
+        // Linked worktrees still point at the old checkout's .git until git repairs them.
+        return [
+          `Moved project ${project.id} (${project.title}) to ${workspaceRoot}.`,
+          `If the checkout has linked worktrees, run \`git -C ${workspaceRoot} worktree repair\`.`,
+        ].join("\n");
+      }),
+    ),
+  ),
+);
+
 export const projectCommand = Command.make("project").pipe(
   Command.withDescription("Manage projects."),
-  Command.withSubcommands([projectAddCommand, projectRemoveCommand, projectRenameCommand]),
+  Command.withSubcommands([
+    projectAddCommand,
+    projectRemoveCommand,
+    projectRenameCommand,
+    projectMoveCommand,
+  ]),
 );

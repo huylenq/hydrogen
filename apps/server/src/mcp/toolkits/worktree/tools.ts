@@ -43,7 +43,7 @@ const WorktreeHandoffTool = Tool.make("t3_worktree_handoff", {
   .annotate(Tool.Idempotent, false)
   .annotate(Tool.OpenWorld, true);
 
-// Huy's fork (HUY-SPECS.md, "Thread worktree attach"). If upstream main ever
+// Huy's fork (HYDROGEN-SPECS.md, "Thread worktree attach"). If upstream main ever
 // ships an equivalent tool, favor upstream's implementation when merging and
 // remove this one.
 const WorktreeAttachTool = Tool.make("t3_worktree_attach", {
