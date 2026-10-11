@@ -5,6 +5,7 @@ import {
 } from "@t3tools/client-runtime/environment";
 import { presentPendingBackgroundWork } from "@t3tools/client-runtime/state/thread-execution";
 import type { OrchestrationV2PendingBackgroundTask, ScopedThreadRef } from "@t3tools/contracts";
+import { shouldPreserveAssistantLineBreaks } from "@t3tools/shared/markdownPipeline";
 import { useNavigate } from "@tanstack/react-router";
 import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { deriveTimelineEntriesFromVisibleTurnItems } from "../session-logic";
@@ -29,10 +30,7 @@ import {
   type LiveStatus,
 } from "../customizations/huy/WorkEntryPreview";
 import { FlowSessionCheckoutStrip } from "../customizations/huy/FlowSessionCheckoutStrip";
-import {
-  deriveMessagesTimelineRows,
-  shouldPreserveAssistantLineBreaks,
-} from "./chat/MessagesTimeline.logic";
+import { deriveMessagesTimelineRows } from "./chat/MessagesTimeline.logic";
 import ChatMarkdown from "./ChatMarkdown";
 import { cn } from "../lib/utils";
 

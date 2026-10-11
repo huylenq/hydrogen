@@ -18,13 +18,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 
-import { execScriptSource, writeFakeCli } from "../../testUtils/fakeCli.ts";
+import { execScriptSource, writeFakeCli } from "@t3tools/provider-testing/fakeCli";
 import {
   ProviderAdapterV2RuntimePolicy,
+  type ProviderAdapterV2,
   type ProviderAdapterV2Event,
   type ProviderAdapterV2SessionRuntime,
-  type ProviderAdapterV2Shape,
-} from "../ProviderAdapter.ts";
+} from "@t3tools/provider-core/server/ProviderAdapter";
 
 const peer = NodeURL.fileURLToPath(
   new URL("../../provider/testFixtures/hermesMockPeer.mjs", import.meta.url),
@@ -78,7 +78,7 @@ let sessionOrdinal = 0;
 
 /** Opens a provider session and buffers its events for `nextEvent`. */
 export const openHermesSession = Effect.fn("openHermesSession")(function* (
-  adapter: ProviderAdapterV2Shape,
+  adapter: ProviderAdapterV2["Service"],
   modelSelection: ModelSelection,
   initialNativeThreadId?: string,
 ) {

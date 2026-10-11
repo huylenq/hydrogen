@@ -21,8 +21,9 @@ import {
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide";
 import * as Schema from "effect/Schema";
 import * as DateTime from "effect/DateTime";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useCodeViewFileReveal } from "./diffs/useCodeViewFileReveal";
+import { useFilesystemReadAccess } from "~/state/filesystem";
 import { useOpenInPreferredEditor } from "../editorPreferences";
 import { useFileContextMenuHandler } from "../fileContextMenu";
 import { type DraftId } from "../composerDraftStore";
@@ -124,6 +125,72 @@ interface CollapsedDiffFilesState {
 
 const EMPTY_COLLAPSED_DIFF_FILE_PATHS: ReadonlySet<string> = new Set();
 
+/** Collapse control for one file header; re-renders only when its own file changes. */
+function DiffFileCollapseToggle({
+  filePath,
+  collapsed,
+  unavailable,
+  iconClassName,
+  onToggle,
+}: {
+  filePath: string;
+  collapsed: boolean;
+  unavailable: boolean;
+  iconClassName: string;
+  onToggle: (filePath: string) => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size="icon-micro"
+            variant="ghost"
+            className="-ms-0.5"
+            aria-label={collapsed ? `Expand ${filePath}` : `Collapse ${filePath}`}
+            aria-expanded={!collapsed}
+            disabled={unavailable}
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle(filePath);
+            }}
+          />
+        }
+      >
+        <MorphIcon
+          className={cn("size-4", iconClassName)}
+          icon={collapsed ? ChevronRight : ChevronDown}
+        />
+      </TooltipTrigger>
+      <TooltipPopup side="top">{collapsed ? "Expand diff" : "Collapse diff"}</TooltipPopup>
+    </Tooltip>
+  );
+}
+
+/** Copy and status controls for one file header; re-renders only when its own file changes. */
+function DiffFileHeaderSuffix({
+  filePath,
+  hasStat,
+  error,
+  truncated,
+  onRetry,
+}: {
+  filePath: string;
+  hasStat: boolean;
+  error: boolean;
+  truncated: boolean;
+  onRetry: (path: string) => void;
+}) {
+  return (
+    <>
+      <DiffFilePathCopyButton filePath={filePath} />
+      {hasStat ? (
+        <DiffFileStatus error={error} truncated={truncated} retry={() => onRetry(filePath)} />
+      ) : null}
+    </>
+  );
+}
+
 interface DiffPanelProps {
   mode?: DiffPanelMode;
   composerDraftTarget: ScopedThreadRef | DraftId;
@@ -164,6 +231,8 @@ export default function DiffPanel({
   const activeThreadId = routeThreadRef?.threadId ?? null;
   const activeThread = useThreadShell(routeThreadRef);
   const activeThreadProjection = useThreadProjection(routeThreadRef)?.projection ?? null;
+  const fileAccess = useFilesystemReadAccess(activeThread?.environmentId ?? null);
+  const { canReadFiles } = fileAccess;
   const activeProjectId = activeThread?.projectId ?? null;
   const activeProject = useProject(
     activeThread && activeProjectId
@@ -278,7 +347,7 @@ export default function DiffPanel({
     { enabled: isGitRepo && selectedTurn !== undefined },
   );
   const branchDiffPreview = useEnvironmentQuery(
-    selectedRunId === null && activeThread && activeCwd
+    canReadFiles && selectedRunId === null && activeThread && activeCwd
       ? reviewEnvironment.diffPreview({
           environmentId: activeThread.environmentId,
           input: {
@@ -307,6 +376,7 @@ export default function DiffPanel({
       return undefined;
     }
 
+    if (!canReadFiles) return undefined;
     return createGitDiffFileContentsLoader(getDiffFileContents, {
       environmentId: activeThread.environmentId,
       cwd: preview.cwd,
@@ -315,7 +385,14 @@ export default function DiffPanel({
       headRef: selectedGitSource.headRef,
       cacheKey: selectedGitSource.diffHash,
     });
-  }, [activeThread, branchDiffPreview.data, getDiffFileContents, selectedGitSource, selectedRunId]);
+  }, [
+    activeThread,
+    branchDiffPreview.data,
+    getDiffFileContents,
+    canReadFiles,
+    selectedGitSource,
+    selectedRunId,
+  ]);
   const loadDiffFilesRef = useRef(currentLoadDiffFiles);
   loadDiffFilesRef.current = currentLoadDiffFiles;
   const loadDiffFiles = useCallback<FileDiffContentsLoader>(async (fileDiff) => {
@@ -589,22 +666,36 @@ export default function DiffPanel({
     },
     [activeCwd, activeRepositoryRoot, openInPreferredEditor, routeThreadRef],
   );
-  const toggleDiffFileCollapsed = useCallback(
-    (filePath: string) => {
-      setCollapsedDiffFiles((current) => {
-        const next = new Set(
-          current.scopeKey === collapseScopeKey ? current.filePaths : defaultCollapsedDiffFilePaths,
-        );
-        if (next.has(filePath)) {
-          next.delete(filePath);
-        } else {
-          next.add(filePath);
-        }
-        return { scopeKey: collapseScopeKey, filePaths: next };
-      });
-    },
-    [collapseScopeKey, defaultCollapsedDiffFilePaths],
-  );
+  const collapseDefaultsRef = useRef({ collapseScopeKey, defaultCollapsedDiffFilePaths });
+  useLayoutEffect(() => {
+    collapseDefaultsRef.current = { collapseScopeKey, defaultCollapsedDiffFilePaths };
+  }, [collapseScopeKey, defaultCollapsedDiffFilePaths]);
+  const toggleDiffFileCollapsed = useCallback((filePath: string) => {
+    const { collapseScopeKey, defaultCollapsedDiffFilePaths } = collapseDefaultsRef.current;
+    setCollapsedDiffFiles((current) => {
+      const next = new Set(
+        current.scopeKey === collapseScopeKey ? current.filePaths : defaultCollapsedDiffFilePaths,
+      );
+      if (next.has(filePath)) {
+        next.delete(filePath);
+      } else {
+        next.add(filePath);
+      }
+      return { scopeKey: collapseScopeKey, filePaths: next };
+    });
+  }, []);
+  // Find can ask again before the unfolded file reaches the viewer, so this must never fold.
+  const unfoldDiffFile = useCallback((filePath: string) => {
+    const { collapseScopeKey, defaultCollapsedDiffFilePaths } = collapseDefaultsRef.current;
+    setCollapsedDiffFiles((current) => {
+      const filePaths =
+        current.scopeKey === collapseScopeKey ? current.filePaths : defaultCollapsedDiffFilePaths;
+      if (!filePaths.has(filePath)) return current;
+      const next = new Set(filePaths);
+      next.delete(filePath);
+      return { scopeKey: collapseScopeKey, filePaths: next };
+    });
+  }, []);
 
   const setAllDiffFilesCollapsed = useCallback(
     (collapsed: boolean) => {
@@ -986,6 +1077,14 @@ export default function DiffPanel({
         <div className="flex flex-1 items-center justify-center px-5 text-center text-xs text-muted-foreground/70">
           No completed turns yet.
         </div>
+      ) : selectedRunId === null && !canReadFiles ? (
+        fileAccess.isPending ? (
+          <DiffPanelLoadingState label="Checking file access..." />
+        ) : (
+          <div className="flex flex-1 items-center justify-center px-5 text-center text-xs text-muted-foreground/70">
+            {fileAccess.error ?? "This connection cannot read local diffs."}
+          </div>
+        )
       ) : (
         <>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background">
@@ -1092,14 +1191,15 @@ export default function DiffPanel({
                     onShowKeys={() => setDiffKeysOpen(true)}
                     renderHeaderFilenameSuffix={(fileDiff) => {
                       const path = resolveFileDiffPath(fileDiff);
-                      const stat = fileStats.get(path);
+                      const state = fileStates.get(path);
                       return (
-                        <>
-                          <DiffFilePathCopyButton filePath={path} />
-                          {stat ? (
-                            <DiffFileStatus {...fileStates.get(path)} retry={() => retry(path)} />
-                          ) : null}
-                        </>
+                        <DiffFileHeaderSuffix
+                          filePath={path}
+                          hasStat={fileStats.has(path)}
+                          error={state?.error ?? false}
+                          truncated={state?.truncated ?? false}
+                          onRetry={retry}
+                        />
                       );
                     }}
                     {...(lazySource
@@ -1117,39 +1217,18 @@ export default function DiffPanel({
                           },
                         }
                       : {})}
+                    onRevealSearchMatch={unfoldDiffFile}
                     renderHeaderPrefix={(fileDiff) => {
                       const unavailable = fileDiff.cacheKey?.endsWith(":pending") === true;
                       const filePath = resolveFileDiffPath(fileDiff);
-                      const collapsed = unavailable || collapsedDiffFilePaths.has(filePath);
                       return (
-                        <Tooltip>
-                          <TooltipTrigger
-                            render={
-                              <Button
-                                size="icon-micro"
-                                variant="ghost"
-                                className="-ms-0.5"
-                                aria-label={
-                                  collapsed ? `Expand ${filePath}` : `Collapse ${filePath}`
-                                }
-                                aria-expanded={!collapsed}
-                                disabled={unavailable}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  toggleDiffFileCollapsed(filePath);
-                                }}
-                              />
-                            }
-                          >
-                            <MorphIcon
-                              className={cn("size-4", getDiffCollapseIconClassName(fileDiff))}
-                              icon={collapsed ? ChevronRight : ChevronDown}
-                            />
-                          </TooltipTrigger>
-                          <TooltipPopup side="top">
-                            {collapsed ? "Expand diff" : "Collapse diff"}
-                          </TooltipPopup>
-                        </Tooltip>
+                        <DiffFileCollapseToggle
+                          filePath={filePath}
+                          collapsed={unavailable || collapsedDiffFilePaths.has(filePath)}
+                          unavailable={unavailable}
+                          iconClassName={getDiffCollapseIconClassName(fileDiff)}
+                          onToggle={toggleDiffFileCollapsed}
+                        />
                       );
                     }}
                     options={{

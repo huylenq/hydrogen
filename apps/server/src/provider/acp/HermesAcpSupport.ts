@@ -7,12 +7,12 @@ import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Scope from "effect/Scope";
-import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
+import type * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as AcpErrors from "effect-acp/errors";
 import type * as AcpSchema from "effect-acp/compat";
-import { expandHomePath } from "../../pathExpansion.ts";
-import * as AcpSessionRuntime from "./AcpSessionRuntime.ts";
+import * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
 
+/** `settings.homePath` must already be absolute; the driver resolves `~` and defaults. */
 export function buildHermesAcpSpawnInput(
   settings: HermesSettings & { readonly profile?: string },
   cwd: string,
@@ -24,7 +24,7 @@ export function buildHermesAcpSpawnInput(
     cwd,
     env: {
       ...environment,
-      ...(settings.homePath ? { HERMES_HOME: expandHomePath(settings.homePath) } : {}),
+      ...(settings.homePath ? { HERMES_HOME: settings.homePath } : {}),
     },
   };
 }
@@ -54,7 +54,6 @@ export interface HermesAcpRuntimeInput extends Omit<
 > {
   readonly hermesSettings: HermesSettings & { readonly profile?: string };
   readonly environment?: NodeJS.ProcessEnv;
-  readonly childProcessSpawner: ChildProcessSpawner.ChildProcessSpawner["Service"];
 }
 
 /**
@@ -119,18 +118,14 @@ export const makeHermesAcpRuntime = Effect.fn("makeHermesAcpRuntime")(function* 
 ): Effect.fn.Return<
   AcpSessionRuntime.AcpSessionRuntime["Service"],
   AcpErrors.AcpError,
-  Crypto.Crypto | Scope.Scope
+  ChildProcessSpawner.ChildProcessSpawner | Crypto.Crypto | Scope.Scope
 > {
   const context = yield* Layer.build(
     AcpSessionRuntime.layer({
       ...input,
       spawn: buildHermesAcpSpawnInput(input.hermesSettings, input.cwd, input.environment),
       cancelBehavior: "wait-for-prompt",
-    }).pipe(
-      Layer.provide(
-        Layer.succeed(ChildProcessSpawner.ChildProcessSpawner, input.childProcessSpawner),
-      ),
-    ),
+    }),
   );
   const runtime = yield* Effect.service(AcpSessionRuntime.AcpSessionRuntime).pipe(
     Effect.provide(context),

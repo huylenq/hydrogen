@@ -54,7 +54,7 @@ export interface DiffVimFile {
 }
 
 interface UseDiffVimInput<LAnnotation> {
-  viewer: CodeViewHandle<LAnnotation> | null;
+  viewer: CodeViewHandle<LAnnotation, undefined> | null;
   root: HTMLElement | null;
   files: ReadonlyArray<DiffVimFile>;
   style: DiffVimStyle;
@@ -714,7 +714,7 @@ interface PierreItemRecord {
  * public accessor; fail loudly if an upgrade moves them, rather than letting the cursor skip lines.
  */
 function expansionsOf<LAnnotation>(
-  viewer: CodeViewHandle<LAnnotation> | null,
+  viewer: CodeViewHandle<LAnnotation, undefined> | null,
   fileKey: string,
 ): ReadonlyMap<number, HunkExpansionRegion> {
   const codeView = viewer?.getInstance();

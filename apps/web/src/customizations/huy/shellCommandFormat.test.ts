@@ -1,6 +1,6 @@
 // @effect-diagnostics-next-line nodeBuiltinImport:off - compare real Bash output before and after display formatting.
 import * as NodeChildProcess from "node:child_process";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import { describe, expect, it } from "vite-plus/test";
 
 import { formatShellCommand } from "./shellCommandFormat";
@@ -32,7 +32,7 @@ describe("formatShellCommand", () => {
   });
 
   it
-    .skipIf(HostProcessPlatform.defaultValue() === "win32")
+    .skipIf(HostProcess.Platform.defaultValue() === "win32")
     .each([
       `printf '%s\\n' 'a;b && c|d' "$(printf 'nested;word')"; printf done`,
       `printf '%s\\n' one # keep this comment; and its operators && |\nprintf '%s\\n' two`,

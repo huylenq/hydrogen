@@ -6,36 +6,31 @@ import {
 } from "@t3tools/contracts";
 import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import type { SelfInvocation } from "@t3tools/shared/nodeRuntime";
-import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
-import type { ChildProcessSpawner } from "effect/unstable/process";
 import * as EffectAcpErrors from "effect-acp/errors";
 
-import type * as ServerConfig from "../../config.ts";
-import { isHermesProfileName, selectedHermesProfile } from "../../provider/HermesProfiles.ts";
-import { acpPermissionDisposition } from "../../provider/acp/AcpClientPolicy.ts";
-import type * as AcpSessionRuntime from "../../provider/acp/AcpSessionRuntime.ts";
-import {
-  applyHermesModelSelection,
-  hermesApprovalOptions,
-  makeHermesAcpRuntime,
-} from "../../provider/acp/HermesAcpSupport.ts";
-import type * as IdAllocator from "../IdAllocator.ts";
-import * as ProviderAdapter from "../ProviderAdapter.ts";
-import { makeProviderFailure } from "../ProviderFailure.ts";
-import {
-  acpSelectionTransition,
-  type ProviderSelectionTransitionInput,
-  type ProviderSelectionTransitionPlan,
-} from "../ProviderSelectionTransition.ts";
+import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
 import {
   AcpProviderCapabilitiesV2,
   makeAcpAdapterV2,
   type AcpAdapterV2Flavor,
   type AcpAdapterV2RuntimeInput,
-} from "./AcpAdapterV2.ts";
+} from "@t3tools/provider-acp/server/adapter";
+import { acpPermissionDisposition } from "@t3tools/provider-acp/server/clientPolicy";
+import { makeProviderFailure } from "@t3tools/provider-core/server/failure";
+import * as ProviderAdapter from "@t3tools/provider-core/server/ProviderAdapter";
+import {
+  acpSelectionTransition,
+  type ProviderSelectionTransitionInput,
+  type ProviderSelectionTransitionPlan,
+} from "@t3tools/provider-core/server/selectionTransition";
+import { isHermesProfileName, selectedHermesProfile } from "../../provider/HermesProfiles.ts";
+import {
+  applyHermesModelSelection,
+  hermesApprovalOptions,
+  makeHermesAcpRuntime,
+} from "../../provider/acp/HermesAcpSupport.ts";
 
 export const HERMES_PROVIDER = ProviderDriverKind.make("hermes");
 const isAcpRequestError = Schema.is(EffectAcpErrors.AcpRequestError);
@@ -64,11 +59,6 @@ export interface HermesAdapterV2Options {
   /** `homePath` is already resolved to the instance's Hermes home. */
   readonly settings: HermesSettings;
   readonly environment: NodeJS.ProcessEnv;
-  readonly childProcessSpawner: ChildProcessSpawner.ChildProcessSpawner["Service"];
-  readonly crypto: Crypto.Crypto;
-  readonly fileSystem: FileSystem.FileSystem;
-  readonly idAllocator: IdAllocator.IdAllocatorV2["Service"];
-  readonly serverConfig: ServerConfig.ServerConfig["Service"];
   readonly selfInvocation: SelfInvocation;
   readonly nativeLogging?: Parameters<typeof makeAcpAdapterV2>[0]["nativeLogging"];
   readonly continuationRequests?: Parameters<typeof makeAcpAdapterV2>[0]["continuationRequests"];
@@ -144,7 +134,6 @@ export function makeHermesAcpAdapterFlavor(
       ...runtimeInput,
       hermesSettings: { ...options.settings, profile: options.profile },
       environment: { ...options.environment, ...processEnvironment },
-      childProcessSpawner: options.childProcessSpawner,
     });
     const onTurnResult = options.onTurnResult;
     return onTurnResult === undefined
@@ -185,9 +174,13 @@ export function makeHermesAcpAdapterFlavor(
  * Each provider session runs one Hermes process for the profile its
  * conversation selected; every launch passes that profile explicitly.
  */
-export function makeHermesAdapterV2(
+export const makeHermesAdapterV2 = Effect.fn("makeHermesAdapterV2")(function* (
   options: HermesAdapterV2Options,
-): ProviderAdapter.ProviderAdapterV2Shape {
+) {
+  // The ACP adapter is built per session because its flavor carries the
+  // session's profile; capture its services once so sessions reuse them.
+  const acpAdapterContext =
+    yield* Effect.context<Effect.Services<ReturnType<typeof makeAcpAdapterV2>>>();
   return ProviderAdapter.ProviderAdapterV2.of({
     instanceId: options.instanceId,
     driver: HERMES_PROVIDER,
@@ -203,19 +196,16 @@ export function makeHermesAdapterV2(
           detail: `Invalid Hermes profile name '${profile}'.`,
         });
       }
-      const session = yield* makeAcpAdapterV2({
+      const acpAdapter = yield* makeAcpAdapterV2({
         instanceId: options.instanceId,
         flavor: makeHermesAcpAdapterFlavor({ ...options, profile }),
-        crypto: options.crypto,
-        fileSystem: options.fileSystem,
-        idAllocator: options.idAllocator,
-        serverConfig: options.serverConfig,
         selfInvocation: options.selfInvocation,
         ...(options.nativeLogging === undefined ? {} : { nativeLogging: options.nativeLogging }),
         ...(options.continuationRequests === undefined
           ? {}
           : { continuationRequests: options.continuationRequests }),
-      }).openSession(input);
+      }).pipe(Effect.provideContext(acpAdapterContext));
+      const session = yield* acpAdapter.openSession(input);
       const requireTurnSupport = (turnInput: ProviderAdapter.ProviderAdapterV2TurnInput) => {
         if (turnInput.runtimePolicy.interactionMode === "plan") {
           return Effect.fail(
@@ -251,4 +241,4 @@ export function makeHermesAdapterV2(
       } satisfies ProviderAdapter.ProviderAdapterV2SessionRuntime;
     }),
   });
-}
+});

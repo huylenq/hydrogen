@@ -14,7 +14,7 @@ import { DiffVimSearchBar } from "~/customizations/huy/DiffVimSearchBar";
 import { useDiffVim } from "~/customizations/huy/useDiffVim";
 
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
-import { fnv1a32 } from "~/lib/diffRendering";
+import { fnv1a32, resolveFileDiffPath } from "~/lib/diffRendering";
 import {
   buildDiffReviewComment,
   restoreDiffReviewCommentRange,
@@ -38,7 +38,7 @@ interface DiffCommentAnnotationGroup {
 }
 
 type DiffCommentLineAnnotation = DiffLineAnnotation<DiffCommentAnnotationGroup>;
-export type AnnotatableCodeViewHandle = CodeViewHandle<DiffCommentAnnotationGroup>;
+export type AnnotatableCodeViewHandle = CodeViewHandle<DiffCommentAnnotationGroup, undefined>;
 const EMPTY_REVIEW_COMMENTS: ReadonlyArray<ReviewCommentContext> = [];
 
 function annotationSide(range: SelectedLineRange): AnnotationSide {
@@ -104,6 +104,8 @@ interface AnnotatableCodeViewProps {
   onOpenFile?: (filePath: string, line: number | null) => void;
   onRefresh?: () => void;
   onShowKeys?: () => void;
+  /** Unfold a collapsed file that holds the find match being navigated to. */
+  onRevealSearchMatch: (filePath: string) => void;
 }
 
 interface DiffSelectionContext {
@@ -129,6 +131,7 @@ export function AnnotatableCodeView({
   onOpenFile,
   onRefresh,
   onShowKeys,
+  onRevealSearchMatch,
 }: AnnotatableCodeViewProps) {
   const addReviewComment = useComposerDraftStore((store) => store.addReviewComment);
   const removeReviewComment = useComposerDraftStore((store) => store.removeReviewComment);
@@ -189,17 +192,15 @@ export function AnnotatableCodeView({
     [draft, files, reviewComments, sectionId],
   );
 
-  const beginComment = useCallback(
-    (fileKey: string, range: SelectedLineRange) => {
-      const file = filesByKey.get(fileKey);
-      if (!file) return;
+  const startDraft = useCallback(
+    (fileKey: string, filePath: string, fileDiff: FileDiffMetadata, range: SelectedLineRange) => {
       const id = nextFileCommentId();
       const comment = buildDiffReviewComment({
         id,
         sectionId,
         sectionTitle,
-        filePath: file.filePath,
-        fileDiff: file.fileDiff,
+        filePath,
+        fileDiff,
         range,
         text: "",
       });
@@ -216,13 +217,25 @@ export function AnnotatableCodeView({
         },
       });
     },
-    [filesByKey, sectionId, sectionTitle],
+    [sectionId, sectionTitle],
+  );
+  const beginComment = useCallback(
+    (fileKey: string, range: SelectedLineRange) => {
+      const file = filesByKey.get(fileKey);
+      if (file) startDraft(fileKey, file.filePath, file.fileDiff, range);
+    },
+    [filesByKey, startDraft],
   );
   const beginGutterComment = useCallback(
     (range: SelectedLineRange | null, context: DiffSelectionContext) => {
-      if (range && context.item.type === "diff") beginComment(context.item.id, range);
+      if (!range) return;
+      const item = context.item;
+      if (item.type !== "diff") return;
+      // Read from the item, not the file list, so this callback keeps its identity as
+      // patches arrive; the viewer re-applies its options whenever it changes.
+      startDraft(item.id, resolveFileDiffPath(item.fileDiff), item.fileDiff, range);
     },
-    [beginComment],
+    [startDraft],
   );
 
   const hasOpenComment = draft !== null;
@@ -320,6 +333,10 @@ export function AnnotatableCodeView({
         onSelectedLinesChange={(selection) => {
           setSelectedLines(selection);
           vim.onPointerSelection(selection);
+        }}
+        onRevealSearchMatch={(item) => {
+          // Folding is keyed by path; see DiffPanel's CollapsedDiffFilesState.
+          if (item.type === "diff") onRevealSearchMatch(resolveFileDiffPath(item.fileDiff));
         }}
         options={{
           ...options,

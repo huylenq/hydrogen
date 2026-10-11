@@ -1,6 +1,5 @@
 import ReactMarkdown, { type Components } from "react-markdown";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
+import { CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS } from "@t3tools/shared/markdownPipeline";
 
 /** Grok paths belong to the bot's computer; never resolve them against the T3 workspace. */
 export function grokBotMarkdownUrl(value: string, key: string): string | undefined {
@@ -46,7 +45,8 @@ const components: Components = {
     </div>
   ),
 };
-const plugins = [remarkGfm, remarkBreaks];
+// Quarantined: reuse the chat's GFM + line-break remark pipeline (remark-breaks now lives in shared).
+const plugins = CHAT_MARKDOWN_REMARK_PLUGINS_WITH_BREAKS;
 
 export function GrokBotMarkdown({ text }: { text: string }) {
   return (

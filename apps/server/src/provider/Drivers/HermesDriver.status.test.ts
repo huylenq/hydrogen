@@ -5,17 +5,17 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
 import { vi } from "vite-plus/test";
-import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
-import { ServerConfig } from "../../config.ts";
-import { ServerSettingsService } from "../../serverSettings.ts";
+import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
+import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
+import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
+import * as TestProviderHost from "@t3tools/provider-testing/TestProviderHost";
 import { makeHermesAdapterV2 } from "../../orchestration-v2/Adapters/HermesAdapterV2.ts";
-import * as IdAllocator from "../../orchestration-v2/IdAllocator.ts";
-import { NoOpProviderEventLoggers, ProviderEventLoggers } from "../Layers/ProviderEventLoggers.ts";
 import { HermesDriver } from "./HermesDriver.ts";
 
 const probe = vi.hoisted(() => ({ configured: true }));
 vi.mock("../../orchestration-v2/Adapters/HermesAdapterV2.ts", () => ({
-  makeHermesAdapterV2: vi.fn(() => ({})),
+  makeHermesAdapterV2: vi.fn(() => Effect.succeed({})),
 }));
 vi.mock("../acp/HermesAcpSupport.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../acp/HermesAcpSupport.ts")>()),
@@ -34,15 +34,15 @@ vi.mock("../acp/HermesAcpSupport.ts", async (importOriginal) => ({
     }),
 }));
 
-const testLayer = ServerConfig.layerTest(process.cwd(), { prefix: "t3-hermes-status-" }).pipe(
+const testLayer = TestProviderHost.layer({ runBackgroundWork: false }).pipe(
   Layer.provideMerge(NodeServices.layer),
-  Layer.provideMerge(ServerSettingsService.layerTest()),
+  Layer.provideMerge(McpProviderSessions.layer),
   Layer.provideMerge(
-    Layer.mock(BackgroundPolicy.BackgroundPolicy)({
-      shouldRunScopeWork: () => Effect.succeed(false),
-    }),
+    Layer.succeed(
+      ProviderEventLoggers.ProviderEventLoggers,
+      ProviderEventLoggers.NoOpProviderEventLoggers,
+    ),
   ),
-  Layer.provideMerge(Layer.succeed(ProviderEventLoggers, NoOpProviderEventLoggers)),
   Layer.provideMerge(IdAllocator.layer),
 );
 
@@ -52,13 +52,13 @@ it.layer(testLayer)("Hermes verification", (it) => {
     () =>
       Effect.gen(function* () {
         probe.configured = true;
-        const config = yield* ServerConfig;
+        const host = yield* ProviderHost.ProviderHost;
         const instance = yield* HermesDriver.create({
           instanceId: ProviderInstanceId.make("hermes-status"),
           displayName: "Hermes",
           enabled: true,
           environment: [],
-          config: { ...HermesDriver.defaultConfig(), homePath: config.stateDir },
+          config: { ...HermesDriver.defaultConfig(), homePath: host.paths.stateDir },
         });
         const callbacks = vi.mocked(makeHermesAdapterV2).mock.calls.at(-1)?.[0];
         const onTurnResult = callbacks?.onTurnResult;

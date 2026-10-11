@@ -46,6 +46,7 @@ function thread(
     hasActionableProposedPlan: false,
     pendingBackgroundTasks: [],
     providerInstanceHistory: [instanceId],
+    goal: null,
     itemCount: 0,
     visibleItemCount: 0,
     createdAt: "2026-09-04T08:00:00.000Z",

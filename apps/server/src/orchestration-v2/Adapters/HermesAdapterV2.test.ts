@@ -7,15 +7,13 @@ import {
   type ModelSelection,
 } from "@t3tools/contracts";
 import { resolveSelfInvocation } from "@t3tools/shared/nodeRuntime";
-import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
-import { ChildProcessSpawner } from "effect/unstable/process";
 
-import * as ServerConfig from "../../config.ts";
-import * as IdAllocator from "../IdAllocator.ts";
+import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
+import * as TestProviderHost from "@t3tools/provider-testing/TestProviderHost";
 import {
   HermesProviderCapabilitiesV2,
   hermesSelectionTransition,
@@ -34,9 +32,8 @@ const instanceId = ProviderInstanceId.make("hermes-test");
 const testLayer = Layer.mergeAll(
   NodeServices.layer,
   IdAllocator.layer,
-  ServerConfig.layerTest(process.cwd(), { prefix: "t3-hermes-v2-test-" }).pipe(
-    Layer.provide(NodeServices.layer),
-  ),
+  McpProviderSessions.layer,
+  TestProviderHost.layer().pipe(Layer.provide(NodeServices.layer)),
 );
 const decodeHermesSettings = Schema.decodeEffect(HermesSettings);
 const selection = (options: ModelSelection["options"] = []): ModelSelection => ({
@@ -52,18 +49,13 @@ const setup = Effect.fn("setupHermesAdapterTest")(function* (
   const cli = yield* writeHermesMockCli(environment);
   const turnResults: Array<boolean> = [];
   const startedModels: Array<string | undefined> = [];
-  const adapter = makeHermesAdapterV2({
+  const adapter = yield* makeHermesAdapterV2({
     instanceId,
     settings: yield* decodeHermesSettings({
       binaryPath: cli.binaryPath,
       homePath: cli.directory,
     }),
     environment: {},
-    childProcessSpawner: yield* ChildProcessSpawner.ChildProcessSpawner,
-    crypto: yield* Crypto.Crypto,
-    fileSystem: yield* FileSystem.FileSystem,
-    idAllocator: yield* IdAllocator.IdAllocatorV2,
-    serverConfig: yield* ServerConfig.ServerConfig,
     selfInvocation: yield* resolveSelfInvocation(),
     onSessionStarted: (started) =>
       Effect.sync(() => {

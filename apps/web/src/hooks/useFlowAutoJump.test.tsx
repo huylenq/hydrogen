@@ -4,7 +4,13 @@ import {
   scopeThreadRef,
   scopedThreadKey,
 } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, MessageId, ProjectId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
+import {
+  EnvironmentId,
+  MessageId,
+  ProjectId,
+  ProviderInstanceId,
+  ThreadId,
+} from "@t3tools/contracts";
 import {
   createMemoryHistory,
   createRootRoute,
@@ -108,6 +114,7 @@ beforeEach(() => {
       hasActionableProposedPlan: false,
       pendingBackgroundTasks: [],
       providerInstanceHistory: [instanceId],
+      goal: null,
       itemCount: 0,
       visibleItemCount: 0,
       createdAt: "2026-09-09T00:00:00.000Z",
@@ -309,25 +316,25 @@ describe("flow navigation integration", () => {
   });
 
   it("jumps to the leftmost waiting card after an accepted send", async () => {
-      const router = await mount();
-      const next = data.threads[0]!;
-      data.threads = [
-        { ...next, id: source.threadId, updatedAt: "2026-09-09T02:00:00.000Z" },
-        { ...next, id: ThreadId.make("later"), updatedAt: "2026-09-09T01:00:00.000Z" },
-        next,
-      ];
-      useComposerDraftStore.getState().setPrompt(source, "send this");
-      const finish = prepare(source);
-      const navigate = vi.spyOn(router, "navigate");
-      expect(navigate).not.toHaveBeenCalled();
-      useComposerDraftStore.getState().setPrompt(source, "");
-      await act(async () => {
-        finish?.({ kind: "turn", messageId: MessageId.make("sent") });
-        await navigate.mock.results.at(-1)?.value;
-      });
-      expect(router.state.location.pathname).toBe("/env/next");
-      expect(navigate).toHaveBeenCalledTimes(1);
-      expect(data.listeners.size).toBe(0);
+    const router = await mount();
+    const next = data.threads[0]!;
+    data.threads = [
+      { ...next, id: source.threadId, updatedAt: "2026-09-09T02:00:00.000Z" },
+      { ...next, id: ThreadId.make("later"), updatedAt: "2026-09-09T01:00:00.000Z" },
+      next,
+    ];
+    useComposerDraftStore.getState().setPrompt(source, "send this");
+    const finish = prepare(source);
+    const navigate = vi.spyOn(router, "navigate");
+    expect(navigate).not.toHaveBeenCalled();
+    useComposerDraftStore.getState().setPrompt(source, "");
+    await act(async () => {
+      finish?.({ kind: "turn", messageId: MessageId.make("sent") });
+      await navigate.mock.results.at(-1)?.value;
+    });
+    expect(router.state.location.pathname).toBe("/env/next");
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(data.listeners.size).toBe(0);
   });
 
   it("returns an inspected session to the working grid after a successful send empties the queue", async () => {

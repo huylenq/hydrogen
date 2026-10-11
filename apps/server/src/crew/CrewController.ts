@@ -1,3 +1,4 @@
+// @effect-diagnostics nodeBuiltinImport:off
 import { DateTime, Schema } from "effect";
 import * as NodeCrypto from "node:crypto";
 import * as NodeTimersPromises from "node:timers/promises";

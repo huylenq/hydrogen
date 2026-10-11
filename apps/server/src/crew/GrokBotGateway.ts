@@ -6,7 +6,7 @@ import * as NodeNet from "node:net";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import {
   CREW_AVATAR_MAX_BYTES,
   CREW_AVATAR_MAX_DATA_URL_LENGTH,
@@ -369,7 +369,7 @@ export async function loadAppConnection(
       options.dependencies?.readSafeStoragePassword ??
       (() =>
         readSafeStoragePassword(
-          options.dependencies?.platform ?? HostProcessPlatform.defaultValue(),
+          options.dependencies?.platform ?? HostProcess.Platform.defaultValue(),
         ))
     )();
     if (password.byteLength === 0) throw new Error();

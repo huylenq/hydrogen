@@ -1,4 +1,4 @@
-import { mergeProviderSnapshot } from "./Layers/ProviderRegistry.ts";
+import { mergeProviderSnapshot } from "./ProviderRegistry.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
   defaultInstanceIdForDriver,

@@ -8,7 +8,9 @@ import {
   type ServerProvider,
   type ServerProviderModel,
 } from "@t3tools/contracts";
+import * as HostProcess from "@t3tools/shared/HostProcess";
 import { createModelCapabilities } from "@t3tools/shared/model";
+import { resolveSelfInvocation } from "@t3tools/shared/nodeRuntime";
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -18,31 +20,29 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
-import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
-import { resolveSelfInvocation } from "@t3tools/shared/nodeRuntime";
-import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
-import { expandHomePath } from "../../pathExpansion.ts";
-import { ServerConfig } from "../../config.ts";
-import { ServerSettingsService } from "../../serverSettings.ts";
-import type { TextGeneration } from "../../textGeneration/TextGeneration.ts";
-import { ProviderDriverError } from "../Errors.ts";
-import { makeHermesAdapterV2 } from "../../orchestration-v2/Adapters/HermesAdapterV2.ts";
-import * as IdAllocator from "../../orchestration-v2/IdAllocator.ts";
-import * as ProviderContinuationRequests from "../../orchestration-v2/ProviderContinuationRequests.ts";
-import { ProviderEventLoggers } from "../Layers/ProviderEventLoggers.ts";
-import { makeAcpNativeLoggerFactory } from "../acp/AcpNativeLogging.ts";
-import { makeHermesAcpRuntime, hermesAuthMethod } from "../acp/HermesAcpSupport.ts";
-import type { AcpSessionRuntimeStartResult } from "../acp/AcpSessionRuntime.ts";
-import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
-import type { ProviderDriver } from "../ProviderDriver.ts";
-import { mergeProviderInstanceEnvironment } from "../ProviderInstanceEnvironment.ts";
-import { makeManualOnlyProviderMaintenanceCapabilities } from "../providerMaintenance.ts";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+import type { AcpSessionRuntimeStartResult } from "@t3tools/provider-acp/server/AcpSessionRuntime";
+import { makeAcpNativeLoggerFactory } from "@t3tools/provider-acp/server/nativeLogging";
+import type { ProviderDriver, ProviderInstance } from "@t3tools/provider-core/server/driver";
+import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import { mergeProviderInstanceEnvironment } from "@t3tools/provider-core/server/instanceEnvironment";
+import { withInstanceIdentity } from "@t3tools/provider-core/server/instanceIdentity";
+import { makeManualOnlyProviderMaintenanceCapabilities } from "@t3tools/provider-core/server/maintenanceResolver";
+import { makeManagedServerProvider } from "@t3tools/provider-core/server/managedProvider";
+import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
+import { expandHomePath } from "@t3tools/provider-core/server/pathExpansion";
+import * as ProviderContinuationRequests from "@t3tools/provider-core/server/ProviderContinuationRequests";
+import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
+import * as ProviderHost from "@t3tools/provider-core/server/ProviderHost";
 import {
   buildServerProvider,
   isCommandMissingCause,
   providerModelsFromSettings,
-} from "../providerSnapshot.ts";
-import { withInstanceIdentity } from "./instanceIdentity.ts";
+} from "@t3tools/provider-core/server/snapshotProbe";
+import type { ProviderTextGeneration } from "@t3tools/provider-core/server/textGeneration";
+import { makeHermesAdapterV2 } from "../../orchestration-v2/Adapters/HermesAdapterV2.ts";
+import { ProviderDriverError } from "../Errors.ts";
+import { makeHermesAcpRuntime, hermesAuthMethod } from "../acp/HermesAcpSupport.ts";
 
 const decodeSettings = Schema.decodeSync(HermesSettings);
 const DRIVER = ProviderDriverKind.make("hermes");
@@ -97,15 +97,14 @@ export function hermesModelsFromSession(
 }
 
 export type HermesDriverEnv =
-  | BackgroundPolicy.BackgroundPolicy
   | ChildProcessSpawner.ChildProcessSpawner
   | Crypto.Crypto
   | FileSystem.FileSystem
   | IdAllocator.IdAllocatorV2
+  | McpProviderSessions.McpProviderSessions
   | Path.Path
-  | ProviderEventLoggers
-  | ServerConfig
-  | ServerSettingsService;
+  | ProviderEventLoggers.ProviderEventLoggers
+  | ProviderHost.ProviderHost;
 
 export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
   driverKind: DRIVER,
@@ -116,15 +115,15 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
     Effect.gen(function* () {
       const crypto = yield* Crypto.Crypto;
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-      const serverConfig = yield* ServerConfig;
-      const loggers = yield* ProviderEventLoggers;
-      const processEnv = mergeProviderInstanceEnvironment(environment);
+      const host = yield* ProviderHost.ProviderHost;
+      const loggers = yield* ProviderEventLoggers.ProviderEventLoggers;
+      const processEnv = yield* mergeProviderInstanceEnvironment(environment);
       const path = yield* Path.Path;
+      const userHome = processEnv.HOME || (yield* HostProcess.HomeDirectory);
       const homePath = path.resolve(
         expandHomePath(
-          config.homePath ||
-            processEnv.HERMES_HOME ||
-            path.join(processEnv.HOME || expandHomePath("~"), ".hermes"),
+          config.homePath || processEnv.HERMES_HOME || path.join(userHome, ".hermes"),
+          userHome,
         ),
       );
       const settings = { ...config, enabled, homePath };
@@ -188,10 +187,12 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
         makeHermesAcpRuntime({
           hermesSettings: settings,
           environment: processEnv,
-          childProcessSpawner: spawner,
           cwd,
           clientInfo: { name: "t3-code-provider-probe", version: "0.0.0" },
-        }).pipe(Effect.provideService(Crypto.Crypto, crypto));
+        }).pipe(
+          Effect.provideService(Crypto.Crypto, crypto),
+          Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+        );
       let lastTurnFailed = false;
       const configuredStatus = (
         verified: boolean,
@@ -230,7 +231,7 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
         }));
         const before = yield* SubscriptionRef.get(metadata);
         const result = yield* Effect.gen(function* () {
-          const runtime = yield* makeRuntime(serverConfig.stateDir);
+          const runtime = yield* makeRuntime(host.paths.stateDir);
           const initialized = yield* runtime.initialize();
           const auth = yield* hermesAuthMethod(initialized).pipe(Effect.option);
           return { initialized, auth };
@@ -292,15 +293,10 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
         ),
       );
       const makeNativeLogger = yield* makeAcpNativeLoggerFactory();
-      const orchestrationAdapter = makeHermesAdapterV2({
+      const orchestrationAdapter = yield* makeHermesAdapterV2({
         instanceId,
         settings,
         environment: processEnv,
-        childProcessSpawner: spawner,
-        crypto,
-        fileSystem: fs,
-        idAllocator: yield* IdAllocator.IdAllocatorV2,
-        serverConfig,
         selfInvocation: yield* resolveSelfInvocation(),
         continuationRequests: yield* ProviderContinuationRequests.ProviderContinuationRequests,
         nativeLogging: (threadId) =>
@@ -327,7 +323,7 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
               "Hermes does not support background text generation. Select another provider for this operation.",
           }),
         );
-      const textGeneration: TextGeneration["Service"] = {
+      const textGeneration: ProviderTextGeneration = {
         generateCommitMessage: () => unavailable("generateCommitMessage"),
         generatePrContent: () => unavailable("generatePrContent"),
         generateBranchName: () => unavailable("generateBranchName"),
@@ -337,7 +333,7 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
         Effect.gen(function* () {
           if (!enabled) return;
           profiles = yield* discoverProfiles;
-          const runtime = yield* makeRuntime(serverConfig.stateDir);
+          const runtime = yield* makeRuntime(host.paths.stateDir);
           yield* runtime.handleRequestPermission(() =>
             Effect.succeed({ outcome: { outcome: "cancelled" as const } }),
           );
@@ -377,6 +373,6 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
         orchestrationAdapter,
         textGeneration,
         refreshModels,
-      };
+      } satisfies ProviderInstance;
     }),
 };

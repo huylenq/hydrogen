@@ -1,3 +1,4 @@
+// @effect-diagnostics nodeBuiltinImport:off
 import * as NodeCrypto from "node:crypto";
 import type { CrewEntry, CrewHandoff } from "@t3tools/contracts";
 import { DateTime, Option, Schema } from "effect";

@@ -8,29 +8,28 @@ import {
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
-import { ServerConfig } from "../../config.ts";
-import * as IdAllocator from "../../orchestration-v2/IdAllocator.ts";
+import * as IdAllocator from "@t3tools/provider-core/server/IdAllocator";
+import * as McpProviderSessions from "@t3tools/provider-core/server/McpProviderSessions";
+import * as ProviderEventLoggers from "@t3tools/provider-core/server/ProviderEventLoggers";
+import * as TestProviderHost from "@t3tools/provider-testing/TestProviderHost";
 import {
   openHermesSession,
   runHermesTurn,
   writeHermesMockCli,
 } from "../../orchestration-v2/Adapters/HermesAdapterV2.testkit.ts";
-import { ServerSettingsService } from "../../serverSettings.ts";
-import { NoOpProviderEventLoggers, ProviderEventLoggers } from "../Layers/ProviderEventLoggers.ts";
-import { makeProviderInstanceRegistry } from "../Layers/ProviderInstanceRegistryLive.ts";
+import { makeProviderInstanceRegistry } from "../ProviderInstanceRegistry.ts";
 import { HermesDriver } from "./HermesDriver.ts";
 
 const driver = ProviderDriverKind.make("hermes");
-const testLayer = ServerConfig.layerTest(process.cwd(), { prefix: "t3-hermes-registry-" }).pipe(
+const testLayer = TestProviderHost.layer({ runBackgroundWork: false }).pipe(
   Layer.provideMerge(NodeServices.layer),
-  Layer.provideMerge(ServerSettingsService.layerTest()),
+  Layer.provideMerge(McpProviderSessions.layer),
   Layer.provideMerge(
-    Layer.mock(BackgroundPolicy.BackgroundPolicy)({
-      shouldRunScopeWork: () => Effect.succeed(false),
-    }),
+    Layer.succeed(
+      ProviderEventLoggers.ProviderEventLoggers,
+      ProviderEventLoggers.NoOpProviderEventLoggers,
+    ),
   ),
-  Layer.provideMerge(Layer.succeed(ProviderEventLoggers, NoOpProviderEventLoggers)),
   Layer.provideMerge(IdAllocator.layer),
 );
 
