@@ -361,6 +361,9 @@ const ProjectCloneTrackerLayerLive = ProjectCloneTracker.layer.pipe(
 );
 
 const ReviewLayerLive = ReviewService.layer.pipe(
+  // Optional to ReviewService, so the type system cannot flag it missing; without
+  // it, registered projects outside the startup directory cannot be reviewed.
+  Layer.provide(ProjectStore.layer),
   Layer.provideMerge(GitVcsDriver.layer),
   Layer.provideMerge(VcsDriverRegistryLayerLive),
 );
