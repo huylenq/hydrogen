@@ -34,7 +34,7 @@ Opt-in modal keyboard profile for web and desktop (not native mobile). Full comm
 
 ## Shortcuts
 
-Flow has no default modified shortcut; Vim Normal mode toggles it. `ctrl+alt+h`/`ctrl+alt+l` (`rightPanel.widen`/`rightPanel.narrow`, not in a terminal) move the divider between the chat and the inline right panel by 80px per press, held keys repeating, on the chat and Pull Requests pages; each page's key handler passes them straight to the panel's shell (`runAppCommandFromKey`), which answers only while its width is user-set (open, inline, not maximized), and the key is consumed only then. Grok Bot's Mac default uses Control rather than Command+Option and doesn't fire while a terminal is focused. Custom defaults must not take over upstream defaults; when upstream adds defaults, check for conflicts across platforms (`mod` is Control off Mac).
+Flow and Grok Bot have no default modified shortcut; Vim Normal mode toggles it. `ctrl+alt+h`/`ctrl+alt+l` (`rightPanel.widen`/`rightPanel.narrow`, not in a terminal) move the divider between the chat and the inline right panel by 80px per press, held keys repeating, on the chat and Pull Requests pages; each page's key handler passes them straight to the panel's shell (`runAppCommandFromKey`), which answers only while its width is user-set (open, inline, not maximized), and the key is consumed only then. Custom defaults must not take over upstream defaults; when upstream adds defaults, check for conflicts across platforms (`mod` is Control off Mac).
 
 ## Flow
 
@@ -63,7 +63,7 @@ Huy no longer uses Grok Bot but wants to keep it so he can come back to it. Crew
 - Requirement: it must not crash or break the app, server startup, or other features, and must stay out of the way when not configured.
 - Its tests may be skipped or disabled when they create friction for other work. Don't spend merge effort keeping Grok Bot fully working; keep it compiling and inert.
 - Don't delete it without asking Huy.
-- Its top-right toolbar toggle is hidden; the `crew.toggle` keybinding and command palette still open it.
+- Its top-right toolbar toggle is hidden and `crew.toggle` has no default binding (it collided with upstream's `composer.branch` off Mac); the command palette or a user-assigned keybinding opens it.
 - What still works is the manual panel: connect, chat with bots, attach task context, and use a reply in the composer.
 - Agent delegation over MCP and automatic reply delivery into coding threads were built on the pre-V2 orchestrator. They were removed when rebasing onto upstream's new orchestrator; the old implementation is in commit `5335523848` if it is ever revived.
 

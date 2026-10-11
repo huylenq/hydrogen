@@ -95,7 +95,7 @@ Leaving reasoning level or service tier unset uses the provider's own configurat
 
 ## Grok Bot
 
-Open **Grok Bot** using its icon beside the terminal and right-panel toggles, or the command palette, on web and desktop (`Ctrl+Shift+G`). On mobile, use **Grok Bot** in the expanded composer, or open an environment's details in Settings.
+Open **Grok Bot** from the command palette on web and desktop. It has no default shortcut; assign one to `crew.toggle` in keybinding settings. On mobile, use **Grok Bot** in the expanded composer, or open an environment's details in Settings.
 
 On web and desktop, the rail shows all your bots. Select an avatar to open its chat to the left; select it again to collapse the chat. Hiding the rail or switching bots preserves your drafts.
 
