@@ -176,7 +176,8 @@ it.effect("moves a project whose old checkout no longer exists", () =>
     const exit = yield* Effect.exit(
       runCli(["project", "move", newRoot, otherRoot, "--base-dir", baseDir]),
     );
-    assert.isTrue(exit._tag === "Failure");
+    if (exit._tag !== "Failure")
+      return assert.fail("Moving onto another project's root succeeded.");
     assert.include(Cause.pretty(exit.cause), "already belongs to project");
     assert.equal(
       (yield* readProjects(baseDir)).projects.find((project) => project.id === moved?.id)
