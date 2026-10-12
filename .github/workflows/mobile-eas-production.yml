@@ -90,6 +90,8 @@ concurrency:
 jobs:
   production:
     name: EAS ${{ inputs.profile || 'production' }} ${{ github.event_name == 'push' && 'auto' || inputs.mode }}
+    # Hydrogen is a local-development fork; never build, submit, or publish mobile updates from it.
+    if: github.repository != 'huylenq/hydrogen'
     runs-on: blacksmith-8vcpu-ubuntu-2404
     permissions:
       contents: read

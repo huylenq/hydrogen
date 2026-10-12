@@ -24,6 +24,8 @@ concurrency:
 jobs:
   fingerprint:
     name: Native fingerprint diff
+    # Hydrogen is a local-development fork; skip mobile-only PR checks here.
+    if: github.repository != 'huylenq/hydrogen'
     runs-on: blacksmith-8vcpu-ubuntu-2404
     permissions:
       contents: read

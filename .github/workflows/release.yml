@@ -960,7 +960,8 @@ jobs:
   build_web:
     name: Build hosted web app
     needs: [preflight, relay_public_config]
-    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.relay_public_config.result == 'success' && needs.preflight.outputs.release_channel != 'preview' }}
+    # Hydrogen is a local-development fork; keep hosted production deployments upstream.
+    if: ${{ github.repository != 'huylenq/hydrogen' && !cancelled() && needs.preflight.result == 'success' && needs.relay_public_config.result == 'success' && needs.preflight.outputs.release_channel != 'preview' }}
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 10
     outputs:
@@ -1059,7 +1060,7 @@ jobs:
   deploy_web:
     name: Deploy hosted web app
     needs: [preflight, build_web, release]
-    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.build_web.result == 'success' && needs.release.result == 'success' && needs.preflight.outputs.release_channel != 'preview' }}
+    if: ${{ github.repository != 'huylenq/hydrogen' && !failure() && !cancelled() && needs.preflight.result == 'success' && needs.build_web.result == 'success' && needs.release.result == 'success' && needs.preflight.outputs.release_channel != 'preview' }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     env:
@@ -1133,7 +1134,8 @@ jobs:
   build_marketing:
     name: Build marketing site
     needs: [preflight]
-    if: ${{ !cancelled() && needs.preflight.result == 'success' && needs.preflight.outputs.release_channel == 'nightly' }}
+    # Hydrogen is a local-development fork; keep hosted production deployments upstream.
+    if: ${{ github.repository != 'huylenq/hydrogen' && !cancelled() && needs.preflight.result == 'success' && needs.preflight.outputs.release_channel == 'nightly' }}
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 10
     outputs:
@@ -1197,7 +1199,7 @@ jobs:
   deploy_marketing:
     name: Deploy marketing site
     needs: [preflight, build_marketing, release]
-    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.build_marketing.result == 'success' && needs.release.result == 'success' && needs.preflight.outputs.release_channel == 'nightly' }}
+    if: ${{ github.repository != 'huylenq/hydrogen' && !failure() && !cancelled() && needs.preflight.result == 'success' && needs.build_marketing.result == 'success' && needs.release.result == 'success' && needs.preflight.outputs.release_channel == 'nightly' }}
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     env:

@@ -26,8 +26,8 @@ concurrency:
 jobs:
   deploy_relay:
     name: Deploy production relay
-    # A manual run from another branch would deploy that branch to production.
-    if: github.ref == 'refs/heads/main'
+    # Hydrogen is a local-development fork; never deploy production from it.
+    if: github.ref == 'refs/heads/main' && github.repository != 'huylenq/hydrogen'
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 15
     environment:

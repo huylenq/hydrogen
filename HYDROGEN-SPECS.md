@@ -128,3 +128,9 @@ Web customizations live in [`apps/web/src/customizations/huy`](apps/web/src/cust
 1. A clean Git merge doesn't prove custom behavior survived. Compare both sides and check mounts, command registration, focus attributes, CSS, and server wiring, not just that feature files still exist.
 2. Run focused tests for the affected behavior. When live verification is authorized, exercise entry and exit paths (Escape, focus, Flow). Report unverified surfaces.
 3. Update this file when Huy changes a customization. Rewrite or remove obsolete requirements instead of appending.
+
+## Local-only delivery workflows
+
+Hydrogen is Huy's local development-mode desktop app. Its GitHub repository must not run hosted production deployment jobs or dedicated mobile CI/distribution jobs. Keep those jobs guarded by `github.repository != 'huylenq/hydrogen'` so upstream retains its workflows. This covers relay production deploy, hosted web and marketing deployment, mobile EAS builds/submissions/OTA, mobile fingerprint checks, mobile showcase screenshots, and the mobile-native-only CI lint. Keep the shared code CI and desktop build/release workflows; the common test and typecheck suites may still include shared or mobile package code.
+
+These are repository-level job guards, not GitHub Actions workflow enablement settings: matching workflow triggers may still create runs whose guarded jobs are skipped. Do not alter repository secrets or Actions settings as part of this policy. The release workflow's desktop/CLI publishing remains separate from hosted deployment and is not disabled here. Verification: inspect the `if` guard on each affected job in [the workflow definitions](.github/workflows/).
