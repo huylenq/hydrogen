@@ -612,6 +612,12 @@ export const VSCodium: Icon = (props) => {
   );
 };
 
+export const EmacsIcon: Icon = (props) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+    <path d="M3.5 3.5h8.2c3.5 0 5.7 1.8 5.7 4.5 0 1.8-.9 3.2-2.5 3.9 2 .7 3.2 2.2 3.2 4.3 0 3-2.5 4.8-6.6 4.8H3.5v-17.5Zm3.1 2.7v4.2h3.7c1.8 0 2.8-.8 2.8-2.1s-1-2.1-2.8-2.1H6.6Zm0 6.7v4.4h4.2c2 0 3.2-.9 3.2-2.2s-1.2-2.2-3.2-2.2H6.6Z" />
+  </svg>
+);
+
 export const Zed: Icon = (props) => {
   const id = useId();
   const clipPathId = `${id}-zed-logo-a`;

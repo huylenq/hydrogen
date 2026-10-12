@@ -66,6 +66,10 @@ Web and desktop focus mode for working through threads that need attention.
 - Successful user actions (send, answering approvals/input, settle, snooze, archive, implement plan) advance to the next waiting thread, or back to the overview when none remain.
 - Never pull the user anywhere on background activity alone. Typing, navigating, or leaving Flow cancels a pending jump; automatic queued sends never navigate.
 
+## External editors
+
+Emacs is an **Open in** editor on web and desktop. It is found from `emacs` on `PATH`, from `Emacs.app` in Applications, and from Homebrew (`emacs-plus`, then `emacs-mac`, then `emacs`), including an emacs-plus app that lives in the Cellar rather than `/Applications`. Opening a file visits it at the line and column.
+
 ## Custom snooze
 
 Web, desktop, and mobile snooze menus offer an arbitrary positive custom duration alongside the upstream presets and scheduling. In Vim mode, `s` opens a quick duration input (unit suffixes accepted) and on an already snoozed thread wakes it instead. See [snooze guidance](docs/user/thread-sidebar.md#snooze-until-later).

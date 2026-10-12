@@ -82,6 +82,10 @@ describe("resolveOpenInOptions", () => {
     expect(resolveOpenInOptions("MacIntel", ["vscode"])).toEqual([
       expect.objectContaining({ value: "vscode" }),
     ]);
+    expect(resolveOpenInOptions("MacIntel", ["emacs", "zed"])).toEqual([
+      expect.objectContaining({ value: "zed", label: "Zed" }),
+      expect.objectContaining({ value: "emacs", label: "Emacs" }),
+    ]);
     expect(resolveOpenInOptions("MacIntel", [])).toEqual([]);
   });
 });

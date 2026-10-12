@@ -27,6 +27,50 @@ const isVersionedBundle = (entry: string, name: string) => {
   return /^\d[\d.]*$/.test(entry.slice(name.length + 1, -".app".length));
 };
 
+const DARWIN_HOMEBREW_PREFIXES = ["/opt/homebrew", "/usr/local"] as const;
+
+// emacs-plus (the Homebrew formula that ships Emacs.app in the Cellar) wins
+// over emacs-mac and a plain `emacs` formula when more than one is linked.
+const emacsFormulaRank = (name: string): number => {
+  if (name === "emacs-plus" || name.startsWith("emacs-plus@")) return 0;
+  if (name === "emacs-mac" || name.startsWith("emacs-mac@")) return 1;
+  if (name === "emacs" || name.startsWith("emacs@")) return 2;
+  return 3;
+};
+
+const isEmacsFormula = (name: string): boolean => emacsFormulaRank(name) < 3;
+
+const compareEmacsFormulas = (left: string, right: string): number => {
+  const byRank = emacsFormulaRank(left) - emacsFormulaRank(right);
+  return byRank !== 0 ? byRank : right.localeCompare(left);
+};
+
+const homebrewEmacsCandidates = Effect.fn("editor.homebrewEmacsCandidates")(function* (
+  env: NodeJS.ProcessEnv,
+) {
+  const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+  const prefixes = [env.HOMEBREW_PREFIX, ...DARWIN_HOMEBREW_PREFIXES].flatMap((prefix) => {
+    const trimmed = prefix?.trim();
+    if (!trimmed || seen.has(trimmed)) return [];
+    seen.add(trimmed);
+    return [trimmed];
+  });
+
+  for (const prefix of prefixes) {
+    const entries = yield* fs
+      .readDirectory(path.join(prefix, "opt"))
+      .pipe(Effect.orElseSucceed(() => []));
+    for (const formula of entries.filter(isEmacsFormula).sort(compareEmacsFormulas)) {
+      candidates.push(path.join(prefix, "opt", formula, "Emacs.app", "Contents", "MacOS", "Emacs"));
+    }
+    candidates.push(path.join(prefix, "bin", "emacs"));
+  }
+  return candidates;
+});
+
 export const resolveEditorCommand = Effect.fn("editor.resolveEditorCommand")(function* (
   editor: Editor,
   env: NodeJS.ProcessEnv,
@@ -62,14 +106,19 @@ export const resolveEditorCommand = Effect.fn("editor.resolveEditorCommand")(fun
       for (const bundle of bundles) {
         const contents = path.join(root, bundle, "Contents");
         candidates.push(
-          ...(jetbrains || editor.id === "zed"
-            ? [path.join(contents, "MacOS", editor.id === "zed" ? "cli" : command)]
-            : [
-                path.join(contents, "Resources/app/bin", command),
-                path.join(contents, "Resources/app/bin/code"),
-              ]),
+          ...(editor.id === "emacs"
+            ? [path.join(contents, "MacOS", "Emacs")]
+            : jetbrains || editor.id === "zed"
+              ? [path.join(contents, "MacOS", editor.id === "zed" ? "cli" : command)]
+              : [
+                  path.join(contents, "Resources/app/bin", command),
+                  path.join(contents, "Resources/app/bin/code"),
+                ]),
         );
       }
+    }
+    if (editor.id === "emacs") {
+      candidates.push(...(yield* homebrewEmacsCandidates(env)));
     }
     if (home && jetbrains) {
       candidates.push(

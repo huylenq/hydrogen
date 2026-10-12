@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema";
 import { TrimmedNonEmptyString } from "./baseSchemas.ts";
 
-export const EditorLaunchStyle = Schema.Literals(["direct-path", "goto", "line-column"]);
+export const EditorLaunchStyle = Schema.Literals(["direct-path", "goto", "line-column", "emacs"]);
 export type EditorLaunchStyle = typeof EditorLaunchStyle.Type;
 
 type EditorDefinition = {
@@ -157,6 +157,9 @@ export const EDITORS = [
     launchStyle: "line-column",
     jetbrainsProductCode: "WS",
   },
+  // `+LINE:COLUMN` is Emacs's own visit syntax. The macOS app binary and the
+  // `emacs` wrapper both accept it; discovery finds Emacs.app outside PATH.
+  { id: "emacs", label: "Emacs", commands: ["emacs"], launchStyle: "emacs" },
   { id: "file-manager", label: "File Manager", commands: null, launchStyle: "direct-path" },
 ] as const satisfies ReadonlyArray<EditorDefinition>;
 

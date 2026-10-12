@@ -20,6 +20,7 @@ describe("editorLabelForPlatform", () => {
 describe("openInEditorMenuLabel", () => {
   it("names the preferred editor", () => {
     expect(openInEditorMenuLabel("zed")).toBe("Open in Zed");
+    expect(openInEditorMenuLabel("emacs")).toBe("Open in Emacs");
   });
 
   it("keeps the generic label for the default file handler and missing preferences", () => {

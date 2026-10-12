@@ -34,6 +34,7 @@ import {
 import {
   AntigravityIcon,
   CursorIcon,
+  EmacsIcon,
   FileExplorerIcon,
   FinderIcon,
   Icon,
@@ -116,6 +117,11 @@ export const resolveOpenInOptions = (
     {
       Icon: Zed,
       value: "zed",
+      kind: "brand",
+    },
+    {
+      Icon: EmacsIcon,
+      value: "emacs",
       kind: "brand",
     },
     {

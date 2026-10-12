@@ -963,6 +963,18 @@ for (const { platform, installPath, editor, args } of [
     args: ["/workspace with spaces/file.ts:12:4"],
   },
   {
+    platform: "darwin",
+    installPath: "Applications/Emacs.app/Contents/MacOS/Emacs",
+    editor: "emacs",
+    args: ["+12:4", "/workspace with spaces/file.ts"],
+  },
+  {
+    platform: "linux",
+    installPath: ".local/bin/emacs",
+    editor: "emacs",
+    args: ["+12:4", "/workspace with spaces/file.ts"],
+  },
+  {
     platform: "win32",
     installPath: "Programs/Cursor/resources/app/bin/cursor.cmd",
     editor: "cursor",
@@ -1171,6 +1183,67 @@ it.effect("keeps the macOS VS Code Insiders bundle out of stable VS Code", () =>
     assert.include(editors, "vscode-insiders");
     assert.equal(spawned?.command, path.join(bin, "code-insiders"));
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
+it.effect.skipIf(windowsHost)(
+  "prefers a Homebrew emacs-plus app over emacs-mac and the cellar wrapper",
+  () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const prefix = yield* fs.makeTempDirectoryScoped({ prefix: "t3-emacs-brew-" });
+      const plus = path.join(prefix, "opt/emacs-plus@30/Emacs.app/Contents/MacOS/Emacs");
+      const mac = path.join(prefix, "opt/emacs-mac@29/Emacs.app/Contents/MacOS/Emacs");
+      const wrapper = path.join(prefix, "bin/emacs");
+      for (const executable of [plus, mac, wrapper]) {
+        yield* fs.makeDirectory(path.dirname(executable), { recursive: true });
+        yield* fs.writeFileString(executable, "#!/bin/sh\n");
+        yield* fs.chmod(executable, 0o755);
+      }
+      const home = yield* fs.makeTempDirectoryScoped({ prefix: "t3-emacs-home-" });
+      const spawned: ChildProcess.StandardCommand[] = [];
+      const launch = (cwd: string) =>
+        Effect.gen(function* () {
+          const launcher = yield* ExternalLauncher.ExternalLauncher;
+          assert.include(yield* launcher.resolveAvailableEditors(), "emacs");
+          yield* launcher.launchEditor({ editor: "emacs", cwd });
+        });
+      yield* launch("/workspace with spaces/file.ts:12:4").pipe(
+        Effect.provide(
+          layerTest({
+            platform: "darwin",
+            env: {
+              HOME: home,
+              HOMEBREW_PREFIX: prefix,
+              PATH: path.join(home, "empty"),
+            },
+            onSpawn: (command) => {
+              spawned.push(command);
+            },
+          }),
+        ),
+      );
+      assert.equal(spawned[0]?.command, plus);
+      assert.deepEqual(spawned[0]?.args, ["+12:4", "/workspace with spaces/file.ts"]);
+
+      yield* launch("/workspace with spaces").pipe(
+        Effect.provide(
+          layerTest({
+            platform: "darwin",
+            env: {
+              HOME: home,
+              HOMEBREW_PREFIX: prefix,
+              PATH: path.join(home, "empty"),
+            },
+            onSpawn: (command) => {
+              spawned.push(command);
+            },
+          }),
+        ),
+      );
+      assert.equal(spawned[1]?.command, plus);
+      assert.deepEqual(spawned[1]?.args, ["/workspace with spaces"]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
 
 // `agy` is the standalone Antigravity CLI, which installs to ~/.local/bin on

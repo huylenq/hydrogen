@@ -133,6 +133,7 @@ const CommandLookupEnvConfig = Config.all({
   ProgramW6432: Config.String("ProgramW6432").pipe(Config.option),
   XDG_DATA_HOME: Config.String("XDG_DATA_HOME").pipe(Config.option),
   "ProgramFiles(x86)": Config.String("ProgramFiles(x86)").pipe(Config.option),
+  HOMEBREW_PREFIX: Config.String("HOMEBREW_PREFIX").pipe(Config.option),
 }).pipe(Config.map(compactEnv));
 
 const readBrowserLaunchEnv = BrowserLaunchEnvConfig.pipe(Effect.orElseSucceed(() => ({})));
@@ -171,6 +172,17 @@ function resolveCommandEditorArgs(
           ...Option.match(column, {
             onNone: () => [],
             onSome: (value) => ["--column", value],
+          }),
+          path,
+        ],
+      });
+    case "emacs":
+      return Option.match(parsedTarget, {
+        onNone: () => [target],
+        onSome: ({ path, line, column }) => [
+          Option.match(column, {
+            onNone: () => `+${line}`,
+            onSome: (value) => `+${line}:${value}`,
           }),
           path,
         ],
