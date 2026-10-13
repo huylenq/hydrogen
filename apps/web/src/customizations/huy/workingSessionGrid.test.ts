@@ -9,9 +9,19 @@ describe("workingSessionRowSizes", () => {
     expect(workingSessionRowSizes(7, 2000, 800)).toEqual([4, 3]);
   });
 
-  it("shrinks cards before adding rows that would scroll", () => {
-    expect(workingSessionRowSizes(5, 2000, 783)).toEqual([5]);
-    expect(workingSessionRowSizes(5, 2000, 784)).toEqual([3, 2]);
+  it("favors a square grid even when every card fits one full-width row", () => {
+    expect(workingSessionRowSizes(2, 3000, 2000)).toEqual([2]);
+    expect(workingSessionRowSizes(3, 3000, 2000)).toEqual([2, 1]);
+    expect(workingSessionRowSizes(4, 3000, 2000)).toEqual([2, 2]);
+    expect(workingSessionRowSizes(5, 3000, 900)).toEqual([3, 2]);
+    expect(workingSessionRowSizes(9, 3000, 2000)).toEqual([3, 3, 3]);
+  });
+
+  it("widens the grid before adding rows that would scroll", () => {
+    expect(workingSessionRowSizes(5, 2000, 835)).toEqual([5]);
+    expect(workingSessionRowSizes(5, 2000, 836)).toEqual([3, 2]);
+    expect(workingSessionRowSizes(9, 3000, 1261)).toEqual([5, 4]);
+    expect(workingSessionRowSizes(9, 3000, 1262)).toEqual([3, 3, 3]);
   });
 
   it("in a one-row pane, fits more columns by allowing cards to shrink below their maximum width", () => {

@@ -12,8 +12,9 @@ function rowCapacity(availableWidth: number, cardWidth: number) {
 }
 
 /**
- * Prefer full-width cards, adding rows while they still fit the pane's height; shrink cards
- * toward the readable minimum only when the height runs out. Sessions are shared evenly.
+ * Prefer the squarest grid of full-width cards, adding rows while they still fit the pane's
+ * height; widen into more columns, shrinking cards toward the readable minimum, only when the
+ * height runs out. Sessions are shared evenly.
  */
 export function workingSessionRowSizes(
   count: number,
@@ -23,8 +24,10 @@ export function workingSessionRowSizes(
   if (count === 0) return [];
   const minRows = Math.ceil(count / rowCapacity(availableWidth, MIN_CARD_WIDTH));
   const fullWidthRows = Math.ceil(count / rowCapacity(availableWidth, MAX_CARD_WIDTH));
+  // Rows of the squarest grid, with columns never fewer than rows.
+  const squareRows = Math.ceil(count / Math.ceil(Math.sqrt(count)));
   const fittingRows = Math.max(1, Math.floor((availableHeight + GAP) / (CARD_HEIGHT + GAP)));
-  const rows = Math.max(minRows, Math.min(fullWidthRows, fittingRows));
+  const rows = Math.max(minRows, Math.min(Math.max(squareRows, fullWidthRows), fittingRows));
   const perRow = Math.floor(count / rows);
   const extra = count % rows;
   return Array.from({ length: rows }, (_, row) => perRow + (row < extra ? 1 : 0));
