@@ -18,7 +18,7 @@ import { cn } from "../../lib/utils";
 import { FLOW_CHECKOUT_STRIP_HEIGHT, FLOW_FOOTER_LINE_CLASS } from "./flowGridLayout";
 
 /**
- * The caption under a Flow overview tile: the thread's branch (with a worktree marker when it
+ * The off-card heading above a Flow overview tile: the thread's branch (with a worktree marker when it
  * runs in one) and its pull request, which opens outside the app.
  */
 export const FlowSessionCheckoutStrip = memo(function FlowSessionCheckoutStrip({

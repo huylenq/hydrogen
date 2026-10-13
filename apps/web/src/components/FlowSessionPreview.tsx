@@ -240,8 +240,9 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
   };
 
   return (
-    // The checkout strip sits under the tile, outside its frame and click target.
+    // Checkout metadata heads the tile; subagents stay below, both outside its click target.
     <div className="flex w-full min-w-0 max-w-lg flex-col gap-1">
+      <FlowSessionCheckoutStrip thread={thread} />
       <section
         role="button"
         tabIndex={0}
@@ -383,8 +384,6 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
           </div>
         </div>
       </section>
-      <FlowSessionCheckoutStrip thread={thread} />
-      {/* Below the fixed-height strip, so strips stay aligned across a grid row. */}
       <FlowSubagentFooter
         subagents={subagents}
         parentRef={ref}
