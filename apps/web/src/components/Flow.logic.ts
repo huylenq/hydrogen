@@ -246,13 +246,29 @@ export function shouldControlFlowRoute({
 }
 
 export const FLOW_BENCH_ROWS = 3;
-export const FLOW_BENCH_COLUMN_WIDTH = 160;
+export const FLOW_BENCH_COLUMN_WIDTH = 300;
 export const FLOW_BENCH_COLUMN_GAP = 4;
 
+/** Content widths of the three-row columns, capped so long titles truncate. */
+export function flowBenchColumnWidths(count: number, itemWidths: readonly number[] = []): number[] {
+  const columns: number[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const column = Math.floor(index / FLOW_BENCH_ROWS);
+    columns[column] = Math.max(
+      columns[column] ?? 0,
+      Math.min(FLOW_BENCH_COLUMN_WIDTH, itemWidths[index] ?? FLOW_BENCH_COLUMN_WIDTH),
+    );
+  }
+  return columns;
+}
+
 /** Width the bench asks for so every session gets a cell; the Flow bar may cap it. */
-export function flowBenchRequestedWidth(count: number): number {
-  const columns = Math.ceil(count / FLOW_BENCH_ROWS);
-  return columns * FLOW_BENCH_COLUMN_WIDTH + Math.max(0, columns - 1) * FLOW_BENCH_COLUMN_GAP;
+export function flowBenchRequestedWidth(count: number, itemWidths: readonly number[] = []): number {
+  const columns = flowBenchColumnWidths(count, itemWidths);
+  return (
+    columns.reduce((sum, width) => sum + width, 0) +
+    Math.max(0, columns.length - 1) * FLOW_BENCH_COLUMN_GAP
+  );
 }
 
 /**
@@ -262,12 +278,35 @@ export function flowBenchRequestedWidth(count: number): number {
 export function flowBenchCapacity(
   count: number,
   width: number,
+  itemWidths: readonly number[] = [],
+  moreWidth = FLOW_BENCH_COLUMN_WIDTH,
 ): { readonly shown: number; readonly hidden: number } {
-  const columns = Math.max(
-    1,
-    Math.floor((width + FLOW_BENCH_COLUMN_GAP) / (FLOW_BENCH_COLUMN_WIDTH + FLOW_BENCH_COLUMN_GAP)),
-  );
-  const cells = columns * FLOW_BENCH_ROWS;
-  if (count <= cells) return { shown: count, hidden: 0 };
-  return { shown: cells - 1, hidden: count - (cells - 1) };
+  if (count <= FLOW_BENCH_ROWS || flowBenchRequestedWidth(count, itemWidths) <= width) {
+    return { shown: count, hidden: 0 };
+  }
+  const overflowWidth = Math.min(FLOW_BENCH_COLUMN_WIDTH, moreWidth);
+  let usedWidth = 0;
+  let columnWidth = 0;
+  let shown = 0;
+  for (let index = 0; index < count; index += 1) {
+    const startsColumn = index % FLOW_BENCH_ROWS === 0;
+    const gap = startsColumn && index > 0 ? FLOW_BENCH_COLUMN_GAP : 0;
+    const withMore = startsColumn
+      ? usedWidth + gap + overflowWidth
+      : usedWidth + Math.max(0, overflowWidth - columnWidth);
+    // Always keep one column; its tracks can shrink in a very narrow bar.
+    if (withMore <= width || index < FLOW_BENCH_ROWS) shown = index;
+    const itemWidth = Math.min(
+      FLOW_BENCH_COLUMN_WIDTH,
+      itemWidths[index] ?? FLOW_BENCH_COLUMN_WIDTH,
+    );
+    if (startsColumn) {
+      columnWidth = itemWidth;
+      usedWidth += gap + itemWidth;
+    } else {
+      usedWidth += Math.max(0, itemWidth - columnWidth);
+      columnWidth = Math.max(columnWidth, itemWidth);
+    }
+  }
+  return { shown, hidden: count - shown };
 }

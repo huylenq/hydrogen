@@ -5,6 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   deriveFlow,
   flowBenchCapacity,
+  flowBenchColumnWidths,
   flowBenchRequestedWidth,
   flowAttentionTarget,
   isFlowSessionInspection,
@@ -444,6 +445,30 @@ describe("held Flow overview", () => {
 });
 
 describe("flowBenchCapacity", () => {
+  it("sizes each column to its widest chip, up to 300px", () => {
+    const widths = [80, 120, 100, 500, 90];
+    expect(flowBenchColumnWidths(5, widths)).toEqual([120, 300]);
+    expect(flowBenchRequestedWidth(5, widths)).toBe(424);
+    expect(flowBenchRequestedWidth(1, [80])).toBe(80);
+  });
+
+  it("uses a second content-sized column before showing overflow", () => {
+    const widths = [100, 120, 110, 80, 90, 70];
+    expect(flowBenchCapacity(6, 214, widths, 60)).toEqual({ shown: 6, hidden: 0 });
+    expect(flowBenchCapacity(6, 213, widths, 60)).toEqual({ shown: 4, hidden: 2 });
+  });
+
+  it("includes the overflow chip when deciding how many columns fit", () => {
+    expect(flowBenchCapacity(7, 244, [120, 120, 120, 120, 120, 120, 120], 140)).toEqual({
+      shown: 2,
+      hidden: 5,
+    });
+    expect(flowBenchCapacity(7, 264, [120, 120, 120, 120, 120, 120, 120], 140)).toEqual({
+      shown: 5,
+      hidden: 2,
+    });
+  });
+
   it("shows every session when the requested width fits", () => {
     expect(flowBenchCapacity(5, flowBenchRequestedWidth(5))).toEqual({ shown: 5, hidden: 0 });
     expect(flowBenchCapacity(3, flowBenchRequestedWidth(3))).toEqual({ shown: 3, hidden: 0 });

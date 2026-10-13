@@ -9,7 +9,6 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
-  useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useParams, useRouter } from "@tanstack/react-router";
@@ -30,14 +29,14 @@ import { primaryServerKeybindingsAtom } from "../state/server";
 import { buildThreadRouteParams, resolveThreadRouteTarget } from "../threadRoutes";
 import { useComposerDraftStore } from "../composerDraftStore";
 import { returnToFlowOverview } from "../customizations/huy/flowSessionInspection";
+import {
+  FLOW_BENCH_CHIP_CLASS,
+  useFlowBenchLayout,
+} from "../customizations/huy/useFlowBenchLayout";
 import { formatRelativeTimeLabel } from "../timestampFormat";
 import { cn } from "../lib/utils";
-import { observeResize } from "../lib/observeResize";
 import {
   FLOW_BENCH_COLUMN_GAP,
-  FLOW_BENCH_COLUMN_WIDTH,
-  flowBenchCapacity,
-  flowBenchRequestedWidth,
   flowNavigationTarget,
   flowThreadKey,
   isFlowSessionInspection,
@@ -166,19 +165,13 @@ export function FlowBar() {
     }
   });
 
-  const [benchElement, setBenchElement] = useState<HTMLElement | null>(null);
-  const [benchWidth, setBenchWidth] = useState<number | null>(null);
-  useEffect(() => {
-    if (!benchElement) return;
-    return observeResize(benchElement, (entries) => {
-      const entry = entries.at(-1);
-      if (entry) setBenchWidth(entry.contentRect.width);
-    });
-  }, [benchElement]);
-  const benchCapacity = flowBenchCapacity(
-    model.bench.length,
-    benchWidth ?? flowBenchRequestedWidth(model.bench.length),
-  );
+  const {
+    setBenchElement,
+    setMeasurementElement,
+    requestedWidth: benchRequestedWidth,
+    capacity: benchCapacity,
+    columns: benchColumns,
+  } = useFlowBenchLayout(model.bench.map((entry) => entry.thread.title));
 
   // Same as `w g`, but never closes the overview: the bar stays mounted while it transitions in.
   const openOverview = () => {
@@ -294,15 +287,34 @@ export function FlowBar() {
           ref={setBenchElement}
           aria-label="Working sessions"
           className={cn(
-            "ml-auto min-w-0 overflow-hidden",
+            "relative ml-auto min-w-0 overflow-hidden",
             model.attention.length > 0 ? "max-w-[50%]" : "max-w-full",
           )}
-          style={{ width: flowBenchRequestedWidth(model.bench.length) }}
+          style={{ width: benchRequestedWidth }}
         >
+          <div
+            ref={setMeasurementElement}
+            aria-hidden="true"
+            inert
+            className="pointer-events-none invisible absolute flex w-max flex-col"
+          >
+            {model.bench.map((entry) => (
+              <span
+                key={flowThreadKey(entry.thread)}
+                className={cn(FLOW_BENCH_CHIP_CLASS, "w-max max-w-[300px]")}
+              >
+                <span className="size-3.5 shrink-0" />
+                <span className="truncate">{entry.thread.title}</span>
+              </span>
+            ))}
+            <span className={cn(FLOW_BENCH_CHIP_CLASS, "w-max max-w-[300px]")}>
+              +{model.bench.length} more
+            </span>
+          </div>
           <div
             className="pointer-events-auto [-webkit-app-region:no-drag] grid h-full grid-flow-col grid-rows-3 content-center justify-end gap-y-0.5"
             style={{
-              gridAutoColumns: `minmax(0, ${FLOW_BENCH_COLUMN_WIDTH}px)`,
+              gridTemplateColumns: benchColumns.map((width) => `minmax(0, ${width}px)`).join(" "),
               columnGap: FLOW_BENCH_COLUMN_GAP,
             }}
           >
@@ -328,7 +340,8 @@ export function FlowBar() {
                     data-flow-card=""
                     data-modal-key={threadKey}
                     className={cn(
-                      "flex h-5 min-w-0 items-center gap-1.5 rounded-sm border border-transparent px-1.5 text-left text-2xs text-muted-foreground outline-hidden hover:bg-background/65 hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                      FLOW_BENCH_CHIP_CLASS,
+                      "w-fit max-w-full text-muted-foreground outline-hidden hover:bg-background/65 hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                       isActive &&
                         "border-primary/50 bg-accent/75 text-foreground hover:bg-accent/85",
                     )}
@@ -352,7 +365,10 @@ export function FlowBar() {
                 type="button"
                 data-flow-card=""
                 data-modal-key="flow-bench-more"
-                className="h-5 min-w-0 truncate rounded-sm px-1.5 text-left leading-5 text-2xs text-muted-foreground outline-hidden hover:bg-background/65 hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                className={cn(
+                  FLOW_BENCH_CHIP_CLASS,
+                  "w-fit max-w-full truncate text-muted-foreground outline-hidden hover:bg-background/65 hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                )}
                 onClick={openOverview}
               >
                 +{benchCapacity.hidden} more
