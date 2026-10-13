@@ -340,6 +340,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
     const unsubscribeLamp = useReadingLampStore.subscribe(follow);
     resetReading.current = () => {
       stopGlide();
+      cancelEdgeJump();
       cursor = null;
       trajectory = null;
       readAnswer = null;
@@ -662,8 +663,47 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       event.preventDefault();
       control.click();
     };
+    let edgeFrame: number | null = null;
+    const cancelEdgeJump = () => {
+      if (edgeFrame !== null) cancelAnimationFrame(edgeFrame);
+      edgeFrame = null;
+    };
+    /**
+     * Vim `gg`/`G`: jumps instantly to the conversation's start or end with the cursor on its first
+     * or last block. The edge rows mount and measure after the scroll, so the cursor waits for them.
+     */
+    const jumpToEdge = (list: LegendListRef, node: HTMLElement, edge: "first" | "last") => {
+      stopGlide();
+      cancelEdgeJump();
+      cursor = null;
+      node.scrollTo({ top: edge === "first" ? 0 : node.scrollHeight, behavior: "instant" });
+      let frames = 0;
+      const settle = () => {
+        edgeFrame = null;
+        const rows = list.getState().data as readonly MessagesTimelineRow[];
+        const order = edge === "first" ? rows : rows.toReversed();
+        for (const row of order) {
+          const element = node.querySelector<HTMLElement>(
+            `[data-timeline-row-id="${CSS.escape(row.id)}"]`,
+          );
+          if (!element) {
+            if (++frames < 10) edgeFrame = requestAnimationFrame(settle);
+            return;
+          }
+          const stops = rowReadingStops(element);
+          const stop = edge === "first" ? stops[0] : stops.at(-1);
+          // Rows that are not read, such as an answer's meta line, are passed over.
+          if (!stop) continue;
+          cursor = { key: `${row.id}#${stop.block}`, rowId: row.id, block: stop.block };
+          showCursor(node);
+          return pulseReadingCursor();
+        }
+      };
+      edgeFrame = requestAnimationFrame(settle);
+    };
     const onCommand = (event: Event) => {
       if (!enabled()) return;
+      cancelEdgeJump();
       const detail: unknown = (event as CustomEvent<unknown>).detail;
       const command = TIMELINE_COMMANDS.find((candidate) => candidate === detail);
       if (!command) return;
@@ -687,8 +727,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       trajectory = null;
       if (command === "scroll.down" || command === "scroll.up")
         return glideBy(node, command === "scroll.down" ? 80 : -80);
-      stopGlide();
-      node.scrollTo({ top: command === "first" ? 0 : node.scrollHeight, behavior: "instant" });
+      jumpToEdge(list, node, command === "first" ? "first" : "last");
     };
     /** Puts the cursor on the block holding an element, such as a render handing focus back. */
     const revealAt = (event: Event) => {
@@ -730,6 +769,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
         stops.toSorted((left, right) => distance(left.element) - distance(right.element))[0];
       if (!stop) return;
       stopGlide();
+      cancelEdgeJump();
       trajectory = null;
       cursor = { key: `${rowId}#${stop.block}`, rowId, block: stop.block };
       showCursor(timeline.node);
@@ -743,6 +783,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       window.removeEventListener(READING_REVEAL_EVENT, revealAt);
       window.removeEventListener("click", clickAt, true);
       unsubscribeLamp();
+      cancelEdgeJump();
       if (followFrame !== null) cancelAnimationFrame(followFrame);
       watch(null);
       markReadingCursor(null, null, false);
