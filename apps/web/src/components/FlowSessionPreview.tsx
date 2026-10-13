@@ -7,7 +7,7 @@ import { presentPendingBackgroundWork } from "@t3tools/client-runtime/state/thre
 import type { OrchestrationV2PendingBackgroundTask, ScopedThreadRef } from "@t3tools/contracts";
 import { shouldPreserveAssistantLineBreaks } from "@t3tools/shared/markdownPipeline";
 import { useNavigate } from "@tanstack/react-router";
-import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import { deriveTimelineEntriesFromVisibleTurnItems } from "../session-logic";
 import { useTheme } from "../hooks/useTheme";
 import { useFlowStore } from "../flowStore";
@@ -68,9 +68,7 @@ function previewMarkdownTail(text: string): string {
   return `${fencesBefore % 2 === 1 ? "```\n" : ""}${text.slice(cut + 1)}`;
 }
 
-const PROMPT_FADE_MASK = "linear-gradient(to bottom, black calc(100% - 0.875rem), transparent)";
-
-/** The tile's latest user message: a long one collapses to two lines and fades out; its shadow softens the replies' cut beneath it. */
+/** A full-width prompt pinned above the tile's scrolling replies. */
 function PromptBubble({
   text,
   cwd,
@@ -80,40 +78,18 @@ function PromptBubble({
   cwd: string | undefined;
   threadRef: ScopedThreadRef;
 }) {
-  const clipRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [collapsed, setCollapsed] = useState(false);
-  useLayoutEffect(() => {
-    const clip = clipRef.current;
-    const content = contentRef.current;
-    if (!clip || !content) return;
-    // The content's height follows both the text and the tile's width.
-    const observer = new ResizeObserver(() => {
-      setCollapsed(clip.scrollHeight > clip.clientHeight);
-    });
-    observer.observe(content);
-    return () => observer.disconnect();
-  }, []);
   return (
-    <div className="relative z-10 max-w-full shrink-0 self-end rounded-2xl bg-message p-3 text-message-foreground shadow-lg shadow-black/30">
-      {/* Two lines of the text-xs + leading-relaxed markdown below. */}
-      <div
-        ref={clipRef}
-        className="max-h-10 overflow-hidden"
-        style={
-          collapsed ? { WebkitMaskImage: PROMPT_FADE_MASK, maskImage: PROMPT_FADE_MASK } : undefined
-        }
-      >
-        <div ref={contentRef}>
-          <ChatMarkdown
-            text={text.slice(0, PREVIEW_MESSAGE_CHARS)}
-            cwd={cwd}
-            threadRef={threadRef}
-            lineBreaks
-            parseRawHtml={false}
-            className="text-xs leading-relaxed"
-          />
-        </div>
+    <div className="relative z-10 w-full shrink-0 rounded-md bg-message/60 px-3 py-1.5 text-left text-message-foreground shadow-lg shadow-black/40">
+      {/* Two lines of the text-xs + leading-4 markdown below. */}
+      <div className="max-h-8 overflow-hidden">
+        <ChatMarkdown
+          text={text.slice(0, PREVIEW_MESSAGE_CHARS)}
+          cwd={cwd}
+          threadRef={threadRef}
+          lineBreaks
+          parseRawHtml={false}
+          className="text-xs leading-4"
+        />
       </div>
     </div>
   );
@@ -299,7 +275,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
             </p>
           </div>
         </header>
-        <div className="flex min-h-0 flex-1 flex-col justify-end overflow-hidden px-4 py-3">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-3">
           {prompt ? (
             <PromptBubble
               key={prompt.id}
@@ -315,10 +291,10 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
               followLatest.current =
                 element.scrollHeight - element.scrollTop - element.clientHeight < 32;
             }}
-            // Starts at the prompt bubble's edge, so replies vanish there; the padding is
-            // the gap below it at rest.
+            // Fills the remaining height so growing replies never move the prompt.
+            // Replies vanish beneath its shadow; the padding is the gap at rest.
             className={cn(
-              "overflow-y-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              "min-h-0 flex-1 overflow-y-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
               prompt && "pt-1.5",
             )}
           >
