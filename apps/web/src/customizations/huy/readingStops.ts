@@ -452,12 +452,28 @@ export function findReadingStopElement(
   return findReadingStop(node, stop)?.element ?? null;
 }
 
-/** Where reading starts without a cursor: the first stop that begins on screen. */
+/**
+ * Where reading starts without a cursor: reading down, the first stop that begins on screen;
+ * reading up, the last stop that ends on screen.
+ */
 export function readingAnchor(
-  stops: ReadonlyArray<Pick<ReadingStop, "top">>,
+  stops: ReadonlyArray<Pick<ReadingStop, "top" | "bottom">>,
   view: ReadingView,
+  direction: ReadingDirection = "next",
 ): number {
   let covering = -1;
+  if (direction === "previous") {
+    for (let index = stops.length - 1; index >= 0; index -= 1) {
+      const stop = stops[index]!;
+      const bottom = stop.bottom ?? stop.top;
+      if (bottom > view.bottom + 1) {
+        covering = index;
+        continue;
+      }
+      return bottom >= view.top || covering < 0 ? index : covering;
+    }
+    return covering;
+  }
   for (const [index, stop] of stops.entries()) {
     if (stop.top < view.top - 1) {
       covering = index;
@@ -467,6 +483,21 @@ export function readingAnchor(
     return stop.top <= view.bottom || covering < 0 ? index : covering;
   }
   return covering;
+}
+
+/**
+ * The row the latest answer starts at: the first assistant message after the last user message,
+ * outside an open turn fold. -1 without one.
+ */
+export function latestAnswerRow(rows: readonly MessagesTimelineRow[]): number {
+  let answer = -1;
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    const row = rows[index]!;
+    if (row.kind !== "message") continue;
+    if (row.message.role === "user") break;
+    if (row.message.role === "assistant" && !row.turnFoldRunId) answer = index;
+  }
+  return answer;
 }
 
 /**
@@ -494,7 +525,8 @@ export function readingJumpIndex(
  * bottom line, so the next several steps need no scroll. A step that reverses direction only
  * brings its target into the band, keeping the block just left in view. Jumps read on from their
  * target, so they land it like a step down. `j` pages half a screen through a block that runs
- * past the bottom edge. Without a cursor, `j`/`k` first show it where reading starts.
+ * past the bottom edge. Without a cursor, `j`/`k` first show it where reading starts, except that
+ * `j` starts an unread answer that has begun on screen or above it at the answer's beginning.
  *
  * A landing puts the target's `edge` at `line`, a scroll offset in the same view.
  */
@@ -507,6 +539,8 @@ export function resolveReadingStep(input: {
   view: ReadingView;
   /** Direction of the previous block step; null after a jump, a scroll, or at the start. */
   trajectory: ReadingDirection | null;
+  /** Index of the first stop of an answer the cursor has not been on yet, or -1. */
+  unreadAnswer?: number;
 }):
   | { kind: "move"; index: number }
   | { kind: "land"; index: number; edge: "top" | "bottom"; line: number }
@@ -517,8 +551,20 @@ export function resolveReadingStep(input: {
   const band = readingBand(view);
   let cursor = input.cursor;
   if (cursor < 0) {
-    cursor = readingAnchor(stops, view);
+    // Jumps go on from where reading starts.
+    cursor = readingAnchor(stops, view, granularity === "block" ? direction : "next");
     if (cursor < 0) return null;
+    const answer = input.unreadAnswer ?? -1;
+    // An unread answer that has begun by the bottom of the screen is read from its beginning.
+    if (
+      granularity === "block" &&
+      direction === "next" &&
+      answer >= 0 &&
+      stops[answer]!.top <= view.bottom
+    )
+      return stops[answer]!.top >= view.top - VISIBLE_SLACK
+        ? { kind: "move", index: answer }
+        : { kind: "land", index: answer, edge: "top", line: band.top };
     if (granularity === "block") return { kind: "move", index: cursor };
   }
   const current = stops[cursor]!;

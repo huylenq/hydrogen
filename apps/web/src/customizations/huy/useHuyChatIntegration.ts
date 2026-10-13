@@ -1,6 +1,7 @@
 import type { LegendListRef } from "@legendapp/list/react";
 import type { AssistantCitation } from "@t3tools/contracts";
 import { useEffect, useLayoutEffect, useRef } from "react";
+import type { MessagesTimelineRow } from "../../components/chat/MessagesTimeline.logic";
 import { getClientSettings } from "../../hooks/useSettings";
 import type { AssistantCitationSourceAnchor } from "../../lib/assistantTextSelection";
 import type { ModalThreadContext } from "../../modalKeyboardCommands";
@@ -22,6 +23,7 @@ import {
   collectReadingStops,
   findReadingStop,
   findReadingStopElement,
+  latestAnswerRow,
   ROW_START_BLOCK,
   readingAnchor,
   readingPlacementLine,
@@ -191,6 +193,21 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
     let cursor: Pick<ReadingStop, "key" | "rowId" | "block"> | null = null;
     // Which way block steps have been reading, so scrolls leave room where reading heads next.
     let trajectory: ReadingDirection | null = null;
+    // The latest answer's row once the cursor has been on it or past it, so reading on starts at
+    // an answer's beginning only until it has been read.
+    let readAnswer: string | null = null;
+    const latestAnswer = (list: LegendListRef) => {
+      const rows = list.getState().data as readonly MessagesTimelineRow[];
+      const index = latestAnswerRow(rows);
+      return index < 0 ? null : { index, rowId: rows[index]!.id };
+    };
+    const noteRead = () => {
+      const list = currentTimeline.current.getList();
+      const answer = cursor && list ? latestAnswer(list) : null;
+      if (!cursor || !list || !answer) return;
+      if ((list.getState().indexByKey(cursor.rowId) ?? -1) >= answer.index)
+        readAnswer = answer.rowId;
+    };
     // Wheel, touch, or pointer input on the timeline: the user is scrolling it themselves.
     let userInputAt = -Infinity;
     let lastStepAt = -Infinity;
@@ -248,6 +265,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       if (cursor && found && found.block !== cursor.block)
         cursor = { key: `${cursor.rowId}#${found.block}`, rowId: cursor.rowId, block: found.block };
       const element = found?.element ?? null;
+      if (element) noteRead();
       markReadingCursor(element ? node : null, element, lamp);
       watch(cursor || lamp ? node : null);
     };
@@ -324,6 +342,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       stopGlide();
       cursor = null;
       trajectory = null;
+      readAnswer = null;
       if (followFrame !== null) cancelAnimationFrame(followFrame);
       followFrame = null;
       watch(null);
@@ -479,6 +498,10 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       // Repeats while a scroll is in flight decide from where it will rest.
       const base = scrollBase(node);
       const view = readingView(base, node.clientHeight, composerInset(node));
+      // Only `j` without a cursor can start at an unread answer.
+      const answer =
+        cursor || granularity !== "block" || direction !== "next" ? null : latestAnswer(list);
+      const unread = answer && answer.rowId !== readAnswer ? answer.rowId : null;
       const resolve = (stops: readonly ReadingStop[]) => {
         const cursorIndex = cursor ? stops.findIndex((stop) => stop.key === cursor?.key) : -1;
         const step = resolveReadingStep({
@@ -488,6 +511,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
           direction,
           view,
           trajectory,
+          unreadAnswer: unread ? stops.findIndex((stop) => stop.rowId === unread) : -1,
         });
         return { step, cursorIndex };
       };
@@ -503,8 +527,13 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       }
       neighborCallFrames = 0;
       // Block steps stay within the mounted rows, so they skip walking the whole list unless
-      // they reach its edge; jumps may need rows that are not mounted.
-      let { stops, origin } = collectReadingStops(list, node, granularity !== "block");
+      // they reach its edge; jumps, and the start of an unread answer, may need rows that are
+      // not mounted.
+      let { stops, origin } = collectReadingStops(
+        list,
+        node,
+        granularity !== "block" || unread !== null,
+      );
       let { step, cursorIndex } = resolve(stops);
       if (!step && granularity === "block") {
         ({ stops, origin } = collectReadingStops(list, node, true));
@@ -520,6 +549,9 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       showInToolGroup(node);
       // `[[`/`]]` show why their target is a section, scrolled to or not.
       const cue = granularity === "section" ? flashReadingMarker : pulseReadingCursor;
+      // Without a cursor, only an unread answer's start lands, back up the conversation.
+      if (step.kind === "land" && cursorIndex < 0)
+        currentTimeline.current.beforeScroll("away-from-end");
       if (step.kind === "land")
         land(list, node, target, origin, step.edge, step.line - base, pace, cue);
       else {
@@ -675,12 +707,41 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
         block: stop.block,
       });
     };
+    /**
+     * A click puts the cursor on the block under it, in place: what was clicked is already in
+     * view. Selecting text is not pointing at a block, so a drag leaves the cursor alone.
+     */
+    const clickAt = (event: MouseEvent) => {
+      const timeline = timelineNode();
+      const target = event.target;
+      if (!enabled() || event.button !== 0 || !timeline || !(target instanceof Element)) return;
+      if (window.getSelection()?.isCollapsed === false) return;
+      const row = target.closest<HTMLElement>("[data-timeline-row-id]");
+      const rowId = row?.dataset.timelineRowId;
+      if (!row || !rowId || !timeline.node.contains(row)) return;
+      const stops = rowReadingStops(row);
+      // Between an answer's blocks, the nearest one.
+      const distance = (element: HTMLElement) => {
+        const rect = element.getBoundingClientRect();
+        return Math.max(0, rect.top - event.clientY, event.clientY - rect.bottom);
+      };
+      const stop =
+        stops.find((candidate) => candidate.element.contains(target)) ??
+        stops.toSorted((left, right) => distance(left.element) - distance(right.element))[0];
+      if (!stop) return;
+      stopGlide();
+      trajectory = null;
+      cursor = { key: `${rowId}#${stop.block}`, rowId, block: stop.block };
+      showCursor(timeline.node);
+    };
     window.addEventListener(TIMELINE_COMMAND_EVENT, onCommand);
     window.addEventListener(READING_REVEAL_EVENT, revealAt);
+    window.addEventListener("click", clickAt, true);
     schedule();
     return () => {
       window.removeEventListener(TIMELINE_COMMAND_EVENT, onCommand);
       window.removeEventListener(READING_REVEAL_EVENT, revealAt);
+      window.removeEventListener("click", clickAt, true);
       unsubscribeLamp();
       if (followFrame !== null) cancelAnimationFrame(followFrame);
       watch(null);

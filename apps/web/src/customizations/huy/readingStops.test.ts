@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vite-plus/test";
+import type { MessagesTimelineRow } from "../../components/chat/MessagesTimeline.logic";
 import {
   findReadingStopElement,
+  latestAnswerRow,
   readingTreeMotion,
   readingAnchor,
   readingJumpIndex,
@@ -368,6 +370,38 @@ describe("readingAnchor", () => {
     expect(readingAnchor([stop(-200, 900), stop(900, 1000)], view)).toBe(0);
     expect(readingAnchor([], view)).toBe(-1);
   });
+
+  it("reading up, starts at the last block that ends on screen", () => {
+    const stops = [stop(-200, -20), stop(-10, 100), stop(120, 590), stop(600, 900)];
+    expect(readingAnchor(stops, view, "previous")).toBe(2);
+    expect(readingAnchor([stop(-300, -100), stop(-100, 900)], view, "previous")).toBe(1);
+  });
+});
+
+describe("latestAnswerRow", () => {
+  const message = (id: string, role: "user" | "assistant", turnFoldRunId?: string) =>
+    ({
+      kind: "message",
+      id,
+      message: { role },
+      ...(turnFoldRunId ? { turnFoldRunId } : {}),
+    }) as unknown as MessagesTimelineRow;
+  const other = (id: string) => ({ kind: "turn-fold", id }) as unknown as MessagesTimelineRow;
+
+  it("finds the latest turn's first assistant message outside an open turn fold", () => {
+    expect(
+      latestAnswerRow([
+        message("u1", "user"),
+        message("a1", "assistant"),
+        message("u2", "user"),
+        other("fold"),
+        message("a2", "assistant", "run"),
+        message("a3", "assistant"),
+        message("a4", "assistant"),
+      ]),
+    ).toBe(5);
+    expect(latestAnswerRow([message("a1", "assistant"), message("u2", "user")])).toBe(-1);
+  });
 });
 
 describe("readingPlacementLine", () => {
@@ -476,15 +510,41 @@ describe("resolveReadingStep", () => {
     });
   });
 
-  it("shows the cursor where reading starts before moving it", () => {
+  it("shows the cursor where reading starts, at the screen edge it reads away from", () => {
     const scrolled = { top: 110, bottom: 710 };
     expect(step(-1, "block", "next", scrolled)).toEqual({ kind: "move", index: 1 });
-    expect(step(-1, "block", "previous", scrolled)).toEqual({ kind: "move", index: 1 });
+    expect(step(-1, "block", "previous", scrolled)).toEqual({ kind: "move", index: 3 });
     expect(step(-1, "section", "next", scrolled)).toEqual({
       kind: "land",
       index: 3,
       edge: "top",
       line: 230,
     });
+  });
+
+  it("reads an unread answer that has begun on screen from its beginning", () => {
+    const unread = (at: { top: number; bottom: number }, unreadAnswer: number) =>
+      resolveReadingStep({
+        stops: answer,
+        cursor: -1,
+        granularity: "block",
+        direction: "next",
+        view: at,
+        trajectory: null,
+        unreadAnswer,
+      });
+    // The answer starts above the screen: land its start on the band's top line.
+    expect(unread({ top: 700, bottom: 1300 }, 1)).toEqual({
+      kind: "land",
+      index: 1,
+      edge: "top",
+      line: 820,
+    });
+    // Its start is on screen: just show the cursor there.
+    expect(unread({ top: 110, bottom: 710 }, 1)).toEqual({ kind: "move", index: 1 });
+    // Its start is further down the screen than where reading would start: still start there.
+    expect(unread(view, 3)).toEqual({ kind: "move", index: 3 });
+    // An answer below the screen leaves reading where it starts on screen.
+    expect(unread(view, 5)).toEqual({ kind: "move", index: 0 });
   });
 });
