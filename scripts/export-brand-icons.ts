@@ -14,7 +14,13 @@ import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { BRAND_ASSET_PATHS, DEVELOPMENT_PUBLIC_ICON_OVERRIDES } from "./lib/brand-assets.ts";
-import { encodePngIco, readPngDimensions, WINDOWS_ICON_SIZES } from "./lib/icon-export.ts";
+import {
+  encodePngIco,
+  frameMacIcon,
+  MAC_ICON_BODY_SIZE,
+  readPngDimensions,
+  WINDOWS_ICON_SIZES,
+} from "./lib/icon-export.ts";
 
 const DESIGN_GENERATION = 26;
 const ICON_COMPOSER_EXECUTABLE_PARTS = [
@@ -41,7 +47,7 @@ const decodeIconComposerVersion = Schema.decodeUnknownEffect(
   Schema.fromJsonString(IconComposerVersion),
 );
 
-type IconPlatform = "iOS";
+type IconPlatform = "iOS" | "macOS";
 
 interface VariantOutputs {
   readonly ios: string;
@@ -130,7 +136,7 @@ export class IconExportCommandFailedError extends Schema.TaggedError<IconExportC
 export class IconExportToolResolutionError extends Schema.TaggedError<IconExportToolResolutionError>()(
   "IconExportToolResolutionError",
   {
-    reason: Schema.Literals(["configured-invalid", "configured-outdated", "not-found"]),
+    reason: Schema.Literals(["configured-invalid", "not-found"]),
     designGeneration: Schema.Int,
     toolPath: Schema.optional(Schema.String),
     version: Schema.optional(Schema.String),
@@ -140,10 +146,8 @@ export class IconExportToolResolutionError extends Schema.TaggedError<IconExport
     switch (this.reason) {
       case "configured-invalid":
         return `ICON_COMPOSER_TOOL does not point to Icon Composer's export-capable ictool: ${this.toolPath}`;
-      case "configured-outdated":
-        return `ICON_COMPOSER_TOOL points to Icon Composer ${this.version}, but version 2 or newer is required for design generation ${this.designGeneration}.`;
       case "not-found":
-        return `Could not find an Icon Composer 2.x exporter compatible with design generation ${this.designGeneration}. Install a compatible Icon Composer/Xcode or set ICON_COMPOSER_TOOL to Icon Composer.app/Contents/Executables/ictool.`;
+        return `Could not find an Icon Composer exporter. Install Icon Composer/Xcode or set ICON_COMPOSER_TOOL to Icon Composer.app/Contents/Executables/ictool.`;
     }
   }
 }
@@ -187,7 +191,7 @@ export class IconExportEncodingError extends Schema.TaggedError<IconExportEncodi
   },
 ) {
   override get message(): string {
-    return `Failed to encode ICO renditions for the ${this.variant} icon.`;
+    return `Failed to encode renditions for the ${this.variant} icon.`;
   }
 }
 
@@ -246,14 +250,6 @@ const ICON_VARIANTS = [
     },
   },
 ] as const satisfies ReadonlyArray<IconVariant>;
-
-const MACOS_EXPORT_CODEX_PROMPT = [
-  "Use [@Computer](plugin://computer-use@openai-bundled) and the Icon Composer app to export the three macOS app icons in this repository.",
-  "For each project below, use Platform: macOS pre-Tahoe, Appearance: Default, Size: 1024pt, and Scale: 1×, then save the PNG to the exact destination:",
-  ...ICON_VARIANTS.map((variant) => `- ${variant.source} -> ${variant.outputs.macos}`),
-  "Do not resize, composite, or otherwise post-process the exported PNGs.",
-  "Verify every result is 1024×1024 and has the classic macOS safe area: an 824×824 opaque body inset 100px on every side, with only Icon Composer's native shadow extending beyond it.",
-];
 
 const RepositoryRoot = Effect.service(Path.Path).pipe(
   Effect.flatMap((path) => path.fromFileUrl(new URL("..", import.meta.url))),
@@ -419,14 +415,6 @@ const resolveIconComposerTool = Effect.fn("iconExport.resolveIconComposerTool")(
         toolPath: configuredTool,
       });
     }
-    if (!tool.value.supportsDesignGeneration) {
-      return yield* new IconExportToolResolutionError({
-        reason: "configured-outdated",
-        designGeneration: DESIGN_GENERATION,
-        toolPath: configuredTool,
-        version: tool.value.version,
-      });
-    }
     return tool.value;
   }
 
@@ -462,7 +450,6 @@ const resolveIconComposerTool = Effect.fn("iconExport.resolveIconComposerTool")(
   const compatibleTools = probed
     .filter(Option.isSome)
     .map((tool) => tool.value)
-    .filter((tool) => tool.supportsDesignGeneration)
     .sort((left, right) =>
       right.bundleVersion.localeCompare(left.bundleVersion, undefined, { numeric: true }),
     );
@@ -476,35 +463,48 @@ const resolveIconComposerTool = Effect.fn("iconExport.resolveIconComposerTool")(
 });
 
 const renderIcon = Effect.fn("iconExport.renderIcon")(function* (
-  toolPath: string,
+  tool: IconComposerTool,
   sourcePath: string,
   outputPath: string,
   platform: IconPlatform,
   size: number,
 ) {
   const fs = yield* FileSystem.FileSystem;
-  const args = [
-    sourcePath,
-    "--export-image",
-    "--output-file",
-    outputPath,
-    "--platform",
-    platform,
-    "--rendition",
-    "Default",
-    "--width",
-    String(size),
-    "--height",
-    String(size),
-    "--scale",
-    "1",
-    "--design-generation",
-    String(DESIGN_GENERATION),
-  ];
-  const result = yield* runCommand(toolPath, args);
+  // Xcode 26's Icon Composer 1 uses the preview exporter; version 2 adds
+  // explicit design-generation selection for the same generation-26 artwork.
+  const args = tool.supportsDesignGeneration
+    ? [
+        sourcePath,
+        "--export-image",
+        "--output-file",
+        outputPath,
+        "--platform",
+        platform,
+        "--rendition",
+        "Default",
+        "--width",
+        String(size),
+        "--height",
+        String(size),
+        "--scale",
+        "1",
+        "--design-generation",
+        String(DESIGN_GENERATION),
+      ]
+    : [
+        sourcePath,
+        "--export-preview",
+        platform,
+        "Default",
+        String(size),
+        String(size),
+        "1",
+        outputPath,
+      ];
+  const result = yield* runCommand(tool.path, args);
   if (result.exitCode !== 0) {
     return yield* new IconExportCommandFailedError({
-      command: toolPath,
+      command: tool.path,
       argumentCount: args.length,
       exitCode: result.exitCode,
       sourcePath,
@@ -548,7 +548,7 @@ const renderIcon = Effect.fn("iconExport.renderIcon")(function* (
 });
 
 const renderVariant = Effect.fn("iconExport.renderVariant")(function* (
-  toolPath: string,
+  tool: IconComposerTool,
   repositoryRoot: string,
   temporaryDirectory: string,
   variant: IconVariant,
@@ -580,7 +580,7 @@ const renderVariant = Effect.fn("iconExport.renderVariant")(function* (
     if (cached) return cached;
 
     const outputPath = path.join(temporaryDirectory, `${variant.label}-${platform}-${size}.png`);
-    const contents = yield* renderIcon(toolPath, sourcePath, outputPath, platform, size);
+    const contents = yield* renderIcon(tool, sourcePath, outputPath, platform, size);
     renditionCache.set(cacheKey, contents);
     return contents;
   });
@@ -596,7 +596,14 @@ const renderVariant = Effect.fn("iconExport.renderVariant")(function* (
     catch: (cause) => new IconExportEncodingError({ variant: variant.label, cause }),
   });
 
+  const macBody = yield* render("macOS", MAC_ICON_BODY_SIZE);
+  const macos = yield* Effect.tryPromise({
+    try: () => frameMacIcon(macBody),
+    catch: (cause) => new IconExportEncodingError({ variant: variant.label, cause }),
+  });
+
   return new Map<string, Buffer>([
+    [variant.outputs.macos, macos],
     [variant.outputs.ios, ios],
     [variant.outputs.universal, ios],
     [variant.outputs.appleTouch, yield* render("iOS", 180)],
@@ -606,24 +613,6 @@ const renderVariant = Effect.fn("iconExport.renderVariant")(function* (
     [variant.outputs.windowsIco, ico],
   ]);
 });
-
-const logManualMacOsExportInstructions = Effect.fn("iconExport.logManualMacOsExportInstructions")(
-  function* () {
-    yield* Console.warn(
-      [
-        "macOS icons require Icon Composer's GUI-only pre-Tahoe preset and were not changed.",
-        "Export each source with Platform: macOS pre-Tahoe, Appearance: Default, Size: 1024pt, Scale: 1×:",
-        ...ICON_VARIANTS.map((variant) => `- ${variant.source} -> ${variant.outputs.macos}`),
-        "See assets/README.md for the complete workflow.",
-        "",
-        "Copy/paste this prompt into Codex to perform the native exports:",
-        "---",
-        ...MACOS_EXPORT_CODEX_PROMPT,
-        "---",
-      ].join("\n"),
-    );
-  },
-);
 
 const writeAtomically = Effect.fn("iconExport.writeAtomically")(function* (
   repositoryRoot: string,
@@ -740,12 +729,7 @@ export const exportBrandIcons = Effect.fn("exportBrandIcons")(function* (checkOn
   const generated = new Map<string, Buffer>();
   for (const variant of ICON_VARIANTS) {
     yield* Console.log(`Rendering ${variant.label} from ${variant.source}...`);
-    const variantAssets = yield* renderVariant(
-      tool.path,
-      repositoryRoot,
-      temporaryDirectory,
-      variant,
-    );
+    const variantAssets = yield* renderVariant(tool, repositoryRoot, temporaryDirectory, variant);
     for (const [relativePath, contents] of variantAssets) {
       generated.set(relativePath, contents);
     }
@@ -774,7 +758,6 @@ export const exportBrandIcons = Effect.fn("exportBrandIcons")(function* (checkOn
       });
     }
     yield* Console.log(`All ${generated.size} generated icon assets are current.`);
-    yield* logManualMacOsExportInstructions();
     return;
   }
 
@@ -784,7 +767,6 @@ export const exportBrandIcons = Effect.fn("exportBrandIcons")(function* (checkOn
     { concurrency: 1, discard: true },
   );
   yield* Console.log(`Updated ${generated.size} generated icon assets.`);
-  yield* logManualMacOsExportInstructions();
 });
 
 export const exportBrandIconsCommand = Command.make(

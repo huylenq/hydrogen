@@ -1,6 +1,37 @@
+import sharp from "sharp";
+
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export const WINDOWS_ICON_SIZES = [16, 24, 32, 48, 64, 128, 256] as const;
+export const MAC_ICON_BODY_SIZE = 824;
+
+/** Frames a native full-bleed rendition for the desktop Dock, without resizing its artwork. */
+export async function frameMacIcon(contents: Buffer) {
+  const { width, height } = readPngDimensions(contents);
+  if (width !== MAC_ICON_BODY_SIZE || height !== MAC_ICON_BODY_SIZE) {
+    throw new Error(`Expected an ${MAC_ICON_BODY_SIZE}px square macOS icon body.`);
+  }
+  const body = await sharp(contents).toColourspace("srgb").ensureAlpha().toBuffer();
+  const alpha = await sharp(body).extractChannel(3).png().toBuffer();
+  // Keep the body inset 100px; only its soft shadow extends into the margin.
+  const shadowAlpha = await sharp(alpha)
+    .extend({ top: 110, bottom: 90, left: 100, right: 100, background: "#000" })
+    .blur(10)
+    .linear(0.3)
+    .toColourspace("b-w")
+    .raw()
+    .toBuffer();
+  const shadow = await sharp({
+    create: { width: 1024, height: 1024, channels: 3, background: "#000" },
+  })
+    .joinChannel(shadowAlpha, { raw: { width: 1024, height: 1024, channels: 1 } })
+    .png()
+    .toBuffer();
+  return sharp(shadow)
+    .composite([{ input: body, left: 100, top: 100 }])
+    .png()
+    .toBuffer();
+}
 
 export interface PngIconImage {
   readonly size: number;
