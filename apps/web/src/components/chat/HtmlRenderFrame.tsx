@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
 import {
   HTML_RENDER_COLUMN_WIDTH,
   htmlRenderFileName,
@@ -28,6 +28,8 @@ const MIN_URL_LIFE_MS = 5 * 60_000;
 export function HtmlRenderFrame(props: {
   readonly environmentId: EnvironmentId;
   readonly htmlRender: HtmlRenderReference;
+  /** The render's thread, where its links open in the browser panel. */
+  readonly threadRef?: ScopedThreadRef | undefined;
   readonly onOpen: (attachment: ChatFileAttachment) => void;
 }) {
   const { attachmentId, title } = props.htmlRender;
@@ -98,6 +100,7 @@ export function HtmlRenderFrame(props: {
             src={src}
             title={title}
             className="block size-full"
+            threadRef={props.threadRef}
             onContentHeight={setContentHeight}
           />
           <div className="absolute end-2 top-2 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover/html-render:opacity-100 pointer-coarse:opacity-100">

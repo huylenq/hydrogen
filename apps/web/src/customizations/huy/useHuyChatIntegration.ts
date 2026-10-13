@@ -4,7 +4,12 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { getClientSettings } from "../../hooks/useSettings";
 import type { AssistantCitationSourceAnchor } from "../../lib/assistantTextSelection";
 import type { ModalThreadContext } from "../../modalKeyboardCommands";
-import { showModalFeedback, useModalKeyboardStore } from "../../modalKeyboardStore";
+import { modalEmbeddedReturnSurface } from "../../modalKeyboardDom";
+import {
+  requestModalFocus,
+  showModalFeedback,
+  useModalKeyboardStore,
+} from "../../modalKeyboardStore";
 import { captureBlockCitation } from "./readingCite";
 import { toolGroupList } from "./toolGroupLists";
 import {
@@ -77,6 +82,24 @@ export function dispatchTimelineCommand(command: TimelineCommand): boolean {
   return !window.dispatchEvent(
     new CustomEvent(TIMELINE_COMMAND_EVENT, { detail: command, cancelable: true }),
   );
+}
+
+const READING_REVEAL_EVENT = "t3code:modal-timeline-reveal";
+
+/**
+ * Hands the keyboard back from an embedded page, such as an HTML render whose page left an Escape
+ * alone. In Vim mode focus returns to the surface around it, with the reading cursor on its block;
+ * otherwise the page just lets go.
+ */
+export function releaseEmbeddedFocus(frame: HTMLElement): void {
+  if (!enabled()) {
+    frame.blur();
+    return;
+  }
+  // Read while the frame still has focus: it decides which surface takes it back.
+  const surface = modalEmbeddedReturnSurface();
+  window.dispatchEvent(new CustomEvent(READING_REVEAL_EVENT, { detail: frame }));
+  requestModalFocus(surface, true);
 }
 
 const MOTIONS: Partial<
@@ -587,10 +610,21 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       if (block === undefined) return;
       reveal(list, node, { key: `${action.rowId}#${block}`, rowId: action.rowId, block });
     };
-    /** Enter on a stop with a control, such as a changed file, clicks it. */
+    /**
+     * Enter on a stop with a control, such as a changed file, clicks it. On an HTML render it moves
+     * focus into the page, whose unhandled Escape hands it back.
+     */
     const activate = (event: Event) => {
       const node = timelineNode()?.node;
       const element = node && cursor ? findReadingStopElement(node, cursor) : null;
+      const frame = element?.matches('[data-timeline-row-kind="html-render"]')
+        ? element.querySelector("iframe")
+        : null;
+      if (frame) {
+        event.preventDefault();
+        frame.focus();
+        return;
+      }
       const control = element ? readingStopControl(element) : null;
       if (!control) return;
       event.preventDefault();
@@ -624,10 +658,29 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       stopGlide();
       node.scrollTo({ top: command === "first" ? 0 : node.scrollHeight, behavior: "instant" });
     };
+    /** Puts the cursor on the block holding an element, such as a render handing focus back. */
+    const revealAt = (event: Event) => {
+      const target: unknown = (event as CustomEvent<unknown>).detail;
+      const timeline = timelineNode();
+      if (!enabled() || !timeline || !(target instanceof HTMLElement)) return;
+      const row = target.closest<HTMLElement>("[data-timeline-row-id]");
+      const rowId = row?.dataset.timelineRowId;
+      if (!row || !rowId || !timeline.node.contains(row)) return;
+      const stops = rowReadingStops(row);
+      const stop = stops.find((candidate) => candidate.element.contains(target)) ?? stops[0];
+      if (!stop) return;
+      reveal(timeline.list, timeline.node, {
+        key: `${rowId}#${stop.block}`,
+        rowId,
+        block: stop.block,
+      });
+    };
     window.addEventListener(TIMELINE_COMMAND_EVENT, onCommand);
+    window.addEventListener(READING_REVEAL_EVENT, revealAt);
     schedule();
     return () => {
       window.removeEventListener(TIMELINE_COMMAND_EVENT, onCommand);
+      window.removeEventListener(READING_REVEAL_EVENT, revealAt);
       unsubscribeLamp();
       if (followFrame !== null) cancelAnimationFrame(followFrame);
       watch(null);

@@ -39,6 +39,8 @@ const MIB = 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * MIB;
 const MAX_PAGE_BYTES = 25 * MIB;
 const formatMib = (bytes: number) => `${(bytes / MIB).toFixed(1)} MiB`;
+/** The longest page an agent may pass, inline or as a file, before images are inlined. */
+export const MAX_HTML_LENGTH = 512_000;
 
 export class HtmlRenderImagesNotFoundError extends Schema.TaggedError<HtmlRenderImagesNotFoundError>()(
   "HtmlRenderImagesNotFoundError",
@@ -76,10 +78,28 @@ export class HtmlRenderStoreError extends Schema.TaggedError<HtmlRenderStoreErro
   }
 }
 
+export class HtmlRenderPageSourceError extends Schema.TaggedError<HtmlRenderPageSourceError>()(
+  "HtmlRenderPageSourceError",
+  { reason: Schema.String },
+) {
+  override get message(): string {
+    return this.reason;
+  }
+}
+
 export type HtmlRenderPrepareError =
   | HtmlRenderImagesNotFoundError
   | HtmlRenderImageTooLargeError
   | HtmlRenderPageTooLargeError;
+
+/**
+ * Where a page comes from: inline `html`, or `path` to a local `.html` file a
+ * tool already wrote, so a generated page never passes through the agent.
+ */
+export interface HtmlRenderPageSource {
+  readonly html?: string | undefined;
+  readonly path?: string | undefined;
+}
 
 export interface HtmlPreview {
   /** Base64 PNG of the top `capturedHeight` pixels. */
@@ -103,20 +123,26 @@ export class HtmlRender extends Context.Service<
      * measuring its height at each client width when the preview browser is
      * already installed.
      */
-    readonly publish: (input: {
-      readonly threadId: ThreadId;
-      readonly html: string;
-      readonly title: string;
-      readonly height: number;
-    }) => Effect.Effect<HtmlRenderReference, HtmlRenderPrepareError | HtmlRenderStoreError>;
+    readonly publish: (
+      input: HtmlRenderPageSource & {
+        readonly threadId: ThreadId;
+        readonly title: string;
+        readonly height: number;
+      },
+    ) => Effect.Effect<
+      HtmlRenderReference,
+      HtmlRenderPrepareError | HtmlRenderPageSourceError | HtmlRenderStoreError
+    >;
     /** Screenshots a page in headless Chrome, tolerating unreadable local images. */
-    readonly preview: (input: {
-      readonly html: string;
-      readonly width?: number | undefined;
-      readonly appearance?: ThemeAppearance | undefined;
-    }) => Effect.Effect<
+    readonly preview: (
+      input: HtmlRenderPageSource & {
+        readonly width?: number | undefined;
+        readonly appearance?: ThemeAppearance | undefined;
+      },
+    ) => Effect.Effect<
       HtmlPreview,
       | Exclude<HtmlRenderPrepareError, HtmlRenderImagesNotFoundError>
+      | HtmlRenderPageSourceError
       | PreviewBrowser.PreviewBrowserInstallError
       | PreviewBrowser.PreviewBrowserInstallingError
       | PreviewBrowser.PreviewBrowserUnsupportedError
@@ -226,6 +252,24 @@ const afterDoctype = (text: string, from: number) => {
   }
   return -1;
 };
+
+/**
+ * Whether a file holds an HTML document: after an optional BOM, whitespace,
+ * and comments it opens with a doctype or an <html> element. Like
+ * `isImageBytes`, it keeps a symlink or renamed file from carrying other data,
+ * such as a secret, into a page or a preview screenshot.
+ */
+const isHtmlDocument = (text: string) => {
+  let at = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+  while (at !== -1) {
+    while (/\s/.test(text.charAt(at))) at += 1;
+    if (text.startsWith("<!--", at)) at = after(text, "-->", at + 4);
+    else return /^<(?:!doctype\s+html|html)[\s>]/i.test(text.slice(at, at + 64));
+  }
+  return false;
+};
+
+const ABSOLUTE_PATH_START = new RegExp(`^${ABSOLUTE_PATH}`, "i");
 
 /** Replaces every local image reference with a data URI; unreadable paths stay as written. */
 const inlineLocalImages = Effect.fn("HtmlRender.inlineLocalImages")(function* (html: string) {
@@ -405,6 +449,47 @@ const make = Effect.gen(function* () {
   const inline = (html: string) =>
     inlineLocalImages(injectHtmlRenderBootstrap(html)).pipe(Effect.provideContext(services));
 
+  // Hydrogen: `path` lets a tool hand over a page it already wrote, so the page
+  // never passes through the agent. If upstream ships an equivalent input, take
+  // upstream's version on merge.
+  const pageHtml = Effect.fn("HtmlRender.pageHtml")(function* (source: HtmlRenderPageSource) {
+    const fail = (reason: string) => new HtmlRenderPageSourceError({ reason });
+    if (source.path === undefined) {
+      if (source.html === undefined) {
+        return yield* fail("Pass the page as html, or as path to a local .html file.");
+      }
+      return source.html;
+    }
+    const path = source.path;
+    if (source.html !== undefined)
+      return yield* fail("Pass the page as html or as path, not both.");
+    if (!ABSOLUTE_PATH_START.test(path)) {
+      return yield* fail(`path must be an absolute file path; got ${path}.`);
+    }
+    const tooLong = `${path} is longer than ${MAX_HTML_LENGTH} characters, the most a page may be.`;
+    const info = yield* fileSystem.stat(path).pipe(Effect.option);
+    if (Option.isNone(info) || info.value.type !== "File") {
+      return yield* fail(`${path} is not a readable file.`);
+    }
+    // UTF-8 spends at most four bytes on a character. The file can grow after
+    // `stat`, so the read stops one byte past that limit.
+    const maxBytes = MAX_HTML_LENGTH * 4;
+    if (Number(info.value.size) > maxBytes) return yield* fail(tooLong);
+    const bytes = yield* fileSystem
+      .stream(path, { bytesToRead: maxBytes + 1 })
+      .pipe(Stream.mkUint8Array, Effect.option);
+    if (Option.isNone(bytes)) return yield* fail(`${path} is not a readable file.`);
+    if (bytes.value.byteLength > maxBytes) return yield* fail(tooLong);
+    const html = new TextDecoder().decode(bytes.value);
+    if (html.length > MAX_HTML_LENGTH) return yield* fail(tooLong);
+    if (!isHtmlDocument(html)) {
+      return yield* fail(
+        `${path} is not an HTML document; it must start with <!doctype html> or <html>.`,
+      );
+    }
+    return html;
+  });
+
   const prepare = Effect.fn("HtmlRender.prepare")(function* (html: string) {
     const inlined = yield* inline(html);
     if (inlined.missing.length > 0) {
@@ -413,13 +498,14 @@ const make = Effect.gen(function* () {
     return inlined.html;
   });
 
-  const publish = Effect.fn("HtmlRender.publish")(function* (input: {
-    readonly threadId: ThreadId;
-    readonly html: string;
-    readonly title: string;
-    readonly height: number;
-  }) {
-    const html = yield* prepare(input.html);
+  const publish = Effect.fn("HtmlRender.publish")(function* (
+    input: HtmlRenderPageSource & {
+      readonly threadId: ThreadId;
+      readonly title: string;
+      readonly height: number;
+    },
+  ) {
+    const html = yield* prepare(yield* pageHtml(input));
     // The `-html` id suffix makes the asset route serve it as a sandboxed text/html document.
     const attachmentId = createAttachmentId(input.threadId, "html");
     const filePath =
@@ -447,17 +533,18 @@ const make = Effect.gen(function* () {
     } satisfies HtmlRenderReference;
   });
 
-  const preview = Effect.fn("HtmlRender.preview")(function* (input: {
-    readonly html: string;
-    readonly width?: number | undefined;
-    readonly appearance?: ThemeAppearance | undefined;
-  }) {
+  const preview = Effect.fn("HtmlRender.preview")(function* (
+    input: HtmlRenderPageSource & {
+      readonly width?: number | undefined;
+      readonly appearance?: ThemeAppearance | undefined;
+    },
+  ) {
     const width = Math.min(
       MAX_PREVIEW_WIDTH,
       Math.max(MIN_PREVIEW_WIDTH, Math.round(input.width ?? HTML_RENDER_COLUMN_WIDTH)),
     );
     const appearance = input.appearance ?? "dark";
-    const inlined = yield* inline(input.html);
+    const inlined = yield* inline(yield* pageHtml(input));
     const executable = yield* previewBrowser.executable;
     const theme = htmlRenderTheme(
       appearance === "light" ? T3_CODE_LIGHT_THEME_COLORS : T3_CODE_DARK_THEME_COLORS,

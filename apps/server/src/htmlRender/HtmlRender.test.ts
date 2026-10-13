@@ -234,6 +234,95 @@ describe("HtmlRender", () => {
     }),
   );
 
+  it.effect("publishes a page read from an absolute path like the same inline html", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const config = yield* ServerConfig.ServerConfig;
+      const htmlRender = yield* HtmlRender.HtmlRender;
+      const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-html-path-" });
+      const png = path.join(directory, "shot.png");
+      const page = path.join(directory, "figure.html");
+      yield* fileSystem.writeFile(png, PNG_BYTES);
+      yield* fileSystem.writeFileString(
+        page,
+        `﻿<!-- written by a tool -->\n<!DOCTYPE html><html><body><p>From a file</p><img src="${png}"></body></html>`,
+      );
+
+      const reference = yield* htmlRender.publish({
+        threadId: ThreadId.make("thread-html-path"),
+        path: page,
+        title: "Figure",
+        height: 400,
+      });
+      // The stored page is a copy: the tool's file can go away.
+      yield* fileSystem.remove(page);
+
+      const stored = resolveAttachmentPathById({
+        attachmentsDir: config.attachmentsDir,
+        attachmentId: reference.attachmentId,
+      });
+      const html = yield* fileSystem.readFileString(stored ?? "");
+      expect(html).toContain('<style id="t3-theme">');
+      expect(html).toContain("<p>From a file</p>");
+      expect(html).toContain(`<img src="data:image/png;base64,${Base64.encode(PNG_BYTES)}">`);
+    }).pipe(Effect.provide(layerTest)),
+  );
+
+  it.effect("refuses a page source it cannot show, with what to do instead", () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const htmlRender = yield* HtmlRender.HtmlRender;
+      const directory = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-html-source-" });
+      const page = path.join(directory, "page.html");
+      const secret = path.join(directory, "credentials");
+      const renamed = path.join(directory, "credentials.html");
+      const linked = path.join(directory, "linked.html");
+      const huge = path.join(directory, "huge.html");
+      yield* fileSystem.writeFileString(page, "<!doctype html><p>ok</p>");
+      yield* fileSystem.writeFileString(secret, "aws_secret_access_key = abc123\n");
+      yield* fileSystem.writeFileString(renamed, "aws_secret_access_key = abc123\n");
+      yield* fileSystem.symlink(secret, linked);
+      yield* fileSystem.writeFileString(
+        huge,
+        `<!doctype html><p>${"x".repeat(HtmlRender.MAX_HTML_LENGTH)}</p>`,
+      );
+      const cases = [
+        [{}, "Pass the page as html, or as path"],
+        [{ html: "<p>x</p>", path: page }, "not both"],
+        [{ path: "page.html" }, "must be an absolute file path"],
+        [{ path: path.join(directory, "missing.html") }, "is not a readable file"],
+        [{ path: directory }, "is not a readable file"],
+        [{ path: renamed }, "is not an HTML document"],
+        [{ path: linked }, "is not an HTML document"],
+        [{ path: huge }, `longer than ${HtmlRender.MAX_HTML_LENGTH} characters`],
+      ] as const;
+
+      for (const [source, message] of cases) {
+        const error = yield* Effect.flip(
+          htmlRender.publish({
+            threadId: ThreadId.make("thread-html-source"),
+            ...source,
+            title: "X",
+            height: 200,
+          }),
+        );
+        expect(error._tag).toBe("HtmlRenderPageSourceError");
+        expect(error.message).toContain(message);
+      }
+      // Previews read the page the same way, before any browser starts.
+      const previewError = yield* Effect.flip(htmlRender.preview({ path: renamed }));
+      expect(previewError._tag).toBe("HtmlRenderPageSourceError");
+      // Nothing that was refused left a page behind.
+      expect(
+        (yield* fileSystem.readDirectory((yield* ServerConfig.ServerConfig).attachmentsDir, {
+          recursive: true,
+        })).filter((name) => name.endsWith(".html")),
+      ).toEqual([]);
+    }).pipe(Effect.provide(layerTest)),
+  );
+
   it.live(
     "screenshots the page in headless Chrome with the requested theme and every console level",
     (ctx) =>

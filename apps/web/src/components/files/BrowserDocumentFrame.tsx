@@ -2,11 +2,15 @@ import {
   htmlRenderThemeFragment,
   htmlRenderThemeMessage,
   htmlRenderResult,
+  isHtmlRenderUnhandledEscape,
   readHtmlRenderContentHeight,
   readHtmlRenderLinkRequest,
 } from "@t3tools/shared/htmlRender";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { ScopedThreadRef } from "@t3tools/contracts";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 
+import { useOpenLink } from "~/browser/useOpenLink";
+import { releaseEmbeddedFocus } from "~/customizations/huy/useHuyChatIntegration";
 import { useHtmlRenderTheme } from "~/hooks/useHtmlRenderTheme";
 import { cn } from "~/lib/utils";
 
@@ -32,6 +36,8 @@ export function BrowserDocumentFrame(props: {
   readonly title: string;
   readonly pdf: boolean;
   readonly htmlRender?: boolean;
+  /** The thread an HTML render belongs to, so its links can open beside it. */
+  readonly threadRef?: ScopedThreadRef | undefined;
 }) {
   const className = "min-h-0 flex-1 border-0 bg-white";
   return props.pdf ? (
@@ -48,6 +54,7 @@ export function BrowserDocumentFrame(props: {
       src={props.src}
       title={props.title}
       className="min-h-0 flex-1"
+      threadRef={props.threadRef}
     />
   ) : (
     <iframe
@@ -70,6 +77,8 @@ export function HtmlRenderDocument(props: {
   readonly src: string;
   readonly title: string;
   readonly className?: string;
+  /** The thread the render belongs to; its links open where "Open links in" says, beside it. */
+  readonly threadRef?: ScopedThreadRef | undefined;
   /** Receives the page's content height whenever it changes, so an inline frame can fit it. */
   readonly onContentHeight?: (height: number) => void;
 }) {
@@ -81,6 +90,21 @@ export function HtmlRenderDocument(props: {
     frameRef.current?.contentWindow?.postMessage(htmlRenderThemeMessage(theme), "*");
   };
   useEffect(postTheme, [theme]);
+  // Hydrogen: links follow the "Open links in" setting, as links in chat text
+  // do, so they can open in the thread's browser panel. If upstream routes
+  // render links itself, take upstream's version on merge.
+  const openThreadLink = useOpenLink(props.threadRef);
+  const openRequestedLink = useEffectEvent(
+    (request: { url: string; metaKey: boolean; ctrlKey: boolean }) => {
+      if (props.threadRef === undefined) {
+        window.open(request.url, "_blank", "noopener,noreferrer");
+        return;
+      }
+      void openThreadLink(request.url, { event: request }).catch((error: unknown) =>
+        console.error(error),
+      );
+    },
+  );
   // The page cannot open windows itself (an inline page runs unopened, and
   // desktop sends any window to the browser). It asks the client, which opens
   // the link only while this frame has focus and the reader has just used the
@@ -99,11 +123,30 @@ export function HtmlRenderDocument(props: {
       ) {
         return;
       }
-      window.open(request.url, "_blank", "noopener,noreferrer");
+      openRequestedLink(request);
       frame.contentWindow?.postMessage(htmlRenderResult(request.id), "*");
     };
     window.addEventListener("message", openLink);
     return () => window.removeEventListener("message", openLink);
+  }, []);
+  // Hydrogen: an Escape the page leaves alone hands the keyboard back to the
+  // app, so a render never traps it. If upstream adds its own way out of an
+  // embedded page, take upstream's version on merge.
+  useEffect(() => {
+    const release = (event: MessageEvent) => {
+      const frame = frameRef.current;
+      if (
+        frame === null ||
+        event.source !== frame.contentWindow ||
+        document.activeElement !== frame ||
+        !isHtmlRenderUnhandledEscape(event.data)
+      ) {
+        return;
+      }
+      releaseEmbeddedFocus(frame);
+    };
+    window.addEventListener("message", release);
+    return () => window.removeEventListener("message", release);
   }, []);
   const { onContentHeight } = props;
   // A page posts its height once per change, so listen from the commit that

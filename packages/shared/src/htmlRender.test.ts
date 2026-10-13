@@ -8,6 +8,7 @@ import {
   htmlRenderThemeFragment,
   injectHtmlRenderBootstrap,
   htmlRenderThemeMessage,
+  isHtmlRenderUnhandledEscape,
   readHtmlRenderContentHeight,
   readHtmlRenderLinkRequest,
   readHtmlRenderReference,
@@ -85,6 +86,8 @@ describe("readHtmlRenderLinkRequest", () => {
     expect(readHtmlRenderLinkRequest(link("https://example.com/a"))).toEqual({
       id: 1,
       url: "https://example.com/a",
+      metaKey: false,
+      ctrlKey: false,
     });
     expect(readHtmlRenderLinkRequest(link("javascript:alert(1)"))).toBeUndefined();
     expect(readHtmlRenderLinkRequest(link("file:///etc/passwd"))).toBeUndefined();
@@ -98,6 +101,151 @@ describe("readHtmlRenderLinkRequest", () => {
     expect(
       readHtmlRenderLinkRequest({ type: "t3-html-render-link", url: "https://example.com" }),
     ).toBeUndefined();
+  });
+});
+
+interface StandInEvent {
+  readonly key?: string;
+  readonly isTrusted: boolean;
+  readonly isComposing?: boolean;
+  readonly metaKey?: boolean;
+  readonly ctrlKey?: boolean;
+  defaultPrevented: boolean;
+  preventDefault: () => void;
+  /** A handler below the window stopped the event before it bubbled up. */
+  propagationStopped?: boolean;
+  composedPath?: () => ReadonlyArray<unknown>;
+}
+
+/**
+ * Runs the injected bootstrap against a stand-in framed window and records what
+ * it posts to its parent. Timers run only when flushed, as after a dispatch.
+ */
+function runFramedBootstrap() {
+  const markup = injectHtmlRenderBootstrap("<p>x</p>");
+  const script = /<script>([\s\S]*?)<\/script>/.exec(markup)?.[1] ?? "";
+  const listeners: Array<{
+    readonly target: "window" | "document";
+    readonly type: string;
+    readonly listener: (event: StandInEvent) => void;
+    readonly capture: boolean;
+  }> = [];
+  const listen =
+    (target: "window" | "document") =>
+    (type: string, listener: (event: StandInEvent) => void, capture?: boolean) =>
+      listeners.push({ target, type, listener, capture: capture === true });
+  const posted: unknown[] = [];
+  const timers: Array<() => void> = [];
+  const page = "https://render.test/page.html";
+  const frameWindow = {
+    parent: { postMessage: (data: unknown) => posted.push(data) },
+    addEventListener: listen("window"),
+  };
+  const frameDocument = {
+    getElementById: () => ({ textContent: "" }),
+    addEventListener: listen("document"),
+    documentElement: { scrollHeight: 0, clientHeight: 0, getBoundingClientRect: () => ({}) },
+    body: null,
+    baseURI: page,
+  };
+  const location = { hash: "", href: page, pathname: "/page.html", search: "" };
+  const history = { state: null, replaceState: () => {} };
+  new Function("window", "document", "location", "history", "setTimeout", script)(
+    frameWindow,
+    frameDocument,
+    location,
+    history,
+    (callback: () => void) => timers.push(callback),
+  );
+  const event = (fields: Partial<StandInEvent>): StandInEvent => {
+    const created: StandInEvent = {
+      isTrusted: true,
+      defaultPrevented: false,
+      preventDefault: () => {
+        created.defaultPrevented = true;
+      },
+      ...fields,
+    };
+    return created;
+  };
+  return {
+    posted,
+    event,
+    // Capture listeners run on the way down; bubbling ones only if nothing stopped the event.
+    dispatch: (target: "window" | "document", type: string, dispatched: StandInEvent) => {
+      for (const entry of listeners)
+        if (
+          entry.target === target &&
+          entry.type === type &&
+          (entry.capture || !dispatched.propagationStopped)
+        )
+          entry.listener(dispatched);
+    },
+    flushTimers: () => timers.splice(0).forEach((callback) => callback()),
+  };
+}
+
+describe("the render bootstrap", () => {
+  it("reports an Escape the page left alone once dispatch is over", () => {
+    const frame = runFramedBootstrap();
+    frame.dispatch("window", "keydown", frame.event({ key: "Escape" }));
+    expect(frame.posted).toEqual([]);
+    frame.flushTimers();
+    expect(frame.posted).toHaveLength(1);
+    expect(isHtmlRenderUnhandledEscape(frame.posted[0])).toBe(true);
+  });
+
+  it("still reports an Escape whose propagation the page stopped without handling it", () => {
+    const frame = runFramedBootstrap();
+    frame.dispatch("window", "keydown", frame.event({ key: "Escape", propagationStopped: true }));
+    frame.flushTimers();
+    expect(frame.posted).toHaveLength(1);
+    expect(isHtmlRenderUnhandledEscape(frame.posted[0])).toBe(true);
+  });
+
+  it("stays quiet about an Escape the page handled, other keys, and composition", () => {
+    const frame = runFramedBootstrap();
+    const handled = frame.event({ key: "Escape" });
+    frame.dispatch("window", "keydown", handled);
+    // A handler that runs after the bootstrap's still counts.
+    handled.preventDefault();
+    frame.dispatch("window", "keydown", frame.event({ key: "Enter" }));
+    frame.dispatch("window", "keydown", frame.event({ key: "Escape", isComposing: true }));
+    frame.dispatch("window", "keydown", frame.event({ key: "Escape", isTrusted: false }));
+    frame.flushTimers();
+    expect(frame.posted).toEqual([]);
+  });
+
+  it("asks the client to open a clicked link, with the click's modifier keys", () => {
+    const frame = runFramedBootstrap();
+    const anchor = {
+      matches: (selector: string) => selector === "a[href]",
+      getAttribute: () => "https://example.com/docs",
+    };
+    const click = frame.event({ metaKey: true, ctrlKey: false, composedPath: () => [anchor] });
+    frame.dispatch("document", "click", click);
+    expect(click.defaultPrevented).toBe(true);
+    expect(readHtmlRenderLinkRequest(frame.posted[0])).toEqual({
+      id: "t3-link-1",
+      url: "https://example.com/docs",
+      metaKey: true,
+      ctrlKey: false,
+    });
+  });
+});
+
+describe("isHtmlRenderUnhandledEscape", () => {
+  it("accepts only the T3 unhandled-escape notification", () => {
+    expect(
+      isHtmlRenderUnhandledEscape({ jsonrpc: "2.0", method: "t3/notifications/unhandled-escape" }),
+    ).toBe(true);
+    expect(isHtmlRenderUnhandledEscape({ method: "t3/notifications/unhandled-escape" })).toBe(
+      false,
+    );
+    expect(
+      isHtmlRenderUnhandledEscape({ jsonrpc: "2.0", method: "ui/notifications/size-changed" }),
+    ).toBe(false);
+    expect(isHtmlRenderUnhandledEscape("escape")).toBe(false);
   });
 });
 
