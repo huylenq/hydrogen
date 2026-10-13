@@ -3,9 +3,9 @@ const MIN_CARD_WIDTH = 360;
 const MAX_CARD_WIDTH = 512;
 /** FlowSessionCheckoutStrip's fixed height, reserved above every tile so rows stay aligned. */
 export const FLOW_CHECKOUT_STRIP_HEIGHT = 22;
-/** The box shared by the checkout heading and subagent footer rows outside a tile. */
+/** Shared off-card rows, inset slightly to align optically with the tile's rounded corners. */
 export const FLOW_FOOTER_LINE_CLASS =
-  "flex min-w-0 items-center px-1 text-xs text-muted-foreground";
+  "flex min-w-0 items-center px-2 text-xs text-muted-foreground";
 // FlowSessionPreview's `h-96` tile, its `gap-1`, and the checkout strip above it; subagent
 // lines can add to it.
 export const FLOW_CARD_MIN_HEIGHT = 384 + 4 + FLOW_CHECKOUT_STRIP_HEIGHT;
