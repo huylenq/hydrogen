@@ -3,8 +3,12 @@ const MIN_CARD_WIDTH = 360;
 const MAX_CARD_WIDTH = 512;
 /** FlowSessionCheckoutStrip's fixed height, reserved under every tile so rows stay aligned. */
 export const FLOW_CHECKOUT_STRIP_HEIGHT = 22;
-// FlowSessionPreview's `h-96` tile, its `gap-1`, and the checkout strip under it.
-const CARD_HEIGHT = 384 + 4 + FLOW_CHECKOUT_STRIP_HEIGHT;
+/** The box shared by the lines under a tile: the checkout strip and subagent rows. */
+export const FLOW_FOOTER_LINE_CLASS =
+  "flex min-w-0 items-center px-1 text-xs text-muted-foreground";
+// FlowSessionPreview's `h-96` tile, its `gap-1`, and the checkout strip under it; subagent
+// lines can add to it.
+export const FLOW_CARD_MIN_HEIGHT = 384 + 4 + FLOW_CHECKOUT_STRIP_HEIGHT;
 const GAP = 16;
 
 function rowCapacity(availableWidth: number, cardWidth: number) {
@@ -20,13 +24,14 @@ export function workingSessionRowSizes(
   count: number,
   availableWidth: number,
   availableHeight: number,
+  cardHeight = FLOW_CARD_MIN_HEIGHT,
 ): number[] {
   if (count === 0) return [];
   const minRows = Math.ceil(count / rowCapacity(availableWidth, MIN_CARD_WIDTH));
   const fullWidthRows = Math.ceil(count / rowCapacity(availableWidth, MAX_CARD_WIDTH));
   // Rows of the squarest grid, with columns never fewer than rows.
   const squareRows = Math.ceil(count / Math.ceil(Math.sqrt(count)));
-  const fittingRows = Math.max(1, Math.floor((availableHeight + GAP) / (CARD_HEIGHT + GAP)));
+  const fittingRows = Math.max(1, Math.floor((availableHeight + GAP) / (cardHeight + GAP)));
   const rows = Math.max(minRows, Math.min(Math.max(squareRows, fullWidthRows), fittingRows));
   const perRow = Math.floor(count / rows);
   const extra = count % rows;

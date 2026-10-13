@@ -255,7 +255,7 @@ const STATUS_VISUALS: Record<
   interrupted: { dotClass: "bg-muted-foreground/60", label: "Stopped" },
 };
 
-function subagentStatusVisual(status: OrchestrationV2TurnItem["status"]) {
+export function subagentStatusVisual(status: OrchestrationV2TurnItem["status"]) {
   return STATUS_VISUALS[status];
 }
 
@@ -277,6 +277,17 @@ function plainDetail(text: string): string {
     .replace(/^[ \t]*[-*][ \t]+/gm, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/** A subagent's one activity line: progress while it works, its result once settled. */
+export function subagentDetail(
+  status: OrchestrationV2TurnItem["status"],
+  result: string | undefined,
+  progress: string | undefined,
+): string | null {
+  const settled = SETTLED_SUBAGENT_STATUSES.has(status);
+  const rawDetail = settled ? result || progress : progress || result;
+  return rawDetail && !GENERIC_CHILD_END.test(rawDetail) ? plainDetail(rawDetail) || null : null;
 }
 
 function isoOrNull(value: DateTime.Utc | null | undefined): string | null {
@@ -430,10 +441,7 @@ function SubagentTimelineLink(props: {
   const statusLabel = props.event?.label ?? subagentStatusVisual(liveStatus).label;
   const result = (agent?.result ?? props.result)?.trim();
   const progress = (agent?.progress ?? props.progress)?.trim();
-  const settled = SETTLED_SUBAGENT_STATUSES.has(status ?? liveStatus);
-  const rawDetail = settled ? result || progress : progress || result;
-  const detail =
-    rawDetail && !GENERIC_CHILD_END.test(rawDetail) ? plainDetail(rawDetail) || null : null;
+  const detail = subagentDetail(status ?? liveStatus, result, progress);
   const failed = status === "failed";
   const timing = {
     status: liveStatus,
@@ -532,7 +540,7 @@ function SubagentTimelineLink(props: {
   );
 }
 
-function SubagentTimelineTooltip(
+export function SubagentTimelineTooltip(
   props: Parameters<typeof SubagentTimelineLink>[0] & {
     model: string | null;
     modelSelection: OrchestrationV2Subagent["modelSelection"];

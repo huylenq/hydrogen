@@ -4,8 +4,15 @@ import {
   scopeThreadRef,
 } from "@t3tools/client-runtime/environment";
 import { presentPendingBackgroundWork } from "@t3tools/client-runtime/state/thread-execution";
-import type { OrchestrationV2PendingBackgroundTask, ScopedThreadRef } from "@t3tools/contracts";
+import {
+  isOrchestrationV2WorkActive,
+  type OrchestrationV2PendingBackgroundTask,
+  type ScopedThreadRef,
+  type ServerProvider,
+  type ThreadId,
+} from "@t3tools/contracts";
 import { shouldPreserveAssistantLineBreaks } from "@t3tools/shared/markdownPipeline";
+import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 import { memo, useLayoutEffect, useMemo, useRef } from "react";
 import { deriveTimelineEntriesFromVisibleTurnItems } from "../session-logic";
@@ -13,6 +20,7 @@ import { useTheme } from "../hooks/useTheme";
 import { useFlowStore } from "../flowStore";
 import { useEnvironments } from "../state/environments";
 import { useProject, useServerConfigs, useThreadVisibleTurnItems } from "../state/entities";
+import { environmentThreadDetails } from "../state/threads";
 import { getProviderInstanceEntry } from "../providerInstances";
 import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
 import { ToolActivityIconCtx, type WorkEntryIconName } from "./chat/MessagesTimeline";
@@ -30,11 +38,13 @@ import {
   type LiveStatus,
 } from "../customizations/huy/WorkEntryPreview";
 import { FlowSessionCheckoutStrip } from "../customizations/huy/FlowSessionCheckoutStrip";
+import { FlowSubagentFooter } from "../customizations/huy/FlowSubagentFooter";
 import { deriveMessagesTimelineRows } from "./chat/MessagesTimeline.logic";
 import ChatMarkdown from "./ChatMarkdown";
 import { cn } from "../lib/utils";
 
 const PREVIEW_MESSAGE_CHARS = 2000;
+const EMPTY_PROVIDERS: ReadonlyArray<ServerProvider> = [];
 
 // Matches the chat's icons for background-work notifications (`workEntryIconName`).
 const BACKGROUND_WORK_ICON = {
@@ -46,11 +56,23 @@ const BACKGROUND_WORK_ICON = {
 
 const THINKING_STATUS: LiveStatus = { label: "Thinking", iconName: "brain", sweeping: true };
 
-/** Work a finished turn left running, titled as in the chat's composer banner; only work that will wake the agent sweeps. */
+/**
+ * Work a finished turn left running, titled as in the chat's composer banner; only work that will
+ * wake the agent sweeps. Subagents the tile's footer lists are left out; one the footer can't show
+ * (its detail entry is missing or not yet loaded) stays here.
+ */
 function backgroundWorkStatus(
   tasks: ReadonlyArray<OrchestrationV2PendingBackgroundTask>,
+  footerThreadIds: ReadonlySet<ThreadId>,
 ): LiveStatus | null {
-  const work = presentPendingBackgroundWork(tasks);
+  const work = presentPendingBackgroundWork(
+    tasks.filter(
+      (task) =>
+        task.kind !== "subagent" ||
+        task.childThreadId === undefined ||
+        !footerThreadIds.has(task.childThreadId),
+    ),
+  );
   if (work === null) return null;
   return {
     label: work.title,
@@ -172,10 +194,22 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
         .slice(-3),
     };
   }, [visibleTurnItems, working, latestRun, runningRunId]);
+  const allSubagents = useAtomValue(
+    environmentThreadDetails.threadAtom(ref),
+    (detail) => detail?.projection.subagents,
+  );
+  const subagents = useMemo(
+    () => (allSubagents ?? []).filter((agent) => isOrchestrationV2WorkActive(agent.status)),
+    [allSubagents],
+  );
+  const footerThreadIds = useMemo(
+    () => new Set(subagents.flatMap((agent) => (agent.childThreadId ? [agent.childThreadId] : []))),
+    [subagents],
+  );
   const liveStatus = thinking
     ? THINKING_STATUS
     : status === "Monitoring"
-      ? backgroundWorkStatus(thread.pendingBackgroundTasks)
+      ? backgroundWorkStatus(thread.pendingBackgroundTasks, footerThreadIds)
       : null;
   const iconContext = useMemo(
     () => ({ activeThreadEnvironmentId: thread.environmentId, resolvedTheme }),
@@ -196,6 +230,12 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
     void navigate({
       to: "/$environmentId/$threadId",
       params: buildThreadRouteParams(ref),
+    });
+  };
+  const openSubagent = (threadId: ThreadId) => {
+    void navigate({
+      to: "/$environmentId/$threadId",
+      params: buildThreadRouteParams(scopeThreadRef(thread.environmentId, threadId)),
     });
   };
 
@@ -344,6 +384,14 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
         </div>
       </section>
       <FlowSessionCheckoutStrip thread={thread} />
+      {/* Below the fixed-height strip, so strips stay aligned across a grid row. */}
+      <FlowSubagentFooter
+        subagents={subagents}
+        parentRef={ref}
+        providers={providers ?? EMPTY_PROVIDERS}
+        onOpenThread={openSubagent}
+        onOpenSession={openSession}
+      />
     </div>
   );
 });

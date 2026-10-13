@@ -263,7 +263,17 @@ export function activateModalItem(): void {
   const { surface } = useModalKeyboardStore.getState();
   const active = document.activeElement;
   const target = modalSurfaceItems(surface).find((item) => item === active);
-  if (!target) return;
+  if (!target) {
+    // A control tabbed to inside the surface, such as a Flow tile's subagent line or PR link,
+    // keeps Enter as its click.
+    if (
+      active instanceof HTMLElement &&
+      active.matches("button, a[href]") &&
+      modalSurfaceRoot(surface)?.contains(active)
+    )
+      active.click();
+    return;
+  }
   const gridPreview =
     surface === "conversation" &&
     modalSurfaceRoot("conversation")?.dataset.modalGrid === "working-sessions";

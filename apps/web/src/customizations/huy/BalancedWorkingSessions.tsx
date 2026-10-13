@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactElement } from "react";
 
-import { workingSessionRowSizes } from "./flowGridLayout";
+import { FLOW_CARD_MIN_HEIGHT, workingSessionRowSizes } from "./flowGridLayout";
 
 // Room below the grid for the overview's snoozed row and its gap.
 const SNOOZED_ROW_RESERVE = 56;
@@ -10,6 +10,7 @@ export function WorkingSessionGrid({ children }: { children: ReactElement[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
+  const [cardHeight, setCardHeight] = useState(FLOW_CARD_MIN_HEIGHT);
   useLayoutEffect(() => {
     const container = containerRef.current;
     // The viewport, not the grid's own wrapper: that grows with the rows and would ratchet.
@@ -24,6 +25,15 @@ export function WorkingSessionGrid({ children }: { children: ReactElement[] }) {
           parseFloat(style.paddingBottom) -
           SNOOZED_ROW_RESERVE,
       );
+      // Subagent lines grow a card past the base height. Card height doesn't depend on width, so
+      // fitting rows to the tallest one can't oscillate.
+      const cards = container.querySelectorAll<HTMLElement>(":scope > div > *");
+      setCardHeight(
+        Math.max(
+          FLOW_CARD_MIN_HEIGHT,
+          ...Array.from(cards, (card) => card.getBoundingClientRect().height),
+        ),
+      );
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -32,7 +42,7 @@ export function WorkingSessionGrid({ children }: { children: ReactElement[] }) {
     return () => observer.disconnect();
   }, []);
 
-  const sizes = workingSessionRowSizes(children.length, width, height);
+  const sizes = workingSessionRowSizes(children.length, width, height, cardHeight);
   const columns = sizes[0] ?? 1;
   const cardWidth = Math.max(0, Math.min(512, (width - (columns - 1) * 16) / columns));
   return (

@@ -14,7 +14,8 @@ import {
 import { MiddleTruncate } from "../../components/ui/middle-truncate";
 import { stackedThreadToast, toastManager } from "../../components/ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../../components/ui/tooltip";
-import { FLOW_CHECKOUT_STRIP_HEIGHT } from "./flowGridLayout";
+import { cn } from "../../lib/utils";
+import { FLOW_CHECKOUT_STRIP_HEIGHT, FLOW_FOOTER_LINE_CLASS } from "./flowGridLayout";
 
 /**
  * The caption under a Flow overview tile: the thread's branch (with a worktree marker when it
@@ -41,7 +42,7 @@ export const FlowSessionCheckoutStrip = memo(function FlowSessionCheckoutStrip({
   return (
     <div
       ref={rowRef}
-      className="flex min-w-0 items-center gap-3 px-1 text-xs text-muted-foreground"
+      className={cn(FLOW_FOOTER_LINE_CLASS, "gap-3")}
       style={{ height: FLOW_CHECKOUT_STRIP_HEIGHT }}
     >
       {thread.branch ? (

@@ -17,6 +17,12 @@ describe("workingSessionRowSizes", () => {
     expect(workingSessionRowSizes(9, 3000, 2000)).toEqual([3, 3, 3]);
   });
 
+  it("fits rows to cards grown by subagent lines", () => {
+    expect(workingSessionRowSizes(4, 1500, 900)).toEqual([2, 2]);
+    // Three subagent lines and "+N more" add 92px to a card.
+    expect(workingSessionRowSizes(4, 1500, 900, 502)).toEqual([4]);
+  });
+
   it("widens the grid before adding rows that would scroll", () => {
     expect(workingSessionRowSizes(5, 2000, 835)).toEqual([5]);
     expect(workingSessionRowSizes(5, 2000, 836)).toEqual([3, 2]);

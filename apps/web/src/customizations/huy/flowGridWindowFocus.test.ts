@@ -68,6 +68,17 @@ it("activates a grid preview into the conversation without requesting the sideba
   expect(useModalKeyboardStore.getState().focusRequest).toBe("conversation");
 });
 
+it("lets a control tabbed to under a card keep Enter as its click", () => {
+  const footerLine = document.createElement("button");
+  grid.append(footerLine);
+  const open = vi.fn();
+  footerLine.addEventListener("click", open);
+  footerLine.focus();
+
+  activateModalItem();
+  expect(open).toHaveBeenCalledOnce();
+});
+
 it("uses the bookmark when the selected card disappears while away", () => {
   window.dispatchEvent(new Event("blur"));
   cards[1]!.remove();
