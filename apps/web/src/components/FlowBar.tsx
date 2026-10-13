@@ -9,6 +9,7 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { useParams, useRouter } from "@tanstack/react-router";
@@ -31,7 +32,12 @@ import { useComposerDraftStore } from "../composerDraftStore";
 import { returnToFlowOverview } from "../customizations/huy/flowSessionInspection";
 import { formatRelativeTimeLabel } from "../timestampFormat";
 import { cn } from "../lib/utils";
+import { observeResize } from "../lib/observeResize";
 import {
+  FLOW_BENCH_COLUMN_GAP,
+  FLOW_BENCH_COLUMN_WIDTH,
+  flowBenchCapacity,
+  flowBenchRequestedWidth,
   flowNavigationTarget,
   flowThreadKey,
   isFlowSessionInspection,
@@ -160,6 +166,27 @@ export function FlowBar() {
     }
   });
 
+  const [benchElement, setBenchElement] = useState<HTMLElement | null>(null);
+  const [benchWidth, setBenchWidth] = useState<number | null>(null);
+  useEffect(() => {
+    if (!benchElement) return;
+    return observeResize(benchElement, (entries) => {
+      const entry = entries.at(-1);
+      if (entry) setBenchWidth(entry.contentRect.width);
+    });
+  }, [benchElement]);
+  const benchCapacity = flowBenchCapacity(
+    model.bench.length,
+    benchWidth ?? flowBenchRequestedWidth(model.bench.length),
+  );
+
+  // Same as `w g`, but never closes the overview: the bar stays mounted while it transitions in.
+  const openOverview = () => {
+    const flow = useFlowStore.getState();
+    if (!flow.overviewOpen) flow.toggleOverview();
+    requestModalFocus("conversation");
+  };
+
   const moveCardFocus = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     const cards = Array.from(
@@ -264,17 +291,26 @@ export function FlowBar() {
 
       {model.bench.length > 0 ? (
         <aside
+          ref={setBenchElement}
           aria-label="Working sessions"
           className={cn(
-            "ml-auto w-max min-w-0 pl-3",
+            "ml-auto min-w-0 overflow-hidden",
             model.attention.length > 0 ? "max-w-[50%]" : "max-w-full",
           )}
+          style={{ width: flowBenchRequestedWidth(model.bench.length) }}
         >
-          <div className="pointer-events-auto [-webkit-app-region:no-drag] grid h-full auto-cols-[2rem] grid-flow-col grid-rows-1 items-center gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {model.bench.map((entry) => {
+          <div
+            className="pointer-events-auto [-webkit-app-region:no-drag] grid h-full grid-flow-col grid-rows-3 content-center justify-end gap-y-0.5"
+            style={{
+              gridAutoColumns: `minmax(0, ${FLOW_BENCH_COLUMN_WIDTH}px)`,
+              columnGap: FLOW_BENCH_COLUMN_GAP,
+            }}
+          >
+            {model.bench.slice(0, benchCapacity.shown).map((entry) => {
               const threadKey = scopedThreadKey(
                 scopeThreadRef(entry.thread.environmentId, entry.thread.id),
               );
+              const isActive = threadKey === activeThreadKey;
               const project = projectByKey.get(projectKey(entry.thread));
               const projectTitle = project?.title ?? "Unknown project";
               const environmentLabel = environmentLabelById.get(entry.thread.environmentId);
@@ -287,22 +323,23 @@ export function FlowBar() {
                   <TooltipTrigger
                     render={<button />}
                     type="button"
-                    aria-current={threadKey === activeThreadKey ? "page" : undefined}
+                    aria-current={isActive ? "page" : undefined}
                     aria-label={`${entry.thread.title} · ${context}`}
                     data-flow-card=""
                     data-modal-key={threadKey}
                     className={cn(
-                      "flex size-8 items-center justify-center rounded-md border border-transparent outline-hidden hover:bg-background/65 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                      threadKey === activeThreadKey &&
-                        "border-primary/50 bg-accent/75 hover:bg-accent/85",
+                      "flex h-5 min-w-0 items-center gap-1.5 rounded-sm border border-transparent px-1.5 text-left text-2xs text-muted-foreground outline-hidden hover:bg-background/65 hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                      isActive &&
+                        "border-primary/50 bg-accent/75 text-foreground hover:bg-accent/85",
                     )}
                     onClick={() => navigateToThread(entry.thread)}
                   >
                     {project ? (
-                      <ProjectFavicon project={project} className="size-4 shrink-0" />
+                      <ProjectFavicon project={project} className="size-3.5 shrink-0" />
                     ) : (
-                      <FolderCodeIcon className="size-4 text-muted-foreground" aria-hidden />
+                      <FolderCodeIcon className="size-3.5 shrink-0" aria-hidden />
                     )}
+                    <span className="truncate">{entry.thread.title}</span>
                   </TooltipTrigger>
                   <TooltipPopup side="bottom">
                     {entry.thread.title} · {context}
@@ -310,6 +347,17 @@ export function FlowBar() {
                 </Tooltip>
               );
             })}
+            {benchCapacity.hidden > 0 ? (
+              <button
+                type="button"
+                data-flow-card=""
+                data-modal-key="flow-bench-more"
+                className="h-5 min-w-0 truncate rounded-sm px-1.5 text-left leading-5 text-2xs text-muted-foreground outline-hidden hover:bg-background/65 hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                onClick={openOverview}
+              >
+                +{benchCapacity.hidden} more
+              </button>
+            ) : null}
           </div>
         </aside>
       ) : null}

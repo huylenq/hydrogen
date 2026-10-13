@@ -4,6 +4,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   deriveFlow,
+  flowBenchCapacity,
+  flowBenchRequestedWidth,
   flowAttentionTarget,
   isFlowSessionInspection,
   flowNavigationEntries,
@@ -438,5 +440,21 @@ describe("held Flow overview", () => {
     expect(isFlowOverviewAvailable(model, true)).toBe(true);
     expect(flowAttentionTarget(model, null, null, true)).toBeNull();
     expect(flowAttentionTarget(model, keyFor("working"), null, true)).toBeNull();
+  });
+});
+
+describe("flowBenchCapacity", () => {
+  it("shows every session when the requested width fits", () => {
+    expect(flowBenchCapacity(5, flowBenchRequestedWidth(5))).toEqual({ shown: 5, hidden: 0 });
+    expect(flowBenchCapacity(3, flowBenchRequestedWidth(3))).toEqual({ shown: 3, hidden: 0 });
+  });
+
+  it("turns the last cell into an overflow count when the bench is capped", () => {
+    // Two columns fit: five chips and "+3 more" for the remaining sessions.
+    expect(flowBenchCapacity(8, flowBenchRequestedWidth(5))).toEqual({ shown: 5, hidden: 3 });
+  });
+
+  it("keeps one column even when the bench is squeezed below it", () => {
+    expect(flowBenchCapacity(4, 40)).toEqual({ shown: 2, hidden: 2 });
   });
 });

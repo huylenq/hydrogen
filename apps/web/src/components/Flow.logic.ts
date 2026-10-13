@@ -244,3 +244,30 @@ export function shouldControlFlowRoute({
 }) {
   return open && bootstrapped && chatRoute && !draftRoute;
 }
+
+export const FLOW_BENCH_ROWS = 3;
+export const FLOW_BENCH_COLUMN_WIDTH = 160;
+export const FLOW_BENCH_COLUMN_GAP = 4;
+
+/** Width the bench asks for so every session gets a cell; the Flow bar may cap it. */
+export function flowBenchRequestedWidth(count: number): number {
+  const columns = Math.ceil(count / FLOW_BENCH_ROWS);
+  return columns * FLOW_BENCH_COLUMN_WIDTH + Math.max(0, columns - 1) * FLOW_BENCH_COLUMN_GAP;
+}
+
+/**
+ * How many working sessions get a chip in the bench's column-major grid at the
+ * given width. When they don't all fit, the last cell becomes "+N more".
+ */
+export function flowBenchCapacity(
+  count: number,
+  width: number,
+): { readonly shown: number; readonly hidden: number } {
+  const columns = Math.max(
+    1,
+    Math.floor((width + FLOW_BENCH_COLUMN_GAP) / (FLOW_BENCH_COLUMN_WIDTH + FLOW_BENCH_COLUMN_GAP)),
+  );
+  const cells = columns * FLOW_BENCH_ROWS;
+  if (count <= cells) return { shown: count, hidden: 0 };
+  return { shown: cells - 1, hidden: count - (cells - 1) };
+}
