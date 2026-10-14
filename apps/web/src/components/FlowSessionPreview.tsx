@@ -221,7 +221,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
     if (followLatest.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-    // The live status row can appear without new turn items.
+    // A live status row can resize the reply viewport without new turn items.
   }, [visibleTurnItems, liveStatus?.label]);
 
   const flowCardPeer = entry.kind === "attention" ? "" : undefined;
@@ -332,7 +332,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
               followLatest.current =
                 element.scrollHeight - element.scrollTop - element.clientHeight < 32;
             }}
-            // Fills the remaining height so growing replies never move the prompt.
+            // Fills the height between the pinned prompt and tool stack.
             // Replies vanish beneath its shadow; the padding is the gap at rest.
             className={cn(
               "min-h-0 flex-1 overflow-y-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
@@ -352,26 +352,6 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
                 />
               </div>
             ))}
-            {activities.length > 0 || liveStatus ? (
-              <ToolActivityIconCtx value={iconContext}>
-                <ul className="space-y-0.5 border-t border-border/50 pt-2">
-                  {activities.map((activity) => (
-                    <li key={activity.id}>
-                      <WorkEntryPreview
-                        entry={activity}
-                        workspaceRoot={thread.worktreePath ?? project?.workspaceRoot}
-                        active={activity.id === liveToolId}
-                      />
-                    </li>
-                  ))}
-                  {liveStatus ? (
-                    <li>
-                      <LiveStatusPreview {...liveStatus} />
-                    </li>
-                  ) : null}
-                </ul>
-              </ToolActivityIconCtx>
-            ) : null}
             {!prompt && messages.length === 0 && activities.length === 0 && !liveStatus ? (
               <p className="text-xs text-muted-foreground">
                 {disconnected
@@ -382,6 +362,26 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
               </p>
             ) : null}
           </div>
+          {activities.length > 0 || liveStatus ? (
+            <ToolActivityIconCtx value={iconContext}>
+              <ul className="mt-3 shrink-0 space-y-0.5 border-t border-border/50 pt-2">
+                {activities.map((activity) => (
+                  <li key={activity.id}>
+                    <WorkEntryPreview
+                      entry={activity}
+                      workspaceRoot={thread.worktreePath ?? project?.workspaceRoot}
+                      active={activity.id === liveToolId}
+                    />
+                  </li>
+                ))}
+                {liveStatus ? (
+                  <li>
+                    <LiveStatusPreview {...liveStatus} />
+                  </li>
+                ) : null}
+              </ul>
+            </ToolActivityIconCtx>
+          ) : null}
         </div>
       </section>
       <FlowSubagentFooter
