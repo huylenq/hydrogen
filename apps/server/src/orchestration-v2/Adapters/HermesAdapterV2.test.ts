@@ -49,6 +49,7 @@ const setup = Effect.fn("setupHermesAdapterTest")(function* (
   const cli = yield* writeHermesMockCli(environment);
   const turnResults: Array<boolean> = [];
   const startedModels: Array<string | undefined> = [];
+  const advertisedCommands: Array<string> = [];
   const adapter = yield* makeHermesAdapterV2({
     instanceId,
     settings: yield* decodeHermesSettings({
@@ -65,11 +66,16 @@ const setup = Effect.fn("setupHermesAdapterTest")(function* (
       Effect.sync(() => {
         turnResults.push(succeeded);
       }),
+    onAvailableCommands: (commands) =>
+      Effect.sync(() => {
+        advertisedCommands.push(...commands.map((command) => command.name));
+      }),
   });
   return {
     ...cli,
     turnResults,
     startedModels,
+    advertisedCommands,
     open: (modelSelection: ModelSelection, initialNativeThreadId?: string) =>
       openHermesSession(adapter, modelSelection, initialNativeThreadId),
   };
@@ -223,6 +229,32 @@ describe("HermesAdapterV2", () => {
         });
       }
       assert.deepEqual(turnResults, [false, false, true]);
+    }).pipe(Effect.scoped, Effect.provide(testLayer)),
+  );
+
+  it.live("publishes advertised commands and sends T3 slash names as Hermes commands", () =>
+    Effect.gen(function* () {
+      const { open, requests, advertisedCommands } = yield* setup();
+      const modelSelection = selection([]);
+      const { session, threadId, events, providerThread } = yield* open(modelSelection);
+      for (const [index, text] of ["/compact", "/model-hermes local:other"].entries()) {
+        yield* runHermesTurn({
+          session,
+          events,
+          threadId,
+          providerThread,
+          text,
+          ordinal: index + 1,
+          modelSelection,
+        });
+      }
+      assert.deepEqual(advertisedCommands, ["model", "compress"]);
+      const prompts = (yield* requests).flatMap((request) =>
+        request.method === "session/prompt"
+          ? [(request.params as { prompt: Array<{ text: string }> }).prompt[0]!.text]
+          : [],
+      );
+      assert.deepEqual(prompts, ["/compress", "/model local:other"]);
     }).pipe(Effect.scoped, Effect.provide(testLayer)),
   );
 

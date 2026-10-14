@@ -103,6 +103,13 @@ NodeReadline.createInterface({ input: process.stdin }).on("line", (line) => {
       const sid = `hermes-${profile}-${process.pid}-${++counter}`;
       sessions.set(sid, {});
       reply(id, { sessionId: sid, models, modes, configOptions });
+      update(sid, {
+        sessionUpdate: "available_commands_update",
+        availableCommands: [
+          { name: "model", description: "Switch models", input: { hint: "model name" } },
+          { name: "compress", description: "Compress conversation context" },
+        ],
+      });
       break;
     }
     case "session/load":

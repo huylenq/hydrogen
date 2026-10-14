@@ -8,6 +8,7 @@ import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import type { SelfInvocation } from "@t3tools/shared/nodeRuntime";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import type * as EffectAcpSchema from "effect-acp/compat";
 import * as EffectAcpErrors from "effect-acp/errors";
 
 import type * as AcpSessionRuntime from "@t3tools/provider-acp/server/AcpSessionRuntime";
@@ -26,6 +27,7 @@ import {
   type ProviderSelectionTransitionPlan,
 } from "@t3tools/provider-core/server/selectionTransition";
 import { isHermesProfileName, selectedHermesProfile } from "../../provider/HermesProfiles.ts";
+import { hermesNativePrompt } from "../../provider/HermesSlashCommands.ts";
 import {
   applyHermesModelSelection,
   hermesApprovalOptions,
@@ -68,6 +70,10 @@ export interface HermesAdapterV2Options {
   ) => Effect.Effect<void>;
   /** Whether a prompt confirmed backend access; slash commands and cancels report nothing. */
   readonly onTurnResult?: (succeeded: boolean) => Effect.Effect<void>;
+  /** Receives the slash commands each session advertises. */
+  readonly onAvailableCommands?: (
+    commands: ReadonlyArray<EffectAcpSchema.AvailableCommand>,
+  ) => Effect.Effect<void>;
 }
 
 /** Hermes edit-approval modes; Auto asks like Supervised. */
@@ -101,6 +107,22 @@ export function hermesSelectionTransition(
     },
   });
 }
+
+/** Hermes reads slash commands only from the start of the first prompt block. */
+const withNativeSlashCommands = (
+  runtime: AcpSessionRuntime.AcpSessionRuntime["Service"],
+): AcpSessionRuntime.AcpSessionRuntime["Service"] => ({
+  ...runtime,
+  prompt: (payload, options) => {
+    const [first, ...rest] = payload.prompt;
+    return runtime.prompt(
+      first?.type === "text"
+        ? { ...payload, prompt: [{ ...first, text: hermesNativePrompt(first.text) }, ...rest] }
+        : payload,
+      options,
+    );
+  },
+});
 
 /** Native slash commands and cancelled prompts say nothing about backend access. */
 const observeTurnResults = (
@@ -136,9 +158,12 @@ export function makeHermesAcpAdapterFlavor(
       environment: { ...options.environment, ...processEnvironment },
     });
     const onTurnResult = options.onTurnResult;
-    return onTurnResult === undefined
-      ? runtime
-      : runtime.pipe(Effect.map((created) => observeTurnResults(created, onTurnResult)));
+    return runtime.pipe(
+      Effect.map((created) => {
+        const native = withNativeSlashCommands(created);
+        return onTurnResult === undefined ? native : observeTurnResults(native, onTurnResult);
+      }),
+    );
   };
   return {
     driver: HERMES_PROVIDER,
@@ -146,6 +171,9 @@ export function makeHermesAcpAdapterFlavor(
     capabilities: HermesProviderCapabilitiesV2,
     supportsCompaction: true,
     makeRuntime,
+    ...(options.onAvailableCommands === undefined
+      ? {}
+      : { onAvailableCommandsUpdate: options.onAvailableCommands }),
     applyModelSelection: ({ runtime, startResult, modelSelection }) =>
       applyHermesModelSelection({
         runtime,

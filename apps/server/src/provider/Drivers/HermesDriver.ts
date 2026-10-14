@@ -1,5 +1,6 @@
 import { discoverHermesProfiles, withHermesProfiles } from "../HermesProfiles.ts";
 import { hermesModelLabel } from "../HermesModelLabels.ts";
+import { HERMES_COMPACT_COMMAND, hermesSlashCommands } from "../HermesSlashCommands.ts";
 import {
   HERMES_DEFAULT_MODEL,
   HermesSettings,
@@ -21,6 +22,7 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as SubscriptionRef from "effect/SubscriptionRef";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+import type * as EffectAcpSchema from "effect-acp/compat";
 import type { AcpSessionRuntimeStartResult } from "@t3tools/provider-acp/server/AcpSessionRuntime";
 import { makeAcpNativeLoggerFactory } from "@t3tools/provider-acp/server/nativeLogging";
 import type { ProviderDriver, ProviderInstance } from "@t3tools/provider-core/server/driver";
@@ -166,12 +168,7 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
               supportsConversationRollback: false,
             },
             models: modelsWithProfiles(defaultModels),
-            slashCommands: [
-              {
-                name: "compact",
-                description: "Summarize the conversation and reduce context usage",
-              },
-            ],
+            slashCommands: [HERMES_COMPACT_COMMAND],
             probe: {
               installed: false,
               version: null,
@@ -222,6 +219,11 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
           };
         });
       });
+      const onAvailableCommands = (commands: ReadonlyArray<EffectAcpSchema.AvailableCommand>) =>
+        SubscriptionRef.update(metadata, (snapshot) => ({
+          ...snapshot,
+          slashCommands: hermesSlashCommands(commands),
+        }));
       const checkProvider = Effect.gen(function* () {
         if (!enabled) return yield* SubscriptionRef.get(metadata);
         profiles = yield* discoverProfiles;
@@ -302,6 +304,7 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
         nativeLogging: (threadId) =>
           makeNativeLogger({ nativeEventLogger: loggers.native, provider: DRIVER, threadId }),
         onSessionStarted,
+        onAvailableCommands,
         onTurnResult: (succeeded) =>
           SubscriptionRef.update(metadata, (snapshot): ServerProvider => {
             const { message: _message, ...rest } = snapshot;
@@ -343,7 +346,9 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
             Stream.runForEach((event) =>
               event._tag === "EventStreamBarrier"
                 ? Deferred.succeed(event.acknowledge, undefined)
-                : Effect.void,
+                : event._tag === "AvailableCommandsUpdated"
+                  ? onAvailableCommands(event.availableCommands)
+                  : Effect.void,
             ),
             Effect.forkScoped,
           );

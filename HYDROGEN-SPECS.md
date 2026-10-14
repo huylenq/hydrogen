@@ -99,6 +99,7 @@ Hermes is a selectable ACP provider with settings, icon, model discovery/switchi
 - Agent profile is chosen per conversation (always explicit, defaulting to `default`; no "automatic"), preserved through drafts, sends, and resume on all clients. Switching profiles starts a fresh session (seeded with upstream's thread-summary handoff); never load another profile's session.
 - Reasoning effort is session-scoped, applied before the next prompt, survives resume, never writes profile config, and errors clearly on Hermes versions that can't honor it.
 - Each instance's Hermes home isolates its config, credentials, memory, and skills. Report capabilities honestly.
+- The composer's slash menu lists the commands Hermes advertises over ACP (`available_commands_update`). A Hermes command whose name the composer already owns (`model`, `plan`, `default`, `compact`, `usage-limits`) appears as `/<name>-hermes` and reaches Hermes as `/<name>`. T3's `/compact` runs Hermes's `/compress`, since Hermes's ACP adapter doesn't know the CLI's `compact` alias. Mapping: `apps/server/src/provider/HermesSlashCommands.ts`.
 
 ## Lexicon prompt display
 
