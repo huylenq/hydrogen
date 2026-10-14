@@ -24,6 +24,7 @@ export interface ModalCommandContext {
   previousSurface: ModalSurface | null;
   workingSessionGrid: boolean;
   readingLamp: boolean;
+  sessionTarget?: { title: string; important: boolean } | null;
 }
 
 /** One description drives help, dispatch guards, and unavailable-command feedback. */
@@ -104,6 +105,17 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
       if (thread && (!thread.isServer || !thread.canSettle))
         reason = "Settlement is unavailable for this thread";
     }
+  }
+  if (command === "thread.important") {
+    const session = context.sessionTarget;
+    target = session?.title ?? null;
+    label = session?.important ? "Remove important flag" : "Flag session as important";
+    reason = session ? null : "Focus a Flow session or open a thread first";
+  }
+  if (command === "thread.snooze" && context.sessionTarget) {
+    target = context.sessionTarget.title;
+    label = "Snooze / wake session";
+    reason = null;
   }
   const reading = context.surface === "conversation" && thread !== null;
   if (

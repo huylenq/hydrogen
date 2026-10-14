@@ -31,6 +31,42 @@ const context: ModalCommandContext = {
 };
 
 describe("context-aware modal commands", () => {
+  it("allows flagging a focused preview without an open conversation and names the reverse action", () => {
+    const preview = {
+      ...context,
+      thread: null,
+      workingSessionGrid: true,
+      sessionTarget: { title: "Focused session", important: false },
+    };
+    expect(describeModalCommand("thread.important", preview)).toEqual({
+      label: "Flag session as important",
+      reason: null,
+      target: "Focused session",
+    });
+    expect(
+      describeModalCommand("thread.important", {
+        ...preview,
+        sessionTarget: { title: "Focused session", important: true },
+      }).label,
+    ).toBe("Remove important flag");
+    expect(describeModalCommand("thread.important", context).reason).toBe(
+      "Focus a Flow session or open a thread first",
+    );
+  });
+
+  it("allows snoozing a focused Flow session without an open chat and names that target", () => {
+    expect(
+      describeModalCommand("thread.snooze", {
+        ...context,
+        thread: null,
+        workingSessionGrid: true,
+        sessionTarget: { title: "Focused session", important: false },
+      }),
+    ).toEqual({ label: "Snooze / wake session", reason: null, target: "Focused session" });
+    expect(describeModalCommand("thread.snooze", { ...context, thread: null }).reason).toBe(
+      "Open a thread first",
+    );
+  });
   it("allows focusing main content before a thread is open", () => {
     for (const command of ["focus.conversation", "focus.flow", "flow.toggle"] as const) {
       expect(describeModalCommand(command, { ...context, thread: null }).reason).toBeNull();

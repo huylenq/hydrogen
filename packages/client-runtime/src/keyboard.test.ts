@@ -101,6 +101,7 @@ describe("modal keyboard sequences", () => {
       ["w", "m", "rightPanel.toggleMaximized"],
       ["t", "p", "thread.pin"],
       ["t", "s", "thread.settle"],
+      ["t", "f", "thread.important"],
       ["g", "k", "git.commit"],
       ["f", "f", "filePicker.toggle"],
       ["f", "s", "projectSearch.toggle"],

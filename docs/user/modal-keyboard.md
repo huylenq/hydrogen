@@ -92,6 +92,8 @@ whole sequence without waiting. There is no typing deadline.
 | `w l`     | Focus the area to the right, toward the right panel                              |
 | `t p`     | Pin or unpin the open thread                                                     |
 | `t s`     | Settle or unsettle the open thread                                               |
+| `t f`     | Flag or unflag a session as important                                            |
+| `s`       | Snooze the focused Flow session or open thread; wake it if already snoozed       |
 | `f f`     | Find a file in the active project                                                |
 | `f s`     | Search the active project's file contents                                        |
 | `g k`     | Commit changes                                                                   |
@@ -100,6 +102,23 @@ whole sequence without waiting. There is no typing deadline.
 `g k` commits changes.
 For example, `q` opens Flow and focuses its bar when visible; the Flow overview keeps the bar hidden.
 `F` or `w q` toggles Flow mode.
+
+Press `t f` on a focused Flow card or preview to mark that session as important. In a
+conversation, it marks the open thread. Repeat to remove the flag. Important sessions
+have gold borders, backgrounds, and titles in the Flow bar and preview grid, including
+snoozed chips. Flags persist on this client across reloads and are separate for each
+environment. The existing `f f` and `f s` find shortcuts keep working.
+
+Important sessions lead the waiting queue and working previews. Within each priority,
+waiting sessions stay oldest first and working previews stay newest-created first.
+After a successful action, Flow advances to an important session needing attention
+before ordinary waiting sessions. Flagging and unflagging update the order while
+keeping keyboard focus on the same session; background activity never switches threads.
+
+Press `s` on a Flow preview or bar card to snooze that session without opening it.
+Enter a duration such as `15m` or `2h`, then press Enter; Escape cancels.
+On a snoozed chip, `s` wakes the session. Pending approvals, questions, and queued turns
+keep their existing snooze restrictions.
 
 The commit dialog opens on its file list. `j`/`k` move between files, `Space` includes or excludes a file, `Enter` opens it in your editor, and `i` moves to the message. `Esc` in the message returns to the list, and `Cmd+Enter` (`Ctrl+Enter` off macOS) commits.
 

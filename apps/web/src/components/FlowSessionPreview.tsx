@@ -42,6 +42,11 @@ import { FlowSubagentFooter } from "../customizations/huy/FlowSubagentFooter";
 import { deriveMessagesTimelineRows } from "./chat/MessagesTimeline.logic";
 import ChatMarkdown from "./ChatMarkdown";
 import { cn } from "../lib/utils";
+import {
+  IMPORTANT_SESSION_SURFACE_CLASS,
+  IMPORTANT_SESSION_TITLE_CLASS,
+  useSessionImportanceStore,
+} from "../customizations/huy/sessionImportance";
 
 const PREVIEW_MESSAGE_CHARS = 2000;
 const EMPTY_PROVIDERS: ReadonlyArray<ServerProvider> = [];
@@ -129,6 +134,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
     () => scopeThreadRef(thread.environmentId, thread.id),
     [thread.environmentId, thread.id],
   );
+  const important = useSessionImportanceStore((state) => state.keys.has(scopedThreadKey(ref)));
   // Each tile uses the existing environment-scoped, live detail subscription.
   const visibleTurnItems = useThreadVisibleTurnItems(ref);
   const project = useProject(scopeProjectRef(thread.environmentId, thread.projectId));
@@ -241,14 +247,18 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
 
   return (
     // Checkout metadata heads the tile; subagents stay below, both outside its click target.
-    <div className="flex w-full min-w-0 max-w-lg flex-col gap-1">
+    <div
+      className="flex w-full min-w-0 max-w-lg flex-col gap-1"
+      data-flow-session-key={scopedThreadKey(ref)}
+      data-flow-session-name={thread.title}
+    >
       <FlowSessionCheckoutStrip thread={thread} />
       <section
         role="button"
         tabIndex={0}
         data-modal-item=""
         data-modal-key={scopedThreadKey(ref)}
-        aria-label={`Open ${thread.title}`}
+        aria-label={`Open ${thread.title}${important ? " · Important" : ""}`}
         onClick={(event) => {
           if (window.getSelection()?.isCollapsed === false) return;
           // Markdown links and code-block controls keep their own action.
@@ -262,7 +272,10 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
           event.stopPropagation();
           openSession();
         }}
-        className="flex h-96 w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-card/40 outline-hidden hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          "flex h-96 w-full min-w-0 cursor-pointer flex-col overflow-hidden rounded-xl border border-border bg-card/40 outline-hidden hover:border-primary/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+          important && IMPORTANT_SESSION_SURFACE_CLASS,
+        )}
       >
         <header className="flex items-center gap-2.5 border-b border-border/60 px-4 py-3">
           {/* Waiting sessions have a Flow bar card; their favicon and title morph into it
@@ -276,7 +289,10 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
             <div className="flex min-w-0 items-baseline gap-2">
               <h2
                 data-flow-session-title={flowCardPeer}
-                className="min-w-0 flex-1 truncate text-sm font-medium"
+                className={cn(
+                  "min-w-0 flex-1 truncate text-sm font-medium",
+                  important && IMPORTANT_SESSION_TITLE_CLASS,
+                )}
               >
                 {thread.title}
               </h2>

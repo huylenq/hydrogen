@@ -97,6 +97,34 @@ describe("nextFlowThread", () => {
   const key = (id: string) => scopedThreadKey(scopeThreadRef(ENVIRONMENT_ID, ThreadId.make(id)));
   const connected = new Set([ENVIRONMENT_ID]);
 
+  it("advances to important waiting sessions first while respecting eligibility", () => {
+    const remote = EnvironmentId.make("remote");
+    const model = deriveFlow(
+      [
+        thread("current"),
+        thread("ordinary"),
+        thread("priority", { updatedAt: "2026-09-04T11:00:00.000Z" }),
+        thread("disconnected", { environmentId: remote }),
+        thread("working", working),
+        thread("snoozed", { snoozedAt: NOW, snoozedUntil: "2026-09-05T12:00:00.000Z" }),
+      ],
+      {
+        now: NOW,
+        importantThreadKeys: new Set([
+          key("current"),
+          key("priority"),
+          key("working"),
+          key("snoozed"),
+          scopedThreadKey(scopeThreadRef(remote, ThreadId.make("disconnected"))),
+        ]),
+      },
+    );
+    expect(nextFlowThread(model, key("current"), connected)?.id).toBe("priority");
+    expect(nextFlowThread(model, key("current"), connected, new Set([key("priority")]))?.id).toBe(
+      "ordinary",
+    );
+  });
+
   it("picks the oldest waiting thread, not the next card after the current one", () => {
     const model = deriveFlow(
       [
@@ -146,6 +174,80 @@ describe("nextFlowThread", () => {
 });
 
 describe("deriveFlow", () => {
+  it("places important waiting sessions first, oldest first within each priority", () => {
+    const model = deriveFlow(
+      [
+        thread("ordinary-new", { updatedAt: "2026-09-04T09:00:00.000Z" }),
+        thread("important-new", { updatedAt: "2026-09-04T11:00:00.000Z" }),
+        thread("ordinary-old"),
+        thread("important-old", { updatedAt: "2026-09-04T10:00:00.000Z" }),
+      ],
+      {
+        now: NOW,
+        importantThreadKeys: new Set([keyFor("important-new"), keyFor("important-old")]),
+      },
+    );
+    expect(model.attention.map((entry) => entry.thread.id)).toEqual([
+      "important-old",
+      "important-new",
+      "ordinary-old",
+      "ordinary-new",
+    ]);
+    // Entry and navigation use the same priority queue as the bar and its numbered shortcuts.
+    expect(flowAttentionTarget(model, null)?.id).toBe("important-old");
+    expect(flowAttentionTarget(model, keyFor("ordinary-old"))).toBeNull();
+    expect(flowNavigationEntries(model).map((entry) => entry.thread.id)).toEqual([
+      "important-old",
+      "important-new",
+      "ordinary-old",
+      "ordinary-new",
+    ]);
+  });
+
+  it("keeps important working previews first and stable through activity, then restores ordinary order when unflagged", () => {
+    const threads = [
+      thread("ordinary-new", { ...working, createdAt: "2026-09-04T11:00:00.000Z" }),
+      thread("important-old", { ...working, createdAt: "2026-09-04T08:00:00.000Z" }),
+      thread("ordinary-old", { ...working, createdAt: "2026-09-04T09:00:00.000Z" }),
+      thread("important-new", { ...working, createdAt: "2026-09-04T10:00:00.000Z" }),
+    ];
+    const options = {
+      now: NOW,
+      importantThreadKeys: new Set([keyFor("important-old"), keyFor("important-new")]),
+    };
+    const initial = deriveFlow(threads, options);
+    const changed = deriveFlow(
+      threads.toReversed().map((entry, index) => ({
+        ...entry,
+        runtime: { ...entry.runtime!, updatedAt: `2026-09-04T12:0${index}:00.000Z` },
+      })),
+      options,
+    );
+    const expected = ["important-new", "important-old", "ordinary-new", "ordinary-old"];
+    expect(initial.bench.map((entry) => entry.thread.id)).toEqual(expected);
+    expect(changed.bench.map((entry) => entry.thread.id)).toEqual(expected);
+    expect(flowNavigationEntries(changed).map((entry) => entry.thread.id)).toEqual(expected);
+    expect(
+      deriveFlow(threads, { now: NOW, importantThreadKeys: new Set() }).bench.map(
+        (entry) => entry.thread.id,
+      ),
+    ).toEqual(["ordinary-new", "important-new", "ordinary-old", "important-old"]);
+  });
+
+  it("scopes priority to the flagged environment when thread IDs match", () => {
+    const model = deriveFlow(
+      [
+        thread("same", { environmentId: EnvironmentId.make("remote") }),
+        thread("same", { updatedAt: "2026-09-04T11:00:00.000Z" }),
+      ],
+      { now: NOW, importantThreadKeys: new Set([keyFor("same")]) },
+    );
+    expect(model.attention.map((entry) => entry.thread.environmentId)).toEqual([
+      ENVIRONMENT_ID,
+      "remote",
+    ]);
+  });
+
   it("orders attention threads from oldest to newest", () => {
     const model = deriveFlow(
       [

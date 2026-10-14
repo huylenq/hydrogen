@@ -5,7 +5,8 @@ import {
   resolveModalSequence,
   type ModalCommand,
 } from "@t3tools/client-runtime/keyboard";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
+import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { runAppCommand } from "../appCommands";
 import { useComposerHandleContext } from "../composerHandleContext";
@@ -18,6 +19,7 @@ import {
   modalEmbeddedReturnSurface,
   modalSurfaceRoot,
   focusModalSurface,
+  flowSessionActionTarget,
   modalEventIsEditable,
   modalEventIsEmbedded,
   modalEventIsQuestion,
@@ -49,6 +51,11 @@ import {
   isDiffVimCommand,
 } from "../customizations/huy/diffVim";
 import { useSidebar } from "./ui/sidebar";
+import { resolveThreadRouteRef } from "../threadRoutes";
+import {
+  toggleSessionImportance,
+  useSessionImportanceStore,
+} from "../customizations/huy/sessionImportance";
 
 const GROUP_LABELS: Record<string, string> = {
   g: "Go",
@@ -72,15 +79,30 @@ export function ModalKeyboard({
   const composer = useComposerHandleContext();
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
+  const routeRef = resolveThreadRouteRef(useParams({ strict: false }));
+  const openThreadKey = hasThread && routeRef ? scopedThreadKey(routeRef) : null;
   const { open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar } = useSidebar();
   const flowOpen = useFlowStore((state) => state.open);
   const readingLamp = useReadingLampStore((state) => state.on);
   const state = useModalKeyboardStore();
+  const importantKeys = useSessionImportanceStore((state) => state.keys);
   const [hintPrefix, setHintPrefix] = useState<readonly string[] | null>(null);
 
+  const sessionTarget = useCallback(
+    () =>
+      flowSessionActionTarget(
+        openThreadKey && state.threadContext?.isServer
+          ? { key: openThreadKey, title: state.threadContext.title }
+          : null,
+      ),
+    [openThreadKey, state.threadContext],
+  );
+
   const describe = useCallback(
-    (command: ModalCommand) =>
-      describeModalCommand(command, {
+    (command: ModalCommand) => {
+      const session =
+        command === "thread.important" || command === "thread.snooze" ? sessionTarget() : null;
+      return describeModalCommand(command, {
         thread: hasThread ? state.threadContext : null,
         surface: state.surface,
         sidebarOpen: isMobile ? openMobile : open,
@@ -91,7 +113,11 @@ export function ModalKeyboard({
           (typeof document !== "undefined" &&
             modalSurfaceRoot("conversation")?.dataset.modalGrid === "working-sessions"),
         readingLamp,
-      }),
+        sessionTarget: session
+          ? { title: session.title, important: importantKeys.has(session.key) }
+          : null,
+      });
+    },
     [
       hasThread,
       state.threadContext,
@@ -103,6 +129,8 @@ export function ModalKeyboard({
       state.previousSurface,
       workingSessionGrid,
       readingLamp,
+      sessionTarget,
+      importantKeys,
     ],
   );
 
@@ -184,6 +212,21 @@ export function ModalKeyboard({
       )
         captureModalReturnFocus();
       switch (command) {
+        case "thread.important": {
+          const session = sessionTarget();
+          if (session) {
+            const focused = document.activeElement;
+            const grid = focused?.closest('[data-modal-grid="working-sessions"]');
+            const bar = focused?.closest('[data-modal-surface="flow"]');
+            const important = toggleSessionImportance(session.key);
+            // Priority sorting can remount a preview in another row. Restore its keyed bookmark.
+            if (grid || bar) requestModalFocus(grid ? "conversation" : "flow");
+            showModalFeedback(
+              `${important ? "Marked important" : "Removed important flag"}: ${session.title}`,
+            );
+          }
+          return;
+        }
         case "focus.previous": {
           const previous = useModalKeyboardStore.getState().previousSurface;
           if (previous) requestModalFocus(previous);
@@ -465,6 +508,7 @@ export function ModalKeyboard({
     };
   }, [
     describe,
+    sessionTarget,
     composer,
     enabled,
     hasThread,

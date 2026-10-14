@@ -222,8 +222,9 @@ through the pages you have visited, like a browser's back and forward buttons.
 
 `flow.toggle` toggles Flow mode, which replaces the chat title bar with the Flow bar. It has no default
 shortcut; in Vim Normal mode use `F` or `w q`, or bind it yourself. Enabling Flow hides the left
-sidebar if it is open. The Flow bar places threads waiting on you from oldest to newest and
-compacts running threads onto the right-side bench.
+sidebar if it is open. Important sessions lead both the waiting queue and the right-side
+working bench. Within each priority, waiting sessions go oldest first and working
+sessions go newest-created first. Use `t f` in Vim Normal mode to flag or unflag a session.
 
 The Flow overview shows a preview of each running session when nothing waits on you.
 `flow.overview.toggle` (`w g` in Vim Normal mode, otherwise bind it yourself) holds the
@@ -237,8 +238,9 @@ The overview uses `h`/`l` within a row and
 focus on the current preview.
 
 While Flow mode is active, sending a message, finishing the current thread's approval
-or input requests, or settling, snoozing, or archiving it advances to the oldest
-available thread waiting on you. Starting a plan implementation advances too.
+or input requests, or settling, snoozing, or archiving it advances to an important
+session needing attention first, otherwise the oldest available ordinary waiting session.
+Starting a plan implementation advances too.
 The next destination is marked **Next**. If nothing else needs attention, an open
 session returns to the Flow overview. New activity never switches threads by itself. Typing or navigating
 while an action is pending cancels its jump; leaving Flow mode turns auto-jump off.

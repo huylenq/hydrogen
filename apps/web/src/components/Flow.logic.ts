@@ -55,7 +55,7 @@ export function flowNavigationTarget(
     ({ thread }) => flowThreadKey(thread) === currentThreadKey,
   );
   // Off the conveyor (sidebar, settled, draft): both brackets re-enter at the
-  // oldest queued session, then step through working sessions on the right.
+  // first queued session, then step through working sessions on the right.
   const targetIndex =
     direction === "previous"
       ? Math.max(0, currentIndex <= 0 ? 0 : currentIndex - 1)
@@ -144,11 +144,12 @@ function attentionStatus(thread: EnvironmentThreadShell): FlowAttentionStatus {
 
 /**
  * Derives the conveyor from durable thread-shell state. The attention side is
- * FIFO (oldest waiting first); active agent work is compacted onto the bench.
+ * Important sessions lead each side; waiting sessions are FIFO within each priority,
+ * and active agent work is compacted onto the bench in stable creation order.
  */
 export function deriveFlow(
   threads: ReadonlyArray<EnvironmentThreadShell>,
-  options: { readonly now: string },
+  options: { readonly now: string; readonly importantThreadKeys?: ReadonlySet<string> },
 ): FlowModel {
   const attention: FlowAttentionEntry[] = [];
   const bench: FlowBenchEntry[] = [];
@@ -178,14 +179,18 @@ export function deriveFlow(
     });
   }
 
+  const priority = (thread: EnvironmentThreadShell) =>
+    options.importantThreadKeys?.has(flowThreadKey(thread)) ? 0 : 1;
   attention.sort(
     (left, right) =>
+      priority(left.thread) - priority(right.thread) ||
       Date.parse(left.timestamp) - Date.parse(right.timestamp) ||
       left.thread.id.localeCompare(right.thread.id),
   );
   // Activity timestamps change during a run; keep working previews in place.
   bench.sort(
     (left, right) =>
+      priority(left.thread) - priority(right.thread) ||
       Date.parse(right.thread.createdAt) - Date.parse(left.thread.createdAt) ||
       flowThreadKey(left.thread).localeCompare(flowThreadKey(right.thread)),
   );
@@ -200,7 +205,7 @@ export function deriveFlow(
 }
 
 /** Stay on a queued session, on a session the user opened themselves, or on
- * the held overview. Otherwise enter the oldest waiting session (empty
+ * the held overview. Otherwise enter the first waiting session (empty
  * overview, or unpinned working session) so autojump still drives the conveyor. */
 export function flowAttentionTarget(
   model: FlowModel,

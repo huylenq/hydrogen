@@ -1,3 +1,15 @@
+.flow-important-session {
+  --session-gold: #d1a548;
+  --session-gold-text: #9b7521;
+  --session-gold-text-hover: #86621a;
+  --ring: var(--session-gold);
+}
+.flow-important-session:is(.dark, .dark *) {
+  --session-gold: #e2b34f;
+  --session-gold-text: #eac36b;
+  --session-gold-text-hover: #f5d795;
+}
+
 /* A steady focus outline remains visible after programmatic modal navigation. Content that paints
    over its own outline (the diff viewer) draws it on an overlay after it instead. */
 [data-modal-keyboard] [data-modal-surface]:focus,

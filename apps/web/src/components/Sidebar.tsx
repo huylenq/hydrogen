@@ -11,9 +11,13 @@ import {
 import { useFlowStore } from "../flowStore";
 import { registerAppCommands, type AppCommand } from "../appCommands";
 import { getClientSettings } from "../hooks/useSettings";
-import { showModalFeedback, useModalKeyboardStore } from "../modalKeyboardStore";
+import { useModalKeyboardStore } from "../modalKeyboardStore";
 import { discardComposerDraft } from "../lib/discardComposerDraft";
 import { requestCustomSnooze } from "./CustomSnoozeDialog";
+import {
+  createThreadSnoozeCommand,
+  resolveThreadSnoozeTarget,
+} from "../customizations/huy/threadSnoozeCommand";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
 import { useAtomValue } from "@effect/atom-react";
@@ -4870,34 +4874,16 @@ export default function Sidebar() {
   );
 
   useEffect(() => {
-    return registerAppCommands((command) => {
-      if (command !== "thread.snooze") return false;
-      const thread = routeThreadKey ? threadByKey.get(routeThreadKey) : undefined;
-      if (!thread || !routeThreadRef) {
-        showModalFeedback("Open an existing thread first");
-        return true;
-      }
-      if (serverConfigs.get(thread.environmentId)?.environment.capabilities.threadSnooze !== true) {
-        showModalFeedback("This environment does not support snoozing");
-        return true;
-      }
-      const now = new Date();
-      const snoozeOptions = { now: now.toISOString() };
-      if (effectiveSnoozed(thread, snoozeOptions)) {
-        attemptUnsnooze(routeThreadRef);
-        return true;
-      }
-      if (!canSnooze(thread, snoozeOptions)) {
-        showModalFeedback("This thread cannot be snoozed in its current state");
-        return true;
-      }
-      const threadRef = routeThreadRef;
-      void requestCustomSnooze(true).then((choice) => {
-        if (choice) attemptSnooze(threadRef, choice);
-      });
-      return true;
-    });
-  }, [routeThreadKey, routeThreadRef, threadByKey, serverConfigs, attemptSnooze, attemptUnsnooze]);
+    return registerAppCommands(
+      createThreadSnoozeCommand({
+        readTarget: () => resolveThreadSnoozeTarget(threadByKey, routeThreadKey),
+        supportsSnooze: (environmentId) =>
+          serverConfigs.get(environmentId)?.environment.capabilities.threadSnooze === true,
+        snooze: attemptSnooze,
+        unsnooze: attemptUnsnooze,
+      }),
+    );
+  }, [routeThreadKey, threadByKey, serverConfigs, attemptSnooze, attemptUnsnooze]);
 
   // Thread jump (cmd+1..9) and prev/next traversal reuse the same commands as
   // v1 — the keybinding layer is shared, only the ordered list differs.

@@ -18,6 +18,7 @@ import { prepareFlowJump, flowDraftChanged, flowResponseReadiness } from "../flo
 import { useFlowStore } from "../flowStore";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
 import { returnToFlowOverview } from "../customizations/huy/flowSessionInspection";
+import { useSessionImportanceStore } from "../customizations/huy/sessionImportance";
 
 declare module "@tanstack/react-router" {
   interface HistoryState {
@@ -128,7 +129,10 @@ export function useFlowAutoJump() {
             ),
           );
           const next = nextFlowThread(
-            deriveFlow(readThreadShells(), { now: new Date().toISOString() }),
+            deriveFlow(readThreadShells(), {
+              now: new Date().toISOString(),
+              importantThreadKeys: useSessionImportanceStore.getState().keys,
+            }),
             sourceThreadKey,
             connected,
             excludedThreadKeys,

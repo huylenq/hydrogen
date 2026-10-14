@@ -105,6 +105,18 @@ export function modalSurfaceRoot(surface: ModalSurface): HTMLElement | null {
   return document.querySelector<HTMLElement>(`[data-modal-surface="${surface}"]`);
 }
 
+/** Flow actions target the focused session; ordinary conversation actions use the open thread. */
+export function flowSessionActionTarget(openThread: { key: string; title: string } | null) {
+  const focused = document.activeElement;
+  const session = focused?.closest<HTMLElement>("[data-flow-session-key]");
+  const key = session?.dataset.flowSessionKey;
+  if (key) return { key, title: session.dataset.flowSessionName ?? "Session" };
+  // A grid root or the bench's +N control does not stand for the hidden route's thread.
+  if (focused?.closest('[data-modal-surface="flow"], [data-modal-grid="working-sessions"]'))
+    return null;
+  return openThread;
+}
+
 export function modalSurfaceItems(surface: ModalSurface): HTMLElement[] {
   const root = modalSurfaceRoot(surface);
   if (!root) return [];

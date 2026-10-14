@@ -16,6 +16,12 @@ import { useProject } from "../state/entities";
 import { buildThreadRouteParams } from "../threadRoutes";
 import { snoozeWakeLabel } from "./Sidebar.snooze";
 import { ProjectFavicon } from "./ProjectFavicon";
+import { cn } from "../lib/utils";
+import {
+  IMPORTANT_SESSION_SURFACE_CLASS,
+  IMPORTANT_SESSION_TITLE_CLASS,
+  useSessionImportanceStore,
+} from "../customizations/huy/sessionImportance";
 
 /** One flat line of snoozed threads under the Flow overview grid; chips shrink rather than wrap. */
 export function FlowSnoozedRow({ threads }: { threads: ReadonlyArray<EnvironmentThreadShell> }) {
@@ -48,6 +54,7 @@ const SnoozedChip = memo(function SnoozedChip({
 
   // Same as opening the thread from the sidebar while Flow is on.
   const ref = scopeThreadRef(thread.environmentId, thread.id);
+  const important = useSessionImportanceStore((state) => state.keys.has(scopedThreadKey(ref)));
   const open = () => {
     useFlowStore.getState().inspectSession(scopedThreadKey(ref));
     void navigate({ to: "/$environmentId/$threadId", params: buildThreadRouteParams(ref) });
@@ -61,11 +68,24 @@ const SnoozedChip = memo(function SnoozedChip({
         // Grid motions (h/j/k/l) reach chips like preview tiles; Enter opens.
         data-modal-item=""
         data-modal-key={scopedThreadKey(ref)}
-        className="flex max-w-64 items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 opacity-70 outline-hidden hover:bg-accent hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
+        data-flow-session-key={scopedThreadKey(ref)}
+        data-flow-session-name={thread.title}
+        aria-label={important ? `${thread.title} · Important` : undefined}
+        className={cn(
+          "flex max-w-64 items-center gap-1.5 rounded-md border border-border/60 px-2 py-1 opacity-70 outline-hidden hover:bg-accent hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+          important && IMPORTANT_SESSION_SURFACE_CLASS,
+        )}
         onClick={open}
       >
         {project ? <ProjectFavicon project={project} className="size-3.5 shrink-0" /> : null}
-        <span className="min-w-0 truncate text-foreground">{thread.title}</span>
+        <span
+          className={cn(
+            "min-w-0 truncate text-foreground",
+            important && IMPORTANT_SESSION_TITLE_CLASS,
+          )}
+        >
+          {thread.title}
+        </span>
         {running ? (
           <span aria-label="Working" className="size-1.5 shrink-0 rounded-full bg-info" />
         ) : null}

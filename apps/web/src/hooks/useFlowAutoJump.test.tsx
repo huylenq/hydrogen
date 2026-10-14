@@ -26,7 +26,11 @@ const data = vi.hoisted(() => ({
   threads: [] as EnvironmentThreadShell[],
   listeners: new Set<() => void>(),
 }));
-vi.mock("../state/entities", () => ({ readThreadShells: () => data.threads }));
+vi.mock("../state/entities", () => ({
+  readThreadShells: () => data.threads,
+  useThreadShells: () => data.threads,
+}));
+vi.mock("./useNowMinute", () => ({ useNowMinute: () => "2026-09-09T03:00" }));
 vi.mock("../state/presentation", () => ({
   environmentPresentations: { presentationsAtom: "presentations" },
 }));
@@ -51,20 +55,28 @@ vi.mock("../components/ui/toast", () => ({
 
 import { useHuyActionLifecycle } from "../customizations/huy/useHuyActionLifecycle";
 import { useFlowAutoJump, useFlowJumpCancellation } from "./useFlowAutoJump";
+import { useFlowModel } from "./useFlowModel";
 import { DraftId, useComposerDraftStore } from "../composerDraftStore";
 import { useFlowStore } from "../flowStore";
 import { useModalKeyboardStore } from "../modalKeyboardStore";
+import {
+  toggleSessionImportance,
+  useSessionImportanceStore,
+} from "../customizations/huy/sessionImportance";
 
 const source = scopeThreadRef(EnvironmentId.make("env"), ThreadId.make("source"));
 let prepare: ReturnType<typeof useFlowAutoJump>;
 let lifecycle: ReturnType<typeof useHuyActionLifecycle>;
 let renderer: ReactTestRenderer | undefined;
+let displayedFlow: ReturnType<typeof useFlowModel>;
 
 function Probe() {
   const nextLifecycle = useHuyActionLifecycle();
+  const nextFlow = useFlowModel();
   useFlowJumpCancellation();
   useLayoutEffect(() => {
     lifecycle = nextLifecycle;
+    displayedFlow = nextFlow;
     prepare = (threadRef, excludedThreadKeys, deliveryThreadRef) => {
       const completion = nextLifecycle.prepare({
         threadRef,
@@ -73,7 +85,7 @@ function Probe() {
       });
       return completion.ownsNavigation ? completion.succeeded : null;
     };
-  }, [nextLifecycle]);
+  }, [nextLifecycle, nextFlow]);
   return null;
 }
 
@@ -82,6 +94,7 @@ beforeEach(() => {
   vi.stubGlobal("self", {});
   vi.stubGlobal("document", new EventTarget());
   data.listeners.clear();
+  useSessionImportanceStore.setState({ keys: new Set() });
   useComposerDraftStore.setState({
     draftsByThreadKey: {},
     draftThreadsByThreadKey: {},
@@ -158,6 +171,84 @@ async function mount(initialEntry = "/env/source") {
 }
 
 describe("flow navigation integration", () => {
+  it("uses the latest importance flags when a foreground send completes", async () => {
+    const next = data.threads[0]!;
+    data.threads.push({
+      ...next,
+      id: ThreadId.make("priority"),
+      updatedAt: "2026-09-09T01:00:00.000Z",
+    });
+    const router = await mount();
+    const finish = prepare(source);
+    const navigate = vi.spyOn(router, "navigate");
+    await act(() =>
+      toggleSessionImportance(
+        scopedThreadKey(scopeThreadRef(source.environmentId, ThreadId.make("priority"))),
+      ),
+    );
+    expect(displayedFlow.attention.map((entry) => entry.thread.id)).toEqual(["priority", "next"]);
+    expect(navigate).not.toHaveBeenCalled();
+    await act(async () => {
+      finish?.({ kind: "turn", messageId: MessageId.make("sent") });
+      await navigate.mock.results.at(-1)?.value;
+    });
+    expect(router.state.location.pathname).toBe("/env/priority");
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(data.listeners.size).toBe(0);
+  });
+
+  it("restores ordinary queue order immediately and advances accordingly after unflagging", async () => {
+    const next = data.threads[0]!;
+    data.threads.push({
+      ...next,
+      id: ThreadId.make("priority"),
+      updatedAt: "2026-09-09T01:00:00.000Z",
+    });
+    const priorityKey = scopedThreadKey(
+      scopeThreadRef(source.environmentId, ThreadId.make("priority")),
+    );
+    toggleSessionImportance(priorityKey);
+    const router = await mount();
+    expect(displayedFlow.attention[0]?.thread.id).toBe("priority");
+    const finish = prepare(source);
+    const navigate = vi.spyOn(router, "navigate");
+    await act(() => toggleSessionImportance(priorityKey));
+    expect(displayedFlow.attention.map((entry) => entry.thread.id)).toEqual(["next", "priority"]);
+    expect(navigate).not.toHaveBeenCalled();
+    await act(async () => {
+      finish?.({ kind: "turn", messageId: MessageId.make("sent") });
+      await navigate.mock.results.at(-1)?.value;
+    });
+    expect(router.state.location.pathname).toBe("/env/next");
+  });
+
+  it("falls back to ordinary waiting work when the important session is already running", async () => {
+    const next = data.threads[0]!;
+    data.threads.push({
+      ...next,
+      id: ThreadId.make("priority"),
+      runtime: {
+        status: "running",
+        activeRunId: null,
+        providerInstanceId: next.providerInstanceId,
+        providerName: "Codex",
+        lastError: null,
+        updatedAt: next.updatedAt,
+      },
+    });
+    toggleSessionImportance(
+      scopedThreadKey(scopeThreadRef(source.environmentId, ThreadId.make("priority"))),
+    );
+    const router = await mount();
+    const finish = prepare(source);
+    const navigate = vi.spyOn(router, "navigate");
+    await act(async () => {
+      finish?.({ kind: "turn", messageId: MessageId.make("sent") });
+      await navigate.mock.results.at(-1)?.value;
+    });
+    expect(router.state.location.pathname).toBe("/env/next");
+  });
+
   it("leaves normal action navigation available when Flow is disabled", async () => {
     useFlowStore.getState().setOpen(false);
     const router = await mount();
@@ -184,6 +275,9 @@ describe("flow navigation integration", () => {
   });
 
   it("background sends leave navigation with the user even after success", async () => {
+    toggleSessionImportance(
+      scopedThreadKey(scopeThreadRef(source.environmentId, ThreadId.make("next"))),
+    );
     const router = await mount();
     const navigate = vi.spyOn(router, "navigate");
     const completion = lifecycle.prepare({ threadRef: source, navigation: "background" });

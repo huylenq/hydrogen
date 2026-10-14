@@ -46,6 +46,12 @@ import {
 import { ProjectFavicon } from "./ProjectFavicon";
 import { ArrowLeftIcon, FolderCodeIcon } from "lucide-react";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
+import {
+  IMPORTANT_SESSION_ACTIVE_CLASS,
+  IMPORTANT_SESSION_SURFACE_CLASS,
+  IMPORTANT_SESSION_TITLE_CLASS,
+  useSessionImportanceStore,
+} from "../customizations/huy/sessionImportance";
 
 export const FLOW_STATUS_CLASS: Record<FlowAttentionStatus, string> = {
   Approval: "text-amber-700 dark:text-amber-300",
@@ -81,6 +87,7 @@ export function FlowBar() {
         : null;
   const activeThreadKey = routeRef === null ? null : scopedThreadKey(routeRef);
   const model = useFlowModel();
+  const importantKeys = useSessionImportanceStore((state) => state.keys);
   const inspectedThreadKey = useFlowStore((state) => state.inspectedThreadKey);
   const nextThread = useMemo(
     () =>
@@ -206,7 +213,7 @@ export function FlowBar() {
       {isFlowSessionInspection(model, activeThreadKey, inspectedThreadKey) ? (
         <button
           type="button"
-          className="pointer-events-auto [-webkit-app-region:no-drag] my-auto flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="pointer-events-auto [-webkit-app-region:no-drag] my-auto flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           onClick={returnToFlowOverview}
         >
           <ArrowLeftIcon className="size-4" aria-hidden />
@@ -225,6 +232,7 @@ export function FlowBar() {
               scopeThreadRef(entry.thread.environmentId, entry.thread.id),
             );
             const isActive = threadKey === activeThreadKey;
+            const important = importantKeys.has(threadKey);
             const project = projectByKey.get(projectKey(entry.thread));
             const projectTitle = project?.title ?? "Unknown project";
             const environmentLabel = environmentLabelById.get(entry.thread.environmentId);
@@ -234,10 +242,15 @@ export function FlowBar() {
                 type="button"
                 data-flow-card=""
                 data-modal-key={threadKey}
+                data-flow-session-key={threadKey}
+                data-flow-session-name={entry.thread.title}
+                aria-label={important ? `${entry.thread.title} · Important` : undefined}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "relative flex w-[300px] shrink-0 flex-col justify-center gap-1.5 rounded-md border border-border/70 bg-background/50 px-3 py-2 text-left backdrop-blur-xl backdrop-saturate-150 outline-hidden hover:bg-background/65 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                   isActive && "border-primary/50 bg-accent/75 hover:bg-accent/85",
+                  important && IMPORTANT_SESSION_SURFACE_CLASS,
+                  important && isActive && IMPORTANT_SESSION_ACTIVE_CLASS,
                 )}
                 onClick={() => navigateToThread(entry.thread)}
                 onKeyDown={moveCardFocus}
@@ -251,16 +264,19 @@ export function FlowBar() {
                     ) : null}
                     <span
                       data-flow-session-title=""
-                      className="truncate text-xs font-medium text-foreground"
+                      className={cn(
+                        "truncate text-xs font-medium text-foreground",
+                        important && IMPORTANT_SESSION_TITLE_CLASS,
+                      )}
                     >
                       {entry.thread.title}
                     </span>
                   </span>
-                  <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                  <span className="shrink-0 text-3xs tabular-nums text-muted-foreground">
                     {formatRelativeTimeLabel(entry.timestamp)}
                   </span>
                 </div>
-                <div className="flex min-w-0 items-center gap-2 text-[11px] leading-3">
+                <div className="flex min-w-0 items-center gap-2 text-2xs leading-3">
                   <span className={cn("shrink-0 font-medium", FLOW_STATUS_CLASS[entry.status])}>
                     {entry.status}
                   </span>
@@ -323,6 +339,7 @@ export function FlowBar() {
                 scopeThreadRef(entry.thread.environmentId, entry.thread.id),
               );
               const isActive = threadKey === activeThreadKey;
+              const important = importantKeys.has(threadKey);
               const project = projectByKey.get(projectKey(entry.thread));
               const projectTitle = project?.title ?? "Unknown project";
               const environmentLabel = environmentLabelById.get(entry.thread.environmentId);
@@ -336,14 +353,19 @@ export function FlowBar() {
                     render={<button />}
                     type="button"
                     aria-current={isActive ? "page" : undefined}
-                    aria-label={`${entry.thread.title} · ${context}`}
+                    aria-label={`${entry.thread.title}${important ? " · Important" : ""} · ${context}`}
                     data-flow-card=""
                     data-modal-key={threadKey}
+                    data-flow-session-key={threadKey}
+                    data-flow-session-name={entry.thread.title}
                     className={cn(
                       FLOW_BENCH_CHIP_CLASS,
                       "w-fit max-w-full text-muted-foreground outline-hidden hover:bg-background/65 hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                       isActive &&
                         "border-primary/50 bg-accent/75 text-foreground hover:bg-accent/85",
+                      important && IMPORTANT_SESSION_SURFACE_CLASS,
+                      important && isActive && IMPORTANT_SESSION_ACTIVE_CLASS,
+                      important && IMPORTANT_SESSION_TITLE_CLASS,
                     )}
                     onClick={() => navigateToThread(entry.thread)}
                   >
