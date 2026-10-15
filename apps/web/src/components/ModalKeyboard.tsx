@@ -9,6 +9,7 @@ import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { runAppCommand } from "../appCommands";
+import { threadRenameTarget } from "../customizations/huy/threadRenameTarget";
 import { useComposerHandleContext } from "../composerHandleContext";
 import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
 import { isShortcutBound, resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
@@ -101,7 +102,15 @@ export function ModalKeyboard({
   const describe = useCallback(
     (command: ModalCommand) => {
       const session =
-        command === "thread.important" || command === "thread.snooze" ? sessionTarget() : null;
+        command === "thread.rename"
+          ? threadRenameTarget(
+              openThreadKey && state.threadContext?.isServer
+                ? { key: openThreadKey, title: state.threadContext.title }
+                : null,
+            )
+          : command === "thread.important" || command === "thread.snooze"
+            ? sessionTarget()
+            : null;
       return describeModalCommand(command, {
         thread: hasThread ? state.threadContext : null,
         surface: state.surface,
@@ -120,6 +129,7 @@ export function ModalKeyboard({
     },
     [
       hasThread,
+      openThreadKey,
       state.threadContext,
       state.surface,
       isMobile,

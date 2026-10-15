@@ -112,6 +112,10 @@ export function describeModalCommand(command: ModalCommand, context: ModalComman
     label = session?.important ? "Remove important flag" : "Flag session as important";
     reason = session ? null : "Focus a Flow session or open a thread first";
   }
+  if (command === "thread.rename") {
+    target = context.sessionTarget?.title ?? null;
+    reason = target ? null : "Focus a thread or open an existing thread first";
+  }
   if (command === "thread.snooze" && context.sessionTarget) {
     target = context.sessionTarget.title;
     label = "Snooze / wake session";

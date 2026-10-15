@@ -733,7 +733,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     <SidebarMenuSubItem
       ref={rowRef}
       className="w-full"
-      data-thread-item
+      data-thread-item={threadKey}
+      data-thread-title={thread.title}
       {...fileDropHandlers}
       data-modal-key={threadKey}
       onMouseLeave={handleMouseLeave}

@@ -22,6 +22,7 @@ export function useChatCommands(
         if (
           command === "question.focus" ||
           command === "rightPanel.enter" ||
+          command === "thread.rename" ||
           command === "thread.snooze"
         )
           return false;

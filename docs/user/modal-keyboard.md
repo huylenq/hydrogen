@@ -22,7 +22,7 @@ Start with an open thread.
 2. Press `q` to open and focus the Flow bar.
 3. Use `h` and `l` (or the arrow keys) to move between cards. The outline marks keyboard focus.
 4. Press `Enter` to open that thread.
-5. Use `j` and `k` to read the conversation block by block, or `r` to open its changes.
+5. Use `j` and `k` to read the conversation block by block, or `d` to open its changes.
 6. Press `i` and write in the composer. Its usual editing and send controls still work.
 7. Press `Esc`, then `q`, to return to the Flow bar. Your draft stays intact.
 
@@ -53,7 +53,8 @@ These keys work in Normal mode, outside text fields, embedded tools, and open di
 | `z i`     | Turn the reading lamp on or off                                 |
 | `c`       | Cite the reading cursor's block in the composer                 |
 | `m` / `e` | Choose a model / reasoning effort                               |
-| `r`       | Open and focus review changes                                   |
+| `d`       | Open and focus review changes                                   |
+| `r`       | Rename the focused thread, or the open thread                   |
 | `/`       | Search and switch threads                                       |
 | `,`       | Open keyboard settings                                          |
 | `?`       | Show the complete shortcut reference                            |
@@ -67,9 +68,13 @@ for a maximized panel. It names the open thread targeted by thread actions. Unav
 commands show a reason, and trying one displays that reason briefly. While the `?`
 reference is open, typing a prefix highlights its matching commands.
 
-Focus actions keep their destination open. Pressing `w l`, `q`, or `r` again does not close
-it. Right-panel focus lands in its active content. Use `Ctrl+Shift+Space` to return to the selected tab. `r` requires an
+Focus actions keep their destination open. Pressing `w l`, `q`, or `d` again does not close
+it. Right-panel focus lands in its active content. Use `Ctrl+Shift+Space` to return to the selected tab. `d` requires an
 existing thread in a Git repository.
+
+Press `r` to rename the focused sidebar thread or Flow session; from a conversation or
+the right panel, it renames the open thread. The current title is selected for editing.
+Enter saves, and Escape cancels. Renaming requires permission to operate on that environment.
 
 Press `Esc` to restore the conversation when the right panel is maximized. In narrow
 windows, switching away from a panel sheet closes the sheet to reveal the destination.
@@ -154,7 +159,7 @@ As in Vim, `zt`, `zz`, and `zb` scroll the conversation so the reading cursor's 
 Press `z i` to turn on the reading lamp: everything except the reading cursor's block dims. The lamp stays on for this client until you press `z i` again. Press `c` to cite the reading cursor's block in the composer, as if you had selected its text and chosen **Cite**. Add an optional comment, or press `Esc` to remove the citation. Only answer text can be cited.
 
 Movement changes focus. Press Enter to open a highlighted thread before pinning or
-settling it: thread actions always apply to the thread you have open.
+settling it: pinning and settlement apply to the thread you have open.
 
 ## Right-panel tabs and returning to your place
 
@@ -175,7 +180,7 @@ the open thread.
 
 ## Review a diff
 
-Press `r` (or `w l` while the review panel is open) to focus the diff. Focus waits for the diff to load, and the keys work anywhere in the panel, including its toolbar. The keys follow Emacs magit with evil bindings. Your first `j` or `k` puts the cursor on the first line on screen; the cursor is the highlighted line, or a bar on a file's header. While the diff has focus, its keys replace the app's `/`, `n`, `c`, `?`, `Space`, `h`, `l`, `[`, and `]`. Other app keys such as `w h`, `H`/`L`, and `q` keep working. Press `?` or the keyboard button in the diff toolbar for a cheatsheet of these keys.
+Press `d` (or `w l` while the review panel is open) to focus the diff. Focus waits for the diff to load, and the keys work anywhere in the panel, including its toolbar. The keys follow Emacs magit with evil bindings. Your first `j` or `k` puts the cursor on the first line on screen; the cursor is the highlighted line, or a bar on a file's header. While the diff has focus, its keys replace the app's `/`, `n`, `c`, `?`, `Space`, `h`, `l`, `[`, and `]`. Other app keys such as `w h`, `H`/`L`, and `q` keep working. Press `?` or the keyboard button in the diff toolbar for a cheatsheet of these keys.
 
 | Keys                    | Action                                                                                                             |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -252,7 +257,7 @@ recording shortcuts and resolving conflicts.
 | `q`, `w`, or Space types into a field            | Press Escape and check for Normal mode.                                                  |
 | Escape closes a suggestion but leaves you typing | Press Escape again.                                                                      |
 | Escape stays in a terminal                       | Use `Ctrl+Shift+Space`.                                                                  |
-| A command does nothing                           | Open a thread if needed; `A` needs a pending question and `r` needs a Git-backed thread. |
+| A command does nothing                           | Open a thread if needed; `A` needs a pending question and `d` needs a Git-backed thread. |
 | You want ordinary keyboard behavior              | Turn the profile off in Settings or use its toggle shortcut.                             |
 
 This profile does not add Vim text operators, counts, or macros.

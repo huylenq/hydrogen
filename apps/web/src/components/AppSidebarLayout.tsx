@@ -4,6 +4,7 @@ import {
   useHuyWorkspaceCommands,
 } from "../customizations/huy/HuyWorkspace";
 import { resolveThreadRouteTarget } from "../threadRoutes";
+import { ThreadRenameCommandHost } from "../customizations/huy/ThreadRenameCommandHost";
 import { useAtomValue } from "@effect/atom-react";
 import * as Schema from "effect/Schema";
 import {
@@ -375,6 +376,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           {children}
         </HuyWorkspace>
         <SidebarControl flowAvailable={flowAvailable} />
+        <ThreadRenameCommandHost />
         <NavigationHistoryShortcuts />
         <MainAppLocationTracker />
       </SidebarProvider>

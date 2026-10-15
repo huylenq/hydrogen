@@ -3,6 +3,7 @@ import type { KeybindingCommand } from "@t3tools/contracts";
 export type AppCommand =
   | KeybindingCommand
   | "thread.snooze"
+  | "thread.rename"
   | "question.focus"
   | "review.focus"
   | "rightPanel.enter";

@@ -18,7 +18,8 @@ groups. `?` shows the shortcut reference. Reading a conversation with the keyboa
 | Keys                         | Action                                                                  |
 | ---------------------------- | ----------------------------------------------------------------------- |
 | `q` / `F` / `i` / `A`        | Focus Flow bar / toggle Flow mode / composer / pending question         |
-| `n` or `a` / `m` / `e` / `r` | New-thread chooser / model / reasoning effort / open and focus changes  |
+| `n` or `a` / `m` / `e` / `d` | New-thread chooser / model / reasoning effort / open and focus changes  |
+| `r`                          | Rename the focused thread, or the open thread                           |
 | `/` / `,`                    | Switch thread / keyboard settings                                       |
 | `j` / `k` (or `Space`)       | Next/previous Flow card or sidebar item; next/previous reading block    |
 | `gg` / `G`                   | First/last item; top/bottom of conversation                             |
