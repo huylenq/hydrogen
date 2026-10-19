@@ -1,7 +1,7 @@
 import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
 import type { MessageId, RuntimeRequestId, ScopedThreadRef } from "@t3tools/contracts";
 import { useRouter } from "@tanstack/react-router";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 
 import { deriveFlow, nextFlowThread } from "../components/Flow.logic";
 import { getComposerDraftState, useComposerDraftStore } from "../composerDraftStore";
@@ -85,120 +85,117 @@ export function useFlowJumpCancellation() {
 
 export function useFlowAutoJump() {
   const router = useRouter();
-  return useCallback(
-    (
-      source: ScopedThreadRef,
-      excludedThreadKeys?: ReadonlySet<string>,
-      deliveryThread: ScopedThreadRef = source,
-    ) => {
-      if (!useFlowStore.getState().open) return null;
-      const sourceThreadKey = scopedThreadKey(source);
-      const detailAtom = environmentThreadDetails.threadAtom(deliveryThread);
-      const readContext = () => {
-        const { open, interactionRevision } = useFlowStore.getState();
-        const params = router.state.matches.at(-1)?.params ?? {};
-        const route = resolveThreadRouteTarget(params);
-        const draft =
-          route?.kind === "draft"
-            ? useComposerDraftStore.getState().getDraftSession(route.draftId)
+  return (
+    source: ScopedThreadRef,
+    excludedThreadKeys?: ReadonlySet<string>,
+    deliveryThread: ScopedThreadRef = source,
+  ) => {
+    if (!useFlowStore.getState().open) return null;
+    const sourceThreadKey = scopedThreadKey(source);
+    const detailAtom = environmentThreadDetails.threadAtom(deliveryThread);
+    const readContext = () => {
+      const { open, interactionRevision } = useFlowStore.getState();
+      const params = router.state.matches.at(-1)?.params ?? {};
+      const route = resolveThreadRouteTarget(params);
+      const draft =
+        route?.kind === "draft"
+          ? useComposerDraftStore.getState().getDraftSession(route.draftId)
+          : null;
+      const ref =
+        route?.kind === "server"
+          ? route.threadRef
+          : draft
+            ? (draft.promotedTo ?? scopeThreadRef(draft.environmentId, draft.threadId))
             : null;
-        const ref =
-          route?.kind === "server"
-            ? route.threadRef
-            : draft
-              ? (draft.promotedTo ?? scopeThreadRef(draft.environmentId, draft.threadId))
-              : null;
-        return {
-          enabled: open,
-          revision: interactionRevision,
-          locationKey:
-            router.state.location.state.flowPromotionSource ??
-            router.state.location.state.__TSR_key ??
-            router.state.location.href,
-          currentThreadKey: ref ? scopedThreadKey(ref) : null,
-        };
+      return {
+        enabled: open,
+        revision: interactionRevision,
+        locationKey:
+          router.state.location.state.flowPromotionSource ??
+          router.state.location.state.__TSR_key ??
+          router.state.location.href,
+        currentThreadKey: ref ? scopedThreadKey(ref) : null,
       };
-      const complete = prepareFlowJump({
-        sourceThreadKey,
-        readContext,
-        nextTarget: () => {
-          const presentations = appAtomRegistry.get(environmentPresentations.presentationsAtom);
-          const connected = new Set(
-            [...presentations].flatMap(([id, presentation]) =>
-              presentation.connection.phase === "connected" ? [id] : [],
-            ),
-          );
-          const next = nextFlowThread(
-            deriveFlow(readThreadShells(), {
-              now: new Date().toISOString(),
-              importantThreadKeys: useSessionImportanceStore.getState().keys,
-            }),
-            sourceThreadKey,
-            connected,
-            excludedThreadKeys,
-          );
-          return next ? scopeThreadRef(next.environmentId, next.id) : null;
-        },
-        navigate: (target) => {
-          // Concurrent replies may resolve together. Claim this navigation before
-          // the router starts loading so another completion cannot also jump.
-          useFlowStore.getState().cancelPendingJump();
-          void router
-            .navigate({
-              to: "/$environmentId/$threadId",
-              params: buildThreadRouteParams(target),
-              state: { flowAutoJump: true },
-            })
-            .catch((error: unknown) => {
-              toastManager.add(
-                stackedThreadToast({
-                  type: "error",
-                  title: "Could not open the next Flow thread",
-                  description:
-                    error instanceof Error ? error.message : "Try opening it from the Flow bar.",
-                }),
-              );
-            });
-        },
-        onEmpty: returnToFlowOverview,
-        subscribe: (onChange) => {
-          const unsubscribeDetail = appAtomRegistry.subscribe(detailAtom, onChange);
-          const unsubscribeFlow = useFlowStore.subscribe(onChange);
-          const unsubscribeEnvironment = appAtomRegistry.subscribe(
-            environmentPresentations.presentationsAtom,
-            onChange,
-          );
-          return () => {
-            unsubscribeDetail();
-            unsubscribeFlow();
-            unsubscribeEnvironment();
-          };
-        },
-      });
-      if (!complete) return null;
-      return (
-        response?:
-          | { requestId: RuntimeRequestId; kind: "approval" | "user-input" }
-          | { kind: "turn"; messageId: MessageId },
-      ) => {
-        complete(
-          response
-            ? () => {
-                const presentation = appAtomRegistry
-                  .get(environmentPresentations.presentationsAtom)
-                  .get(deliveryThread.environmentId);
-                if (presentation?.connection.phase !== "connected") return "blocked";
-                // Callers complete only after the orchestrator durably accepted the turn.
-                if (response.kind === "turn") return "ready";
-                return flowResponseReadiness(
-                  appAtomRegistry.get(detailAtom)?.projection ?? null,
-                  response.requestId,
-                );
-              }
-            : undefined,
+    };
+    const complete = prepareFlowJump({
+      sourceThreadKey,
+      readContext,
+      nextTarget: () => {
+        const presentations = appAtomRegistry.get(environmentPresentations.presentationsAtom);
+        const connected = new Set(
+          [...presentations].flatMap(([id, presentation]) =>
+            presentation.connection.phase === "connected" ? [id] : [],
+          ),
         );
-      };
-    },
-    [router],
-  );
+        const next = nextFlowThread(
+          deriveFlow(readThreadShells(), {
+            now: new Date().toISOString(),
+            importantThreadKeys: useSessionImportanceStore.getState().keys,
+          }),
+          sourceThreadKey,
+          connected,
+          excludedThreadKeys,
+        );
+        return next ? scopeThreadRef(next.environmentId, next.id) : null;
+      },
+      navigate: (target) => {
+        // Concurrent replies may resolve together. Claim this navigation before
+        // the router starts loading so another completion cannot also jump.
+        useFlowStore.getState().cancelPendingJump();
+        void router
+          .navigate({
+            to: "/$environmentId/$threadId",
+            params: buildThreadRouteParams(target),
+            state: { flowAutoJump: true },
+          })
+          .catch((error: unknown) => {
+            toastManager.add(
+              stackedThreadToast({
+                type: "error",
+                title: "Could not open the next Flow thread",
+                description:
+                  error instanceof Error ? error.message : "Try opening it from the Flow bar.",
+              }),
+            );
+          });
+      },
+      onEmpty: returnToFlowOverview,
+      subscribe: (onChange) => {
+        const unsubscribeDetail = appAtomRegistry.subscribe(detailAtom, onChange);
+        const unsubscribeFlow = useFlowStore.subscribe(onChange);
+        const unsubscribeEnvironment = appAtomRegistry.subscribe(
+          environmentPresentations.presentationsAtom,
+          onChange,
+        );
+        return () => {
+          unsubscribeDetail();
+          unsubscribeFlow();
+          unsubscribeEnvironment();
+        };
+      },
+    });
+    if (!complete) return null;
+    return (
+      response?:
+        | { requestId: RuntimeRequestId; kind: "approval" | "user-input" }
+        | { kind: "turn"; messageId: MessageId },
+    ) => {
+      complete(
+        response
+          ? () => {
+              const presentation = appAtomRegistry
+                .get(environmentPresentations.presentationsAtom)
+                .get(deliveryThread.environmentId);
+              if (presentation?.connection.phase !== "connected") return "blocked";
+              // Callers complete only after the orchestrator durably accepted the turn.
+              if (response.kind === "turn") return "ready";
+              return flowResponseReadiness(
+                appAtomRegistry.get(detailAtom)?.projection ?? null,
+                response.requestId,
+              );
+            }
+          : undefined,
+      );
+    };
+  };
 }

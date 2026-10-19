@@ -25,7 +25,7 @@ import {
   UnplugIcon,
   XIcon,
 } from "lucide-react";
-import { Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useComposerHandleContext } from "../composerHandleContext";
 import {
   canStopCrewDelivery,
@@ -93,8 +93,9 @@ export function CrewPanel() {
     <aside
       aria-label="Grok Bot"
       data-crew-panel=""
+      style={{ paddingTop: "calc(var(--workspace-controls-top) + var(--workspace-topbar-height))" }}
       className={cn(
-        "relative flex min-h-0 shrink-0 bg-background pt-[calc(var(--workspace-controls-top)+var(--workspace-topbar-height))]",
+        "relative flex min-h-0 shrink-0 bg-background",
         chatOpen &&
           "before:pointer-events-none before:absolute before:inset-y-0 before:left-0 before:w-px before:bg-border",
       )}
@@ -133,7 +134,7 @@ export function CrewPanel() {
                 <CrewConnectionDot status="disconnected" />
               </PopoverTrigger>
               <PopoverPopup side="left" align="end" className="w-72">
-                <PopoverTitle className="text-sm">Grok Bot unavailable</PopoverTitle>
+                <PopoverTitle className="">Grok Bot unavailable</PopoverTitle>
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
                   {unavailableMessage}
                 </p>
@@ -185,12 +186,12 @@ function CrewUnavailableChat({ title, description }: { title: string; descriptio
         <h3 className="truncate text-sm font-medium">{title}</h3>
         <CloseCrewChatButton />
       </div>
-      <Empty className="gap-4 p-6 md:p-6">
+      <Empty className="">
         <EmptyHeader>
           <EmptyMedia variant="icon">
             <GrokBotIcon className="size-6" />
           </EmptyMedia>
-          <EmptyDescription className="text-xs leading-relaxed">{description}</EmptyDescription>
+          <EmptyDescription className="">{description}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     </>
@@ -357,7 +358,7 @@ function ConnectedCrewPanel({
           </Tooltip>
           <PopoverPopup side="left" align="start" sideOffset={8} className="w-80" padding="none">
             <div className="space-y-2 border-b border-border/60 p-3">
-              <PopoverTitle className="text-xs font-medium text-muted-foreground">
+              <PopoverTitle className="">
                 Bots and groups{" "}
                 <span className="ml-1 text-muted-foreground/60">{snapshot?.bots.length}</span>
               </PopoverTitle>
@@ -376,7 +377,7 @@ function ConnectedCrewPanel({
                   <Button
                     key={item.id}
                     variant="ghost"
-                    className="h-auto w-full justify-start gap-2.5 rounded-md px-2 py-2 text-left sm:h-auto"
+                    className="h-auto w-full justify-start text-left sm:h-auto"
                     onClick={() => selectBot(item, false)}
                   >
                     <GrokBotAvatar
@@ -423,10 +424,7 @@ function ConnectedCrewPanel({
                           <Button
                             variant="ghost"
                             size="icon-xl"
-                            className={cn(
-                              "relative size-11 rounded-xl p-1 sm:size-11",
-                              selected && "bg-accent ring-1 ring-border",
-                            )}
+                            className={cn("relative size-11 sm:size-11", selected && "")}
                             aria-label={`${item.name}${item.isGroup ? ", group" : ""}${needsAttention ? ", delivery needs attention" : ""}`}
                             aria-pressed={selected}
                             onClick={() => selectBot(item, true)}
@@ -458,7 +456,7 @@ function ConnectedCrewPanel({
                 })
               : null}
             {connected && snapshot?.bots.length === 0 ? (
-              <span className="px-1 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground">
+              <span className="px-1 pt-3 text-center text-3xs leading-relaxed text-muted-foreground">
                 No bots yet
               </span>
             ) : null}
@@ -474,7 +472,7 @@ function ConnectedCrewPanel({
                       <Button
                         size="icon-xl"
                         variant="ghost-muted"
-                        className="h-auto flex-col gap-0.5 px-1 py-1 sm:h-auto"
+                        className="h-auto flex-col sm:h-auto"
                         aria-label={`Grok Bot connection: ${statusLabel}`}
                       />
                     }
@@ -485,7 +483,7 @@ function ConnectedCrewPanel({
                   <GrokBotIcon />
                   <CrewConnectionDot status={connectionError ? "error" : connectionStatus} />
                 </span>
-                {!connected ? <span className="text-[10px] font-normal">Connect</span> : null}
+                {!connected ? <span className="text-3xs font-normal">Connect</span> : null}
               </TooltipTrigger>
               <TooltipPopup side="left">
                 {statusLabel} · {environmentLabel}
@@ -494,7 +492,7 @@ function ConnectedCrewPanel({
             <PopoverPopup side="left" align="end" sideOffset={8} className="w-80">
               <div className="space-y-4">
                 <div>
-                  <PopoverTitle className="text-sm">Grok Bot</PopoverTitle>
+                  <PopoverTitle className="">Grok Bot</PopoverTitle>
                   <p className="mt-1 truncate text-xs text-muted-foreground">{environmentLabel}</p>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
@@ -674,15 +672,11 @@ function CrewConversationView({
       (!scope ||
         (handoff.sessionId === scope.sessionId && handoff.accountScope === scope.accountScope)),
   );
-  const sourceRef = useMemo(
-    () => (origin ? { environmentId: origin.environmentId, threadId: origin.threadId } : null),
-    [origin?.environmentId, origin?.threadId],
-  );
+  const sourceRef = (() =>
+    origin ? { environmentId: origin.environmentId, threadId: origin.threadId } : null)();
   const sourceTurnItems = useThreadVisibleTurnItems(sourceRef);
-  const contextSources = useMemo(
-    () => crewTaskContextSources(sourceRef ? crewTaskContextThread(sourceTurnItems) : null),
-    [sourceRef, sourceTurnItems],
-  );
+  const contextSources = (() =>
+    crewTaskContextSources(sourceRef ? crewTaskContextThread(sourceTurnItems) : null))();
   const draftError = draft?.text.trim() ? crewDraftValidationError(draft) : null;
   const receipt = handoffs.find((handoff) => handoff.nonce === draft?.nonce);
   const canStartNew = receipt?.acceptance === "accepted" || receipt?.acceptance === "rejected";
@@ -784,7 +778,7 @@ function CrewConversationView({
     refreshSnapshot();
   }
 
-  function useReply(entry: CrewEntry, handoff?: CrewHandoff) {
+  function applyReply(entry: CrewEntry, handoff?: CrewHandoff) {
     if (!scope || !routeRef || routeRef.environmentId !== environmentId) return;
     if (handoff?.originThreadId && handoff.originThreadId !== routeRef.threadId) return;
     const inserted = composerRef?.current?.insertTextAtEnd(
@@ -817,7 +811,7 @@ function CrewConversationView({
         Open originating task
       </Button>
     ) : routeRef?.environmentId === environmentId ? (
-      <Button size="xs" variant="ghost-muted" onClick={() => useReply(entry, handoff)}>
+      <Button size="xs" variant="ghost-muted" onClick={() => applyReply(entry, handoff)}>
         <CornerDownLeftIcon className="size-3" /> Use this reply
       </Button>
     ) : null;
@@ -982,7 +976,7 @@ function CrewConversationView({
                 {showCrewConversationTimestamp(entry, entries[index - 1]) ? (
                   <time
                     dateTime={entry.createdAt!}
-                    className="block py-2 text-center text-[11px] text-muted-foreground"
+                    className="block py-2 text-center text-2xs text-muted-foreground"
                   >
                     {new Date(entry.createdAt!).toLocaleString([], {
                       weekday: "short",
@@ -1010,10 +1004,10 @@ function CrewConversationView({
             </p>
           ) : null}
           {!conversationQuery.isPending && !conversationQuery.error && entries.length === 0 ? (
-            <Empty className="gap-3 px-3 py-10 md:p-3 md:py-10">
+            <Empty className="">
               <EmptyHeader>
-                <EmptyTitle className="text-sm font-medium">Start a conversation</EmptyTitle>
-                <EmptyDescription className="text-xs">
+                <EmptyTitle className="">Start a conversation</EmptyTitle>
+                <EmptyDescription className="">
                   Send {bot.name} a question or share context from your task.
                 </EmptyDescription>
               </EmptyHeader>
@@ -1111,7 +1105,7 @@ function CrewConversationView({
               />
             </label>
             {draft?.automaticDelivery ? (
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
+              <p className="text-2xs leading-relaxed text-muted-foreground">
                 The reply can continue this task when the agent is available. You can stop automatic
                 delivery after sending.
               </p>
@@ -1131,7 +1125,7 @@ function CrewConversationView({
                 {draft?.context ? "Remove task context" : "Attach task context"}
               </Button>
               {draft?.context ? (
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-2xs text-muted-foreground">
                   {draft.context.evidence?.length ?? 0} excerpts
                 </span>
               ) : null}
@@ -1148,7 +1142,7 @@ function CrewConversationView({
             ) : null}
           </div>
         ) : null}
-        <InputGroup className="rounded-2xl bg-muted/20 **:data-[slot=textarea]:max-h-44 **:data-[slot=textarea]:text-sm">
+        <InputGroup className="**:data-[slot=textarea]:max-h-44">
           <Textarea
             unstyled
             aria-label={origin ? "Question and selected task context for bot" : "Message to bot"}
@@ -1160,7 +1154,7 @@ function CrewConversationView({
               if (scope) useCrewStore.getState().editDraft(scope, event.target.value);
             }}
           />
-          <InputGroupAddon align="block-end" className="gap-2 px-2 pb-2">
+          <InputGroupAddon align="block-end" className="">
             <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
               To {bot.name}
             </span>
@@ -1196,7 +1190,7 @@ function CrewConversationView({
                     <Button
                       type="submit"
                       size="icon-sm"
-                      className="rounded-full"
+                      className=""
                       aria-label={`Send to ${bot.name}`}
                       disabled={
                         !connected ||
@@ -1218,7 +1212,7 @@ function CrewConversationView({
         </InputGroup>
         {draft && !draft.attempted && (draft.text || draft.context) ? (
           <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+            <div className="flex items-center justify-between gap-2 text-2xs text-muted-foreground">
               <span>
                 ~{estimateCrewTokens(crewDraftBudgetText(draft)).toLocaleString()} tokens ·
                 1,000–2,000 suggested
@@ -1261,7 +1255,7 @@ function CrewConversationView({
                   {crewDraftPreview(draft)}
                 </p>
                 {draft.automaticDelivery ? (
-                  <p className="pt-1 text-[11px] text-muted-foreground">
+                  <p className="pt-1 text-2xs text-muted-foreground">
                     A reply reference and routing instruction are added when sent. The estimate
                     includes them; the full sent message is available in delivery details.
                   </p>
@@ -1310,7 +1304,7 @@ function CrewConversationView({
             </Collapsible>
           </div>
         ) : (
-          <p className="px-1 text-[11px] text-muted-foreground">
+          <p className="px-1 text-2xs text-muted-foreground">
             Only your question and attached context are shared. File contents and full task history
             are not included automatically.
           </p>

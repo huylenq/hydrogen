@@ -1,24 +1,17 @@
 import type { CrewBot, CrewEntry, EnvironmentId } from "@t3tools/contracts";
-import { resolveMarkdownLinkPresentation } from "@t3tools/mobile-markdown-text/links";
 import { memo, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
-import {
-  Markdown,
-  type NodeStyleOverrides,
-  type PartialMarkdownTheme,
-} from "react-native-nitro-markdown";
 
-import { AppText as Text } from "../../components/AppText";
-import { SymbolView } from "../../components/AppSymbol";
-import { ControlPillMenu } from "../../components/ControlPill";
+import { AppText as Text } from "../../components/ui/AppText";
+import { SymbolView } from "../../components/ui/AppSymbol";
+import { Menu } from "../../components/ui/Menu";
 import { GrokBotIcon } from "../../components/GrokBotIcon";
 import { resolveNativeMarkdownTypography } from "../../lib/appearancePreferences";
 import { cn } from "../../lib/cn";
 import { tryOpenExternalUrl } from "../../lib/openExternalUrl";
-import { useFontFamily } from "../../lib/useFontFamily";
+import { FONT_FAMILIES } from "../../lib/fontFamilies";
 import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import {
-  hasNativeSelectableMarkdownText,
   SelectableMarkdownText,
   type NativeMarkdownTextStyle,
 } from "../../native/SelectableMarkdownText";
@@ -131,7 +124,7 @@ export const CrewConversationMessage = memo(function CrewConversationMessage(
       ) : null}
       <View className="max-w-full">
         {props.onUseReply ? (
-          <ControlPillMenu
+          <Menu
             shouldOpenOnLongPress
             actions={[{ id: "use-in-draft", title: "Use in draft" }]}
             onPressAction={({ nativeEvent }) => {
@@ -139,7 +132,7 @@ export const CrewConversationMessage = memo(function CrewConversationMessage(
             }}
           >
             {bubble}
-          </ControlPillMenu>
+          </Menu>
         ) : (
           bubble
         )}
@@ -164,19 +157,15 @@ function CrewMessageStatus({ entry, user = false }: { entry: CrewEntry; user?: b
 }
 
 function openMarkdownLink(href: string) {
-  const target = resolveMarkdownLinkPresentation(href);
-  // Grok paths belong to the bot's machine, never the current T3 workspace.
-  if (target.kind !== "file" && target.href) {
-    void tryOpenExternalUrl(target.href, "markdown-link");
-  }
+  if (/^https?:\/\//i.test(href)) void tryOpenExternalUrl(href, "markdown-link");
   return false;
 }
 
 function CrewMarkdown({ text, user = false }: { text: string; user?: boolean }) {
   const theme = useUniwindTheme();
   const { appearance } = useAppearancePreferences();
-  const regularFontFamily = useFontFamily("regular");
-  const boldFontFamily = useFontFamily("bold");
+  const regularFontFamily = FONT_FAMILIES.regular;
+  const boldFontFamily = FONT_FAMILIES.bold;
   const styles = useMemo(() => {
     const typography = resolveNativeMarkdownTypography(appearance.baseFontSize);
     const body = theme[user ? "--color-user-bubble-foreground" : "--color-md-body"];
@@ -205,51 +194,10 @@ function CrewMarkdown({ text, user = false }: { text: string; user?: boolean }) 
       headingFontFamily: boldFontFamily,
       boldFontFamily,
     };
-    const nitroTheme: PartialMarkdownTheme = {
-      fontFamilies: {
-        regular: regularFontFamily,
-        heading: boldFontFamily,
-        mono: "ui-monospace",
-      },
-      colors: {
-        text: body,
-        heading: strong,
-        link,
-        code,
-        codeBackground,
-        blockquote: quote,
-        border: divider,
-        surface: "transparent",
-        tableHeader: codeBackground,
-        tableHeaderText: strong,
-        tableBorder: divider,
-        tableRowOdd: "transparent",
-        tableRowEven: "transparent",
-      },
-    };
-    const nitroStyles: NodeStyleOverrides = {
-      text: {
-        color: body,
-        fontFamily: regularFontFamily,
-        fontSize: typography.fontSize,
-        lineHeight: typography.lineHeight,
-      },
-      paragraph: { marginTop: 0, marginBottom: 0 },
-      heading: { color: strong, fontFamily: boldFontFamily },
-      bold: { color: strong, fontFamily: boldFontFamily },
-      code_inline: { color: code, backgroundColor: codeBackground, fontFamily: "ui-monospace" },
-      code_block: {
-        backgroundColor: codeBackground,
-        borderRadius: 10,
-        padding: 10,
-      },
-      blockquote: { borderLeftColor: quote, borderLeftWidth: 3, paddingLeft: 10 },
-      link: { color: link, textDecorationLine: "underline" },
-    };
-    return { native, nitroTheme, nitroStyles };
+    return { native };
   }, [appearance.baseFontSize, boldFontFamily, regularFontFamily, theme, user]);
 
-  return hasNativeSelectableMarkdownText() ? (
+  return (
     <SelectableMarkdownText
       markdown={text}
       preserveSoftBreaks={user}
@@ -258,14 +206,5 @@ function CrewMarkdown({ text, user = false }: { text: string; user?: boolean }) 
       marginTop={0}
       marginBottom={0}
     />
-  ) : (
-    <Markdown
-      options={{ gfm: true, html: false }}
-      theme={styles.nitroTheme}
-      styles={styles.nitroStyles}
-      onLinkPress={openMarkdownLink}
-    >
-      {text}
-    </Markdown>
   );
 }

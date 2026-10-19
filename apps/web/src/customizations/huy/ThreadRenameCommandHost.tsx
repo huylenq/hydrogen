@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useParams } from "@tanstack/react-router";
 import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
 import {
@@ -16,16 +15,13 @@ import { ThreadRenameCommand } from "./ThreadRenameCommand";
 export function ThreadRenameCommandHost() {
   const threads = useThreadShells();
   const routeRef = resolveThreadRouteRef(useParams({ strict: false }));
-  const byKey = useMemo(
-    () =>
-      new Map(
-        threads.map((thread) => [
-          scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
-          thread,
-        ]),
-      ),
-    [threads],
-  );
+  const byKey = (() =>
+    new Map(
+      threads.map((thread) => [
+        scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+        thread,
+      ]),
+    ))();
   const updateMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
     reportFailure: false,
   });

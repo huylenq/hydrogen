@@ -28,14 +28,14 @@
 }
 
 @media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
-  .grok-bot-avatar[data-animated="true"] .grok-bot-avatar-body {
+  [data-grok-bot-avatar][data-animated="true"] [data-grok-bot-avatar-body] {
     transform-box: fill-box;
     transform-origin: center;
     animation: grok-bot-avatar-bob 7s steps(4, end) infinite;
     animation-play-state: var(--visible-animation-state, paused);
   }
 
-  .grok-bot-avatar[data-animated="true"] .grok-bot-avatar-eyes {
+  [data-grok-bot-avatar][data-animated="true"] [data-grok-bot-avatar-eyes] {
     transform-box: fill-box;
     transform-origin: center;
     animation: grok-bot-avatar-blink 5s steps(2, end) infinite;

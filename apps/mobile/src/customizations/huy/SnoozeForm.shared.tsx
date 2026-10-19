@@ -6,7 +6,7 @@ import {
 } from "@t3tools/client-runtime/state/thread-settled";
 import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
-import { AppText } from "../../components/AppText";
+import { AppText } from "../../components/ui/AppText";
 
 export function useSnoozeForm() {
   const [mode, setMode] = useState<CustomSnoozeInput["mode"]>("duration");

@@ -1,3 +1,4 @@
+import { serverEnvironment } from "../state/server";
 import {
   scopeProjectRef,
   scopedThreadKey,
@@ -14,12 +15,12 @@ import {
 import { shouldPreserveAssistantLineBreaks } from "@t3tools/shared/markdownPipeline";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
-import { memo, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useLayoutEffect, useRef } from "react";
 import { deriveTimelineEntriesFromVisibleTurnItems } from "../session-logic";
 import { useTheme } from "../hooks/useTheme";
 import { useFlowStore } from "../flowStore";
 import { useEnvironments } from "../state/environments";
-import { useProject, useServerConfigs, useThreadVisibleTurnItems } from "../state/entities";
+import { useProject, useThreadVisibleTurnItems } from "../state/entities";
 import { environmentThreadDetails } from "../state/threads";
 import { getProviderInstanceEntry } from "../providerInstances";
 import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
@@ -130,10 +131,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
   const { thread } = entry;
   const { resolvedTheme } = useTheme();
   const navigate = useNavigate();
-  const ref = useMemo(
-    () => scopeThreadRef(thread.environmentId, thread.id),
-    [thread.environmentId, thread.id],
-  );
+  const ref = (() => scopeThreadRef(thread.environmentId, thread.id))();
   const important = useSessionImportanceStore((state) => state.keys.has(scopedThreadKey(ref)));
   // Each tile uses the existing environment-scoped, live detail subscription.
   const visibleTurnItems = useThreadVisibleTurnItems(ref);
@@ -141,12 +139,10 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
   const { environments } = useEnvironments();
   const environment = environments.find((item) => item.environmentId === thread.environmentId);
   const disconnected = environment?.connection.phase !== "connected";
-  const providers = useServerConfigs().get(thread.environmentId)?.providers;
+  const providers = useAtomValue(serverEnvironment.providersValueAtom(thread.environmentId));
   const instanceId = thread.runtime?.providerInstanceId ?? thread.modelSelection.instanceId;
-  const providerEntry = useMemo(
-    () => (providers ? getProviderInstanceEntry(providers, instanceId) : undefined),
-    [providers, instanceId],
-  );
+  const providerEntry = (() =>
+    providers ? getProviderInstanceEntry(providers, instanceId) : undefined)();
   const selectedModel = providerEntry?.models.find(
     (model) => model.slug === thread.modelSelection.model,
   );
@@ -161,7 +157,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
   const latestRun = thread.latestRun;
   const runningRunId = thread.runtime?.activeRunId ?? null;
   const loaded = visibleTurnItems.length > 0;
-  const { prompt, messages, activities, liveToolId, thinking } = useMemo(() => {
+  const { prompt, messages, activities, liveToolId, thinking } = (() => {
     const entries = deriveTimelineEntriesFromVisibleTurnItems({
       visibleTurnItems,
       optimisticMessages: [],
@@ -199,28 +195,24 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
         .flatMap((entry) => (entry.kind === "work" ? [entry.entry] : []))
         .slice(-3),
     };
-  }, [visibleTurnItems, working, latestRun, runningRunId]);
+  })();
   const allSubagents = useAtomValue(
     environmentThreadDetails.threadAtom(ref),
     (detail) => detail?.projection.subagents,
   );
-  const subagents = useMemo(
-    () => (allSubagents ?? []).filter((agent) => isOrchestrationV2WorkActive(agent.status)),
-    [allSubagents],
-  );
-  const footerThreadIds = useMemo(
-    () => new Set(subagents.flatMap((agent) => (agent.childThreadId ? [agent.childThreadId] : []))),
-    [subagents],
-  );
+  const subagents = (() =>
+    (allSubagents ?? []).filter((agent) => isOrchestrationV2WorkActive(agent.status)))();
+  const footerThreadIds = (() =>
+    new Set(subagents.flatMap((agent) => (agent.childThreadId ? [agent.childThreadId] : []))))();
   const liveStatus = thinking
     ? THINKING_STATUS
     : status === "Monitoring"
       ? backgroundWorkStatus(thread.pendingBackgroundTasks, footerThreadIds)
       : null;
-  const iconContext = useMemo(
-    () => ({ activeThreadEnvironmentId: thread.environmentId, resolvedTheme }),
-    [thread.environmentId, resolvedTheme],
-  );
+  const iconContext = (() => ({
+    activeThreadEnvironmentId: thread.environmentId,
+    resolvedTheme,
+  }))();
   const scrollRef = useRef<HTMLDivElement>(null);
   const followLatest = useRef(true);
   useLayoutEffect(() => {
@@ -228,6 +220,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
     // A live status row can resize the reply viewport without new turn items.
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- New content or a live status row changes the viewport without changing its ref.
   }, [visibleTurnItems, liveStatus?.label]);
 
   const flowCardPeer = entry.kind === "attention" ? "" : undefined;

@@ -65,7 +65,7 @@ export function WorkEntryPreview({
         failed={failed}
       />
       <span className={cn("min-w-0 flex-1 truncate", active && "live-tool-shine")}>{label}</span>
-      {failed && !toolIconAcceptsTint(iconName, toolIcon) ? (
+      {failed && !toolIconAcceptsTint(toolIcon) ? (
         <XIcon aria-hidden className={cn("size-3 shrink-0", failedToolIconClassName)} />
       ) : null}
     </span>

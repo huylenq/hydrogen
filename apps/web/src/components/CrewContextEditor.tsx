@@ -32,7 +32,7 @@ export function CrewContextEditor({
           <span>{label}</span>
           <Textarea
             size="sm"
-            className="**:data-[slot=textarea]:max-h-32 **:data-[slot=textarea]:text-xs"
+            className="**:data-[slot=textarea]:max-h-32"
             value={context[field] ?? ""}
             placeholder={placeholder}
             disabled={disabled}
@@ -45,7 +45,7 @@ export function CrewContextEditor({
         <span>Constraints (one per line)</span>
         <Textarea
           size="sm"
-          className="**:data-[slot=textarea]:max-h-32 **:data-[slot=textarea]:text-xs"
+          className="**:data-[slot=textarea]:max-h-32"
           value={context.constraints?.join("\n") ?? ""}
           disabled={disabled}
           maxLength={16000}
@@ -70,7 +70,7 @@ export function CrewContextEditor({
             <ChevronDownIcon className="ml-auto size-3 group-data-panel-open:rotate-180" />
           </CollapsibleTrigger>
           <CollapsiblePanel>
-            <p className="py-2 text-[11px] text-muted-foreground">
+            <p className="py-2 text-2xs text-muted-foreground">
               Recent loaded messages, plans, and change statistics. Nothing is included until you
               add it.
             </p>
@@ -78,7 +78,7 @@ export function CrewContextEditor({
               {sources.map((source) => (
                 <div key={source.id} className="space-y-1 rounded-md border border-border/60 p-2">
                   <div className="flex items-center gap-2">
-                    <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+                    <span className="min-w-0 flex-1 truncate text-2xs text-muted-foreground">
                       {source.label}
                     </span>
                     <Button
@@ -148,7 +148,7 @@ export function CrewContextEditor({
           <Textarea
             size="sm"
             aria-label={`Evidence ${index + 1} text`}
-            className="**:data-[slot=textarea]:max-h-40 **:data-[slot=textarea]:text-xs"
+            className="**:data-[slot=textarea]:max-h-40"
             value={item.text}
             maxLength={16000}
             disabled={disabled}

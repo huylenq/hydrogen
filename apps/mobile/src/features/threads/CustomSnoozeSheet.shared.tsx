@@ -2,8 +2,8 @@ import { useSnoozeForm, SnoozeDurationFields } from "../../customizations/huy/Sn
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from "react-native";
-import { AppText } from "../../components/AppText";
-import { SegmentedControl } from "../../components/SegmentedControl";
+import { AppText } from "../../components/ui/AppText";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 
 export function CustomSnoozeSheet(props: {
   readonly onClose: () => void;

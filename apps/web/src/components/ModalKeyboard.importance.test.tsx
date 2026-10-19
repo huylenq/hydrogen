@@ -26,7 +26,7 @@ vi.mock("@tanstack/react-router", () => ({
 vi.mock("../hooks/useSettings", () => ({
   useClientSettings: (select: (settings: { modalKeyboardEnabled: boolean }) => unknown) =>
     select({ modalKeyboardEnabled: true }),
-  useUpdateClientSettings: () => vi.fn(),
+  updateClientSettings: vi.fn(),
   getClientSettings: () => ({ modalKeyboardEnabled: true }),
 }));
 vi.mock("./ui/sidebar", () => ({

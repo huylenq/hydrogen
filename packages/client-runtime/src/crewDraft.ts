@@ -267,13 +267,13 @@ export function crewTaskContextSources(
   const sources: CrewContextSource[] = thread.messages
     .filter((message) => !message.streaming && message.role !== "system" && message.text.trim())
     .slice(-12)
-    .toReversed()
+    .reverse()
     .map((message) => ({
       id: `message:${message.id}`,
       label: `${message.role === "user" ? "User" : "Agent"} message · ${message.createdAt}`,
       text: excerpt(message.text),
     }));
-  for (const plan of thread.proposedPlans.slice(-2).toReversed()) {
+  for (const plan of thread.proposedPlans.slice(-2).reverse()) {
     sources.push({
       id: `plan:${plan.id}`,
       label: `Proposed plan · ${plan.updatedAt}`,

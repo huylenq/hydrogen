@@ -4,13 +4,7 @@ import { requestModalFocus, useModalKeyboardStore } from "../modalKeyboardStore"
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from "react";
+import { useEffect, useLayoutEffect, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useParams, useRouter } from "@tanstack/react-router";
 
 import { isCommandPaletteOpen } from "../commandPaletteBus";
@@ -89,43 +83,32 @@ export function FlowBar() {
   const model = useFlowModel();
   const importantKeys = useSessionImportanceStore((state) => state.keys);
   const inspectedThreadKey = useFlowStore((state) => state.inspectedThreadKey);
-  const nextThread = useMemo(
-    () =>
-      nextFlowThread(
-        model,
-        activeThreadKey,
-        new Set(
-          environments
-            .filter((environment) => environment.connection.phase === "connected")
-            .map((environment) => environment.environmentId),
-        ),
+  const nextThread = (() =>
+    nextFlowThread(
+      model,
+      activeThreadKey,
+      new Set(
+        environments
+          .filter((environment) => environment.connection.phase === "connected")
+          .map((environment) => environment.environmentId),
       ),
-    [model, activeThreadKey, environments],
-  );
+    ))();
   const nextThreadKey = nextThread
     ? scopedThreadKey(scopeThreadRef(nextThread.environmentId, nextThread.id))
     : null;
-  const projectByKey = useMemo(
-    () => new Map(projects.map((project) => [`${project.environmentId}:${project.id}`, project])),
-    [projects],
-  );
-  const environmentLabelById = useMemo(
-    () =>
-      new Map(environments.map((environment) => [environment.environmentId, environment.label])),
-    [environments],
-  );
+  const projectByKey = (() =>
+    new Map(projects.map((project) => [`${project.environmentId}:${project.id}`, project])))();
+  const environmentLabelById = (() =>
+    new Map(environments.map((environment) => [environment.environmentId, environment.label])))();
   const showEnvironment = environments.length > 1;
 
-  const navigateToThread = useCallback(
-    (thread: EnvironmentThreadShell) => {
-      useFlowStore.getState().inspectSession(flowThreadKey(thread));
-      void router.navigate({
-        to: "/$environmentId/$threadId",
-        params: buildThreadRouteParams(scopeThreadRef(thread.environmentId, thread.id)),
-      });
-    },
-    [router],
-  );
+  const navigateToThread = (thread: EnvironmentThreadShell) => {
+    useFlowStore.getState().inspectSession(flowThreadKey(thread));
+    void router.navigate({
+      to: "/$environmentId/$threadId",
+      params: buildThreadRouteParams(scopeThreadRef(thread.environmentId, thread.id)),
+    });
+  };
 
   useEffect(() => {
     const executeNavigation = (command: AppCommand) => {

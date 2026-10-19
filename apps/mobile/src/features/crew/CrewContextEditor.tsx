@@ -3,8 +3,8 @@
 import type { CrewContextSource, CrewDraftContext } from "@t3tools/client-runtime/crew-draft";
 import { useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, View } from "react-native";
-import { AppText as Text, AppTextInput as TextInput } from "../../components/AppText";
-import { ControlPill } from "../../components/ControlPill";
+import { AppText as Text, AppTextInput as TextInput } from "../../components/ui/AppText";
+import { ControlPill } from "../../components/ui/ControlPill";
 
 export function CrewContextEditor({
   context,

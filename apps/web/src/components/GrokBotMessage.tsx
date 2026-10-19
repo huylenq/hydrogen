@@ -45,7 +45,7 @@ export function GrokBotMessage({
   if (entry.interBot) {
     const peer = bots.find((item) => item.id === entry.interBot?.botId);
     return (
-      <Collapsible className="py-1">
+      <Collapsible className="">
         <CollapsibleTrigger className="group mx-auto flex max-w-full items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
           <span className="shrink-0">
             {entry.interBot.direction === "incoming" ? "Message from" : "Messaged"}
@@ -101,7 +101,7 @@ export function GrokBotMessage({
       <MessageTimestamp timestamp={timestamp}>
         <div
           className={cn(
-            "relative min-w-0 rounded-[20px] px-3.5 py-2.5 text-foreground",
+            "relative min-w-0 rounded-2xl px-3.5 py-2.5 text-foreground",
             outgoing ? "max-w-[85%] bg-foreground/[0.14]" : "max-w-[92%] bg-foreground/[0.065]",
           )}
         >

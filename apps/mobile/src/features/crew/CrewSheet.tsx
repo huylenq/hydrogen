@@ -40,11 +40,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppText as Text, AppTextInput as TextInput } from "../../components/AppText";
-import { SymbolView } from "../../components/AppSymbol";
-import { ControlPill } from "../../components/ControlPill";
-import { EmptyState } from "../../components/EmptyState";
-import { ErrorBanner } from "../../components/ErrorBanner";
+import { AppText as Text, AppTextInput as TextInput } from "../../components/ui/AppText";
+import { SymbolView } from "../../components/ui/AppSymbol";
+import { ControlPill } from "../../components/ui/ControlPill";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { ErrorBanner } from "../../components/ui/ErrorBanner";
 import { GrokBotIcon } from "../../components/GrokBotIcon";
 import { StatusPill } from "../../components/StatusPill";
 import { connectionTone } from "../connection/connectionTone";
@@ -61,7 +61,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { GrokBotAvatar } from "./GrokBotAvatar";
 import { CrewContextEditor } from "./CrewContextEditor";
 import { CrewConversationMessage } from "./CrewConversationMessage";
-import { ThemedSwitch } from "../../components/ThemedSwitch";
+import { ThemedSwitch } from "../../components/ui/ThemedSwitch";
 import { useThreadVisibleTurnItems } from "../../state/use-thread-detail";
 
 export interface CrewSheetProps {
@@ -459,9 +459,7 @@ function Conversation(
   });
   const contextSources = useMemo(
     () =>
-      crewTaskContextSources(
-        visibleOriginThreadId ? crewTaskContextThread(sourceTurnItems) : null,
-      ),
+      crewTaskContextSources(visibleOriginThreadId ? crewTaskContextThread(sourceTurnItems) : null),
     [sourceTurnItems, visibleOriginThreadId],
   );
   const pendingDraft = {
@@ -592,7 +590,7 @@ function Conversation(
     refreshConversation();
   }
 
-  function useReply(entry: CrewEntry) {
+  function applyReply(entry: CrewEntry) {
     if (!canUseCrewReply(entry)) return;
     const source = scopedHandoffs.find((item) =>
       item.replies.some((reply) => reply.id === entry.id),
@@ -687,7 +685,7 @@ function Conversation(
         {scopedHandoffs
           .filter((item) => item.originThreadId)
           .slice(-10)
-          .toReversed()
+          .reverse()
           .map((item) => (
             <View key={item.id} className="gap-2 rounded-xl border border-border bg-card p-3">
               <Text className="text-xs font-t3-medium">{crewHandoffStatus(item)}</Text>
@@ -754,7 +752,7 @@ function Conversation(
                 linkedToAnotherTask={linkedToAnotherTask}
                 onUseReply={
                   props.onUseReply && canUseCrewReply(entry) && !linkedToAnotherTask
-                    ? () => useReply(entry)
+                    ? () => applyReply(entry)
                     : undefined
                 }
               />

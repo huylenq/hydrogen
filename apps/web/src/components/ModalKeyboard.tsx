@@ -7,11 +7,11 @@ import {
 } from "@t3tools/client-runtime/keyboard";
 import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import { scopedThreadKey } from "@t3tools/client-runtime/environment";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { runAppCommand } from "../appCommands";
 import { threadRenameTarget } from "../customizations/huy/threadRenameTarget";
 import { useComposerHandleContext } from "../composerHandleContext";
-import { useClientSettings, useUpdateClientSettings } from "../hooks/useSettings";
+import { useClientSettings, updateClientSettings } from "../hooks/useSettings";
 import { isShortcutBound, resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
 import { isTerminalFocused } from "../lib/terminalFocus";
 import {
@@ -75,7 +75,7 @@ export function ModalKeyboard({
   workingSessionGrid?: boolean;
 }) {
   const enabled = useClientSettings((settings) => settings.modalKeyboardEnabled);
-  const updateSettings = useUpdateClientSettings();
+  const updateSettings = updateClientSettings;
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const composer = useComposerHandleContext();
   const navigate = useNavigate();
@@ -89,60 +89,40 @@ export function ModalKeyboard({
   const importantKeys = useSessionImportanceStore((state) => state.keys);
   const [hintPrefix, setHintPrefix] = useState<readonly string[] | null>(null);
 
-  const sessionTarget = useCallback(
-    () =>
-      flowSessionActionTarget(
-        openThreadKey && state.threadContext?.isServer
-          ? { key: openThreadKey, title: state.threadContext.title }
-          : null,
-      ),
-    [openThreadKey, state.threadContext],
-  );
+  const sessionTarget = () =>
+    flowSessionActionTarget(
+      openThreadKey && state.threadContext?.isServer
+        ? { key: openThreadKey, title: state.threadContext.title }
+        : null,
+    );
 
-  const describe = useCallback(
-    (command: ModalCommand) => {
-      const session =
-        command === "thread.rename"
-          ? threadRenameTarget(
-              openThreadKey && state.threadContext?.isServer
-                ? { key: openThreadKey, title: state.threadContext.title }
-                : null,
-            )
-          : command === "thread.important" || command === "thread.snooze"
-            ? sessionTarget()
-            : null;
-      return describeModalCommand(command, {
-        thread: hasThread ? state.threadContext : null,
-        surface: state.surface,
-        sidebarOpen: isMobile ? openMobile : open,
-        flowOpen,
-        previousSurface: state.previousSurface,
-        workingSessionGrid:
-          workingSessionGrid ||
-          (typeof document !== "undefined" &&
-            modalSurfaceRoot("conversation")?.dataset.modalGrid === "working-sessions"),
-        readingLamp,
-        sessionTarget: session
-          ? { title: session.title, important: importantKeys.has(session.key) }
-          : null,
-      });
-    },
-    [
-      hasThread,
-      openThreadKey,
-      state.threadContext,
-      state.surface,
-      isMobile,
-      openMobile,
-      open,
+  const describe = (command: ModalCommand) => {
+    const session =
+      command === "thread.rename"
+        ? threadRenameTarget(
+            openThreadKey && state.threadContext?.isServer
+              ? { key: openThreadKey, title: state.threadContext.title }
+              : null,
+          )
+        : command === "thread.important" || command === "thread.snooze"
+          ? sessionTarget()
+          : null;
+    return describeModalCommand(command, {
+      thread: hasThread ? state.threadContext : null,
+      surface: state.surface,
+      sidebarOpen: isMobile ? openMobile : open,
       flowOpen,
-      state.previousSurface,
-      workingSessionGrid,
+      previousSurface: state.previousSurface,
+      workingSessionGrid:
+        workingSessionGrid ||
+        (typeof document !== "undefined" &&
+          modalSurfaceRoot("conversation")?.dataset.modalGrid === "working-sessions"),
       readingLamp,
-      sessionTarget,
-      importantKeys,
-    ],
-  );
+      sessionTarget: session
+        ? { title: session.title, important: importantKeys.has(session.key) }
+        : null,
+    });
+  };
 
   useEffect(() => {
     if (!enabled) return;
@@ -530,7 +510,6 @@ export function ModalKeyboard({
     setOpen,
     setOpenMobile,
     toggleSidebar,
-    updateSettings,
   ]);
 
   if (!enabled) return null;

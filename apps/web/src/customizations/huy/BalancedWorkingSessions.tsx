@@ -1,3 +1,4 @@
+import { observeResize } from "~/lib/observeResize";
 import { useLayoutEffect, useRef, useState, type ReactElement } from "react";
 
 import { FLOW_CARD_MIN_HEIGHT, workingSessionRowSizes } from "./flowGridLayout";
@@ -36,10 +37,7 @@ export function WorkingSessionGrid({ children }: { children: ReactElement[] }) {
       );
     };
     measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(container);
-    observer.observe(viewport);
-    return () => observer.disconnect();
+    return observeResize([container, viewport], measure);
   }, []);
 
   const sizes = workingSessionRowSizes(children.length, width, height, cardHeight);

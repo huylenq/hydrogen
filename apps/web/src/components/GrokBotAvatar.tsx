@@ -60,7 +60,8 @@ export function GrokBotAvatar({
   return (
     <span
       aria-hidden="true"
-      className={cn("grok-bot-avatar inline-flex shrink-0 items-center justify-center", className)}
+      data-grok-bot-avatar
+      className={cn("inline-flex shrink-0 items-center justify-center", className)}
       style={{ width: size, height: size }}
       data-animated={animated && !showImage && !showGroup ? "true" : undefined}
       data-avatar-shape={showImage || showGroup ? undefined : avatar.shape}
@@ -80,7 +81,7 @@ export function GrokBotAvatar({
         />
       ) : showGroup ? (
         group && group.members.length > 0 ? (
-          <span className="grok-bot-group-avatar relative size-full">
+          <span data-grok-bot-group-avatar className="relative size-full">
             {group.members.map((member, index) => {
               const cell = cells[index]!;
               return (
@@ -126,9 +127,9 @@ export function GrokBotAvatar({
         )
       ) : (
         <svg viewBox={avatar.viewBox} className="size-full overflow-visible" focusable="false">
-          <g className="grok-bot-avatar-body">
+          <g data-grok-bot-avatar-body>
             <path d={avatar.bodyPath} fill={avatar.bodyFill} />
-            <g className="grok-bot-avatar-eyes" fill={avatar.eyeFill}>
+            <g data-grok-bot-avatar-eyes fill={avatar.eyeFill}>
               {avatar.eyes.map((eye) => (
                 <ellipse key={eye.x} cx={eye.x} cy={eye.y} rx={eye.rx} ry={eye.ry} />
               ))}

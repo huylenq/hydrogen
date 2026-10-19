@@ -1,10 +1,11 @@
+import type { EnvironmentServerConfig } from "@t3tools/client-runtime/connection";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import type { EnvironmentId, ServerConfig, ServerSettingsPatch } from "@t3tools/contracts";
+import type { EnvironmentId, ServerSettingsPatch } from "@t3tools/contracts";
 import { useRef, useState } from "react";
 import { View } from "react-native";
 
-import { AppText as Text } from "../../../components/AppText";
-import { ThemedSwitch } from "../../../components/ThemedSwitch";
+import { AppText as Text } from "../../../components/ui/AppText";
+import { ThemedSwitch } from "../../../components/ui/ThemedSwitch";
 import { useEnvironments } from "../../../state/environments";
 import { serverEnvironment } from "../../../state/server";
 import { useAtomCommand } from "../../../state/use-atom-command";
@@ -39,7 +40,7 @@ function EnvironmentAgentToolSettings(props: {
   readonly environmentId: EnvironmentId;
   readonly label: string;
   readonly connected: boolean;
-  readonly config: ServerConfig;
+  readonly config: EnvironmentServerConfig;
 }) {
   const updateSettings = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: false });
   const [busy, setBusy] = useState(false);

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useStableCallback } from "~/hooks/useStableCallback";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import type { KeybindingCommand } from "@t3tools/contracts";
 import { registerAppCommands } from "../../appCommands";
 
@@ -11,9 +12,8 @@ export function useChatCommands(
   useLayoutEffect(() => {
     current.current = { execute, focusReview };
   });
-  const executeCurrent = useCallback(
-    (command: KeybindingCommand, repeat: boolean) => current.current.execute(command, repeat),
-    [],
+  const executeCurrent = useStableCallback((command: KeybindingCommand, repeat: boolean) =>
+    current.current.execute(command, repeat),
   );
   useEffect(
     () =>

@@ -130,8 +130,6 @@ function FlowSubagentRow({
           providerInstanceId={agent.providerInstanceId}
           origin={agent.origin}
           driver={agent.driver}
-          provider={provider}
-          providers={providers}
           title={title}
           result={agent.result}
           progress={agent.progress}

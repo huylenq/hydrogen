@@ -1,4 +1,4 @@
-import { MaterialSegmentedButtons } from "../../components/MaterialSegmentedButtons.android";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { Column, OutlinedTextField, useNativeState, Text } from "@expo/ui/jetpack-compose";
 import { padding, fillMaxWidth, testID } from "@expo/ui/jetpack-compose/modifiers";
 import {
@@ -72,7 +72,7 @@ export function SnoozeDurationFields({ form }: { form: ReturnType<typeof useSnoo
           <Text style={bodyTypography}>Snooze for</Text>
         </OutlinedTextField.Label>
       </OutlinedTextField>
-      <MaterialSegmentedButtons options={units} selected={unit} onSelect={setUnit} />
+      <SegmentedControl options={units} selected={unit} onSelect={setUnit} />
     </Column>
   );
 }

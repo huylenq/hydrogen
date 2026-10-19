@@ -317,7 +317,8 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
           | "generateCommitMessage"
           | "generatePrContent"
           | "generateBranchName"
-          | "generateThreadTitle",
+          | "generateThreadTitle"
+          | "generateReviewGuide",
       ) =>
         Effect.fail(
           new TextGenerationError({
@@ -331,6 +332,7 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
         generatePrContent: () => unavailable("generatePrContent"),
         generateBranchName: () => unavailable("generateBranchName"),
         generateThreadTitle: () => unavailable("generateThreadTitle"),
+        generateReviewGuide: () => unavailable("generateReviewGuide"),
       };
       const refreshModels = () =>
         Effect.gen(function* () {

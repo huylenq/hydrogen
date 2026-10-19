@@ -118,8 +118,9 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-/** Shows the cursor, steps twice within the band, then starts landing the next block. */
+/** Shows the cursor, steps through the band, then lands the first block beyond it. */
 function startLanding() {
+  press("next");
   press("next");
   press("next");
   press("next");

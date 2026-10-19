@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import type { MessageId, RuntimeRequestId, ScopedThreadRef } from "@t3tools/contracts";
 import { useFlowAutoJump } from "../../hooks/useFlowAutoJump";
 
@@ -41,5 +40,5 @@ export function createUserActionLifecycle(prepare: ReturnType<typeof useFlowAuto
 
 export function useHuyActionLifecycle() {
   const prepare = useFlowAutoJump();
-  return useMemo(() => createUserActionLifecycle(prepare), [prepare]);
+  return (() => createUserActionLifecycle(prepare))();
 }

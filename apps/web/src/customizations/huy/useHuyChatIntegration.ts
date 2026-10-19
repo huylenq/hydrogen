@@ -233,10 +233,11 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
     let watched: { node: HTMLElement; observer: MutationObserver } | null = null;
     const schedule = () => {
       if (!cursor && !lampOn()) return;
-      followFrame ??= requestAnimationFrame(() => {
-        followFrame = null;
-        follow();
-      });
+      if (followFrame === null)
+        followFrame = requestAnimationFrame(() => {
+          followFrame = null;
+          follow();
+        });
     };
     scheduleFollow.current = schedule;
     // While the cursor or the lamp is showing, scrolling and row changes can move it off screen.
@@ -563,7 +564,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
     /** Vim `zt`/`zz`/`zb`: scrolls the cursor's block to the top, center, or bottom. */
     const place = (list: LegendListRef, node: HTMLElement, edge: ReadingEdge) => {
       trajectory = null;
-      cursor ??= anchor(list, node);
+      if (cursor === null) cursor = anchor(list, node);
       const element = cursor ? findReadingStopElement(node, cursor) : null;
       if (!cursor || !element) return;
       const base = scrollBase(node);
@@ -584,7 +585,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       const insertCitation = currentTimeline.current.cite;
       if (!timeline || !insertCitation) return showModalFeedback("Nothing to cite here");
       const { list, node } = timeline;
-      cursor ??= anchor(list, node);
+      if (cursor === null) cursor = anchor(list, node);
       const block = cursor ? findReadingStopElement(node, cursor) : null;
       if (!block) return showModalFeedback("Nothing to cite here");
       showCursor(node);
@@ -687,7 +688,8 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
             `[data-timeline-row-id="${CSS.escape(row.id)}"]`,
           );
           if (!element) {
-            if (++frames < 10) edgeFrame = requestAnimationFrame(settle);
+            frames += 1;
+            if (frames < 10) edgeFrame = requestAnimationFrame(settle);
             return;
           }
           const stops = rowReadingStops(element);

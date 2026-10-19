@@ -46,6 +46,7 @@ export function useHuyWorkspace({
     };
     update(!hideWindowButtons);
     return () => update(true);
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Native fullscreen transitions reset traffic light visibility.
   }, [isMacosDesktop, hideWindowButtons, isWindowFullscreen]);
 
   const workspaceStyle = {

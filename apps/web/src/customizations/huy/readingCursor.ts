@@ -1,3 +1,4 @@
+import { observeResize } from "~/lib/observeResize";
 import { create } from "zustand";
 import { assistantTextRange } from "../../lib/assistantTextSelection";
 import { readingSectionMarker } from "./readingStops";
@@ -40,7 +41,7 @@ const BAR_VARS = ["--reading-bar-top", "--reading-bar-height", "--reading-bar-le
 const BAR_GAP = 10;
 // The bar follows its block as the block, or anything above it in its row, changes size, and as
 // the row's frame resizes: a narrower chat recenters the text column without resizing it.
-const barObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measureBar);
+let stopBarObservation: (() => void) | null = null;
 
 function measureBar(): void {
   const cursor = markedPath[0];
@@ -66,7 +67,8 @@ function placeBar(): void {
     cursor && !cursor.hasAttribute("data-user-message-bubble")
       ? cursor.closest<HTMLElement>(".messages-timeline-row-frame")
       : null;
-  barObserver?.disconnect();
+  stopBarObservation?.();
+  stopBarObservation = null;
   if (barFrame && barFrame !== frame) {
     barFrame.removeAttribute("data-reading-bar");
     for (const name of BAR_VARS) barFrame.style.removeProperty(name);
@@ -75,10 +77,11 @@ function placeBar(): void {
   if (!cursor || !frame) return;
   frame.setAttribute("data-reading-bar", "");
   measureBar();
-  barObserver?.observe(cursor);
-  barObserver?.observe(frame);
   const row = markedPath.at(-1);
-  if (row && row !== cursor) barObserver?.observe(row);
+  stopBarObservation = observeResize(
+    [...new Set([cursor, frame, ...(row ? [row] : [])])],
+    measureBar,
+  );
 }
 
 /**

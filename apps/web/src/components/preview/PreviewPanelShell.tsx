@@ -9,7 +9,6 @@ import {
 } from "react";
 
 import { registerAppCommands } from "~/appCommands";
-import { isElectron } from "~/env";
 import {
   getPreviewPanelMaxWidth,
   type PreviewPanelInlineSize,
@@ -39,13 +38,11 @@ interface PreviewPanelShellProps {
   inlineSize?: PreviewPanelInlineSize;
   open?: boolean;
   /**
-   * Overrides the localStorage key used to persist the panel width. Callers
-   * embedding this shell for a different surface (e.g. the pull requests
-   * page) should pass their own key so resizing one panel doesn't clobber
-   * the other's remembered width.
+   * Callers embedding this shell for a different surface (e.g. the pull
+   * requests page) should pass their own key so resizing one panel doesn't
+   * clobber the other's remembered width.
    */
   widthStorageKey?: string;
-  /** Overrides the initial width (px) before the user has resized the panel. */
   defaultWidth?: number;
   children: ReactNode;
 }
@@ -74,13 +71,13 @@ function PreviewPanelShellFrame(
     hostRef?: RefObject<HTMLDivElement | null>;
   },
 ) {
-  const useDragRegion = isElectron && props.mode !== "sheet" && props.mode !== "embedded";
   const isInline = props.mode === "inline";
   const collapsible = isInline && props.open !== undefined;
   const open = props.open ?? true;
   const maximized = props.maximized ?? false;
   const localHostRef = useRef<HTMLDivElement | null>(null);
   const hostRef = props.hostRef ?? localHostRef;
+  const returnedFocus = useRef(false);
   const { width, handlers, resizeBy } = props.inlineSize;
   // Only the right panel answers resize shortcuts, and only while its width is the user's to set.
   const keyboardResizable = props.modalSurface === "rightPanel" && isInline && open && !maximized;
@@ -129,6 +126,35 @@ function PreviewPanelShellFrame(
       window.cancelAnimationFrame(restoreFrame);
     };
   }, [suppressWidthTransition]);
+  useLayoutEffect(() => {
+    const host = hostRef.current;
+    if (!host || !collapsible) return;
+    return () => {
+      if (!host.contains(host.ownerDocument.activeElement) && !returnedFocus.current) return;
+      // The toggle moves when the shell unmounts, after an animation or immediately.
+      // Restore focus at its committed location if removal cleared focus to body.
+      queueMicrotask(() => {
+        if (host.ownerDocument.activeElement === host.ownerDocument.body) {
+          host.ownerDocument.querySelector<HTMLButtonElement>("[data-right-panel-toggle]")?.focus();
+        }
+      });
+    };
+  }, [collapsible, hostRef]);
+  useLayoutEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const collapsed = collapsible && !open;
+    if (!collapsed) returnedFocus.current = false;
+    // Move focus before making its current owner inert, while the toggle is reachable.
+    if (collapsed && host.contains(host.ownerDocument.activeElement)) {
+      const toggle = host.ownerDocument.querySelector<HTMLButtonElement>(
+        "[data-right-panel-toggle]",
+      );
+      toggle?.focus();
+      returnedFocus.current = toggle !== null && host.ownerDocument.activeElement === toggle;
+    }
+    host.toggleAttribute("inert", collapsed);
+  }, [collapsible, open, hostRef]);
   return (
     <div
       ref={hostRef}
@@ -136,7 +162,9 @@ function PreviewPanelShellFrame(
         "relative flex h-full min-h-0 min-w-0 max-w-full flex-col self-stretch bg-background",
         isInline
           ? maximized
-            ? "flex-1 border-l border-border"
+            ? // Maximized, the panel's left edge meets the sidebar's own border
+              // (or the window edge), so a second border would double it.
+              "flex-1"
             : "shrink-0 border-l border-border"
           : "w-full",
         collapsible &&

@@ -1,4 +1,6 @@
-import { useCallback, useLayoutEffect, useState } from "react";
+import { observeResize } from "~/lib/observeResize";
+import { useStableCallback } from "~/hooks/useStableCallback";
+import { useLayoutEffect, useState } from "react";
 import { useCrewStore } from "../../crewStore";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../../rightPanelLayout";
@@ -10,7 +12,7 @@ export function useHuyWorkspaceGeometry() {
   const grokBotOpen = useCrewStore((state) => state.open);
   const grokBotChatOpen = useCrewStore((state) => state.chatOpen);
   const [workspace, setWorkspace] = useState<HTMLDivElement | null>(null);
-  const workspaceRef = useCallback((node: HTMLDivElement | null) => setWorkspace(node), []);
+  const workspaceRef = useStableCallback((node: HTMLDivElement | null) => setWorkspace(node));
   const [workspaceLayout, setWorkspaceLayout] = useState<{
     width: number;
     rightInset: number;
@@ -29,11 +31,10 @@ export function useHuyWorkspaceGeometry() {
       );
     };
     measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(workspace);
+    const stopObserving = observeResize(workspace, measure);
     window.addEventListener("resize", measure);
     return () => {
-      observer.disconnect();
+      stopObserving();
       window.removeEventListener("resize", measure);
     };
   }, [workspace]);

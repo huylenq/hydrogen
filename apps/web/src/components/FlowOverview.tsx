@@ -88,7 +88,7 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
   const entries = flowNavigationEntries(model);
 
   return (
-    <SidebarInset className="relative h-svh min-h-0 overflow-hidden bg-background text-foreground md:h-dvh">
+    <SidebarInset className="relative h-svh min-h-0 overflow-hidden md:h-dvh">
       {isElectron ? <WorkspacePageHeader electron className="absolute inset-x-0 top-0" /> : null}
       <main
         aria-label="Working session previews"

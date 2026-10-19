@@ -5,7 +5,7 @@ import type {
   SelectionSide,
 } from "@pierre/diffs";
 import type { CodeViewHandle } from "@pierre/diffs/react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { useClientSettings } from "~/hooks/useSettings";
 import { showModalFeedback } from "~/modalKeyboardStore";
@@ -108,7 +108,7 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
   const rowsCache = useRef(
     new Map<string, { fileDiff: FileDiffMetadata; signature: string; rows: DiffRow[] }>(),
   );
-  const rowsFor = useCallback((file: DiffVimFile, style: DiffVimStyle): DiffRow[] => {
+  const rowsFor = (file: DiffVimFile, style: DiffVimStyle): DiffRow[] => {
     const expanded = expansionsOf(latest.current.viewer, file.fileKey);
     const signature = [
       style,
@@ -122,16 +122,13 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
     const rows = diffRows(file.fileDiff, style, expanded);
     rowsCache.current.set(file.fileKey, { fileDiff: file.fileDiff, signature, rows });
     return rows;
-  }, []);
+  };
 
-  const files = useMemo<DiffNavFile[]>(
-    () =>
-      input.files.map((file) => ({
-        ...file,
-        rows: () => rowsFor(file, input.style),
-      })),
-    [input.files, input.style, rowsFor],
-  );
+  const files: DiffNavFile[] = (() =>
+    input.files.map((file) => ({
+      ...file,
+      rows: () => rowsFor(file, input.style),
+    })))();
   const filesRef = useRef(files);
   useLayoutEffect(() => {
     latest.current = input;
@@ -139,55 +136,49 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
     filesRef.current = files;
   });
 
-  const apply = useCallback(
-    (next: DiffCursor | null, nextAnchor: LineCursor | null, reveal: Reveal | null) => {
-      const { setSelectedLines } = latest.current;
-      setCursor(next);
-      setAnchor(nextAnchor);
-      if (next?.kind === "line") {
-        const file = filesRef.current.find((candidate) => candidate.fileKey === next.fileKey);
-        const range =
-          nextAnchor && file
-            ? rangeBetween(file.rows(), nextAnchor, next)
-            : { start: next.lineNumber, side: next.side, end: next.lineNumber, endSide: next.side };
-        setSelectedLines({ id: next.fileKey, range });
-      } else setSelectedLines(null);
-      pendingReveal.current = reveal;
-    },
-    [],
-  );
+  const apply = (next: DiffCursor | null, nextAnchor: LineCursor | null, reveal: Reveal | null) => {
+    const { setSelectedLines } = latest.current;
+    setCursor(next);
+    setAnchor(nextAnchor);
+    if (next?.kind === "line") {
+      const file = filesRef.current.find((candidate) => candidate.fileKey === next.fileKey);
+      const range =
+        nextAnchor && file
+          ? rangeBetween(file.rows(), nextAnchor, next)
+          : { start: next.lineNumber, side: next.side, end: next.lineNumber, endSide: next.side };
+      setSelectedLines({ id: next.fileKey, range });
+    } else setSelectedLines(null);
+    pendingReveal.current = reveal;
+  };
 
-  const scrollState = useCallback(() => {
+  const scrollState = () => {
     const instance = latest.current.viewer?.getInstance();
     return instance
       ? { instance, top: instance.getScrollTop(), height: instance.getHeight() }
       : null;
-  }, []);
+  };
 
   /** Absolute top of a stop, when Pierre can place it (headers always; rows once rendered). */
-  const stopTop = useCallback(
-    (stop: DiffStop): number | undefined => {
-      const view = scrollState();
-      const file = filesRef.current[stop.file];
-      if (!view || !file) return;
-      const itemTop = view.instance.getTopForItem(file.fileKey);
-      if (itemTop === undefined || stop.row < 0) return itemTop;
-      const rendered = view.instance.getRenderedItems().find((item) => item.id === file.fileKey);
-      if (rendered?.type !== "diff") return;
-      const row = file.rows()[stop.row];
-      const line = row?.addition ?? row?.deletion;
-      if (!row || !line) return;
-      const position = rendered.instance.getLinePosition(
-        line.lineNumber,
-        row.addition ? "additions" : "deletions",
-      );
-      return position ? itemTop + position.top : undefined;
-    },
-    [scrollState],
-  );
+  const stopTop = (stop: DiffStop): number | undefined => {
+    const view = scrollState();
+    const file = filesRef.current[stop.file];
+    if (!view || !file) return;
+    const itemTop = view.instance.getTopForItem(file.fileKey);
+    if (itemTop === undefined || stop.row < 0) return itemTop;
+    const rendered = view.instance.getRenderedItems().find((item) => item.id === file.fileKey);
+    if (rendered?.type !== "diff") return;
+    const row = file.rows()[stop.row];
+    const line = row?.addition ?? row?.deletion;
+    if (!row || !line) return;
+    const position = rendered.instance.getLinePosition(
+      line.lineNumber,
+      row.addition ? "additions" : "deletions",
+    );
+    return position ? itemTop + position.top : undefined;
+  };
 
   /** The first stop starting on screen: where the first motion shows the cursor. */
-  const firstStopOnScreen = useCallback((): DiffStop | null => {
+  const firstStopOnScreen = (): DiffStop | null => {
     const view = scrollState();
     const navFiles = filesRef.current;
     if (navFiles.length === 0) return null;
@@ -218,20 +209,17 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
       if (found >= 0) return { file: index, row: found };
     }
     return { file: navFiles.length - 1, row: -1 };
-  }, [scrollState, stopTop]);
+  };
 
-  const onScreen = useCallback(
-    (stop: DiffStop) => {
-      const view = scrollState();
-      const top = stopTop(stop);
-      if (!view || top === undefined) return false;
-      const covered = stop.row < 0 ? 0 : HEADER_HEIGHT;
-      return top + LINE_HEIGHT > view.top + covered && top < view.top + view.height;
-    },
-    [scrollState, stopTop],
-  );
+  const onScreen = (stop: DiffStop) => {
+    const view = scrollState();
+    const top = stopTop(stop);
+    if (!view || top === undefined) return false;
+    const covered = stop.row < 0 ? 0 : HEADER_HEIGHT;
+    return top + LINE_HEIGHT > view.top + covered && top < view.top + view.height;
+  };
 
-  const flushReveal = useCallback(() => {
+  const flushReveal = () => {
     const reveal = pendingReveal.current;
     const current = state.current.cursor;
     const view = scrollState();
@@ -274,7 +262,7 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
       position: position + HEADER_HEIGHT,
       behavior: "smooth-auto",
     });
-  }, [scrollState]);
+  };
 
   // Reveal after React commits, so collapses and remounts have laid out first.
   useLayoutEffect(() => {
@@ -282,331 +270,307 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Each of these changes layout or the cursor a pending reveal targets.
   }, [cursor, anchor, input.files, input.viewer, flushReveal]);
 
-  const moveTo = useCallback(
-    (stop: DiffStop, reveal: Reveal = "nearest") => {
-      const navFiles = filesRef.current;
-      const currentAnchor = anchorIn(navFiles, state.current.anchor);
-      let target = stop;
-      if (currentAnchor) {
-        // A selection stays within its file and off the header.
-        const anchorFile = navFiles.findIndex((file) => file.fileKey === currentAnchor.fileKey);
-        const lastRow = navFiles[anchorFile]!.rows().length - 1;
-        target =
-          target.file < anchorFile || (target.file === anchorFile && target.row < 0)
-            ? { file: anchorFile, row: 0 }
-            : target.file > anchorFile
-              ? { file: anchorFile, row: lastRow }
-              : target;
-      }
-      apply(
-        cursorAt(navFiles, target, wantSide.current, latest.current.style),
-        currentAnchor,
-        reveal,
-      );
-    },
-    [apply],
-  );
+  const moveTo = (stop: DiffStop, reveal: Reveal = "nearest") => {
+    const navFiles = filesRef.current;
+    const currentAnchor = anchorIn(navFiles, state.current.anchor);
+    let target = stop;
+    if (currentAnchor) {
+      // A selection stays within its file and off the header.
+      const anchorFile = navFiles.findIndex((file) => file.fileKey === currentAnchor.fileKey);
+      const lastRow = navFiles[anchorFile]!.rows().length - 1;
+      target =
+        target.file < anchorFile || (target.file === anchorFile && target.row < 0)
+          ? { file: anchorFile, row: 0 }
+          : target.file > anchorFile
+            ? { file: anchorFile, row: lastRow }
+            : target;
+    }
+    apply(
+      cursorAt(navFiles, target, wantSide.current, latest.current.style),
+      currentAnchor,
+      reveal,
+    );
+  };
 
-  const toggleFileAndFollow = useCallback(
-    (file: DiffNavFile, next: DiffCursor | null) => {
-      latest.current.toggleFile?.(file.filePath);
-      // Drop the row cache: a collapse can remount the file.
-      rowsCache.current.delete(file.fileKey);
-      apply(next, null, "nearest");
-    },
-    [apply],
-  );
+  const toggleFileAndFollow = (file: DiffNavFile, next: DiffCursor | null) => {
+    latest.current.toggleFile?.(file.filePath);
+    // Drop the row cache: a collapse can remount the file.
+    rowsCache.current.delete(file.fileKey);
+    apply(next, null, "nearest");
+  };
 
-  const runSearch = useCallback(
-    (query: string, direction: 1 | -1, from: DiffStop | null) => {
-      const navFiles = snapshotRows(filesRef.current);
-      // Without a cursor, search from the edge so the first file's header can match.
-      const start = from ?? (direction === 1 ? lastStop(navFiles) : { file: 0, row: -1 });
-      const hit = searchStop(navFiles, start, query, direction);
-      if (!hit) {
-        showModalFeedback(`Pattern not found: ${query}`);
-        return;
-      }
-      const file = navFiles[hit.stop.file]!;
-      const next = cursorAt(navFiles, hit.stop, hit.side, "split");
-      if (file.collapsed && hit.stop.row >= 0) toggleFileAndFollow(file, next);
-      else apply(next, null, "center");
-    },
-    [apply, toggleFileAndFollow],
-  );
+  const runSearch = (query: string, direction: 1 | -1, from: DiffStop | null) => {
+    const navFiles = snapshotRows(filesRef.current);
+    // Without a cursor, search from the edge so the first file's header can match.
+    const start = from ?? (direction === 1 ? lastStop(navFiles) : { file: 0, row: -1 });
+    const hit = searchStop(navFiles, start, query, direction);
+    if (!hit) {
+      showModalFeedback(`Pattern not found: ${query}`);
+      return;
+    }
+    const file = navFiles[hit.stop.file]!;
+    const next = cursorAt(navFiles, hit.stop, hit.side, "split");
+    if (file.collapsed && hit.stop.row >= 0) toggleFileAndFollow(file, next);
+    else apply(next, null, "center");
+  };
 
-  const copy = useCallback((text: string, what: string) => {
+  const copy = (text: string, what: string) => {
     void navigator.clipboard.writeText(text).then(
       () => showModalFeedback(`Copied ${what}`),
       () => showModalFeedback("Copying failed"),
     );
-  }, []);
+  };
 
-  const run = useCallback(
-    (command: DiffVimCommand): boolean => {
-      const navFiles = snapshotRows(filesRef.current);
-      const current = state.current.cursor;
-      const currentAnchor = anchorIn(navFiles, state.current.anchor);
-      const { style } = latest.current;
-      if (command === "diff.escape") {
-        if (!currentAnchor) return false;
-        apply(current, null, null);
+  const run = (command: DiffVimCommand): boolean => {
+    const navFiles = snapshotRows(filesRef.current);
+    const current = state.current.cursor;
+    const currentAnchor = anchorIn(navFiles, state.current.anchor);
+    const { style } = latest.current;
+    if (command === "diff.escape") {
+      if (!currentAnchor) return false;
+      apply(current, null, null);
+      return true;
+    }
+    if (command === "diff.search") {
+      setSearchOpen(true);
+      return true;
+    }
+    if (command === "diff.help") {
+      if (latest.current.showKeys) latest.current.showKeys();
+      else showModalFeedback("No key list for this diff");
+      return true;
+    }
+    if (command === "diff.refresh") {
+      if (latest.current.refresh) latest.current.refresh();
+      else showModalFeedback("This diff refreshes on its own");
+      return true;
+    }
+    if (navFiles.length === 0) {
+      showModalFeedback("No files in this diff");
+      return true;
+    }
+    const at = current ? stopOf(navFiles, current) : null;
+    const motion = [
+      "diff.next",
+      "diff.previous",
+      "diff.section.next",
+      "diff.section.previous",
+      "diff.sibling.next",
+      "diff.sibling.previous",
+    ].includes(command);
+    // The first motion, or one after the cursor scrolled away, shows it on screen first.
+    if (motion && (!at || !onScreen(at))) {
+      const first = firstStopOnScreen();
+      if (first) moveTo(first);
+      return true;
+    }
+    const from = at ?? firstStopOnScreen() ?? { file: 0, row: -1 };
+    const file = navFiles[from.file]!;
+    const row = from.row >= 0 ? file.rows()[from.row] : undefined;
+    const lineCursor = current?.kind === "line" ? current : null;
+    switch (command) {
+      case "diff.next":
+      case "diff.previous":
+        moveTo(stepStop(navFiles, from, command === "diff.next" ? 1 : -1));
+        return true;
+      case "diff.first":
+        moveTo({ file: 0, row: -1 });
+        return true;
+      case "diff.last":
+        moveTo(lastStop(navFiles));
+        return true;
+      case "diff.section.next":
+      case "diff.section.previous": {
+        const next = sectionStop(navFiles, from, command === "diff.section.next" ? 1 : -1);
+        if (next) moveTo(next);
         return true;
       }
-      if (command === "diff.search") {
-        setSearchOpen(true);
+      case "diff.sibling.next":
+      case "diff.sibling.previous": {
+        const next = siblingStop(navFiles, from, command === "diff.sibling.next" ? 1 : -1);
+        if (next) moveTo(next);
         return true;
       }
-      if (command === "diff.help") {
-        if (latest.current.showKeys) latest.current.showKeys();
-        else showModalFeedback("No key list for this diff");
+      case "diff.parent":
+        if (from.row >= 0) apply({ fileKey: file.fileKey, kind: "header" }, null, "nearest");
+        return true;
+      case "diff.page.down":
+      case "diff.page.up":
+      case "diff.half.down":
+      case "diff.half.up": {
+        const view = scrollState();
+        if (!view) return true;
+        const down = command === "diff.page.down" || command === "diff.half.down";
+        const page = command.startsWith("diff.page")
+          ? view.height - 2 * LINE_HEIGHT
+          : view.height / 2;
+        const delta = down ? page : -page;
+        view.instance.scrollTo({
+          type: "position",
+          position: view.top + delta + HEADER_HEIGHT,
+          behavior: "smooth-auto",
+        });
+        // Like Emacs scrolling, the cursor stays put; if it scrolled away, the next motion picks
+        // it up on screen. Rows wrap, so a row count cannot follow a screen offset.
         return true;
       }
-      if (command === "diff.refresh") {
-        if (latest.current.refresh) latest.current.refresh();
-        else showModalFeedback("This diff refreshes on its own");
+      case "diff.left":
+        if (from.row < 0) {
+          if (!file.collapsed) toggleFileAndFollow(file, { fileKey: file.fileKey, kind: "header" });
+        } else if (style === "split" && lineCursor?.side === "additions" && row?.deletion) {
+          wantSide.current = "deletions";
+          moveTo(from);
+        } else apply({ fileKey: file.fileKey, kind: "header" }, null, "nearest");
         return true;
-      }
-      if (navFiles.length === 0) {
-        showModalFeedback("No files in this diff");
+      case "diff.right":
+        if (from.row < 0) {
+          if (file.collapsed) toggleFileAndFollow(file, { fileKey: file.fileKey, kind: "header" });
+          else if (file.rows().length > 0) moveTo({ file: from.file, row: 0 });
+        } else if (style === "split" && lineCursor?.side === "deletions" && row?.addition) {
+          wantSide.current = "additions";
+          moveTo(from);
+        }
         return true;
-      }
-      const at = current ? stopOf(navFiles, current) : null;
-      const motion = [
-        "diff.next",
-        "diff.previous",
-        "diff.section.next",
-        "diff.section.previous",
-        "diff.sibling.next",
-        "diff.sibling.previous",
-      ].includes(command);
-      // The first motion, or one after the cursor scrolled away, shows it on screen first.
-      if (motion && (!at || !onScreen(at))) {
-        const first = firstStopOnScreen();
-        if (first) moveTo(first);
-        return true;
-      }
-      const from = at ?? firstStopOnScreen() ?? { file: 0, row: -1 };
-      const file = navFiles[from.file]!;
-      const row = from.row >= 0 ? file.rows()[from.row] : undefined;
-      const lineCursor = current?.kind === "line" ? current : null;
-      switch (command) {
-        case "diff.next":
-        case "diff.previous":
-          moveTo(stepStop(navFiles, from, command === "diff.next" ? 1 : -1));
-          return true;
-        case "diff.first":
-          moveTo({ file: 0, row: -1 });
-          return true;
-        case "diff.last":
-          moveTo(lastStop(navFiles));
-          return true;
-        case "diff.section.next":
-        case "diff.section.previous": {
-          const next = sectionStop(navFiles, from, command === "diff.section.next" ? 1 : -1);
-          if (next) moveTo(next);
+      case "diff.fold.toggle":
+      case "diff.level.hide":
+      case "diff.level.show": {
+        const header: DiffCursor = { fileKey: file.fileKey, kind: "header" };
+        const shown = command === "diff.level.show";
+        // Level 1 rests on the header, like magit; showing an open file changes nothing.
+        if (command !== "diff.fold.toggle" && file.collapsed !== shown) {
+          if (!shown) apply(header, null, "nearest");
           return true;
         }
-        case "diff.sibling.next":
-        case "diff.sibling.previous": {
-          const next = siblingStop(navFiles, from, command === "diff.sibling.next" ? 1 : -1);
-          if (next) moveTo(next);
+        if (file.fileDiff.cacheKey?.endsWith(":pending")) {
+          showModalFeedback("This file is still loading");
           return true;
         }
-        case "diff.parent":
-          if (from.row >= 0) apply({ fileKey: file.fileKey, kind: "header" }, null, "nearest");
-          return true;
-        case "diff.page.down":
-        case "diff.page.up":
-        case "diff.half.down":
-        case "diff.half.up": {
-          const view = scrollState();
-          if (!view) return true;
-          const down = command === "diff.page.down" || command === "diff.half.down";
-          const page = command.startsWith("diff.page")
-            ? view.height - 2 * LINE_HEIGHT
-            : view.height / 2;
-          const delta = down ? page : -page;
-          view.instance.scrollTo({
-            type: "position",
-            position: view.top + delta + HEADER_HEIGHT,
-            behavior: "smooth-auto",
-          });
-          // Like Emacs scrolling, the cursor stays put; if it scrolled away, the next motion picks
-          // it up on screen. Rows wrap, so a row count cannot follow a screen offset.
-          return true;
-        }
-        case "diff.left":
-          if (from.row < 0) {
-            if (!file.collapsed)
-              toggleFileAndFollow(file, { fileKey: file.fileKey, kind: "header" });
-          } else if (style === "split" && lineCursor?.side === "additions" && row?.deletion) {
-            wantSide.current = "deletions";
-            moveTo(from);
-          } else apply({ fileKey: file.fileKey, kind: "header" }, null, "nearest");
-          return true;
-        case "diff.right":
-          if (from.row < 0) {
-            if (file.collapsed)
-              toggleFileAndFollow(file, { fileKey: file.fileKey, kind: "header" });
-            else if (file.rows().length > 0) moveTo({ file: from.file, row: 0 });
-          } else if (style === "split" && lineCursor?.side === "deletions" && row?.addition) {
-            wantSide.current = "additions";
-            moveTo(from);
-          }
-          return true;
-        case "diff.fold.toggle":
-        case "diff.level.hide":
-        case "diff.level.show": {
-          const header: DiffCursor = { fileKey: file.fileKey, kind: "header" };
-          const shown = command === "diff.level.show";
-          // Level 1 rests on the header, like magit; showing an open file changes nothing.
-          if (command !== "diff.fold.toggle" && file.collapsed !== shown) {
-            if (!shown) apply(header, null, "nearest");
-            return true;
-          }
-          if (file.fileDiff.cacheKey?.endsWith(":pending")) {
-            showModalFeedback("This file is still loading");
-            return true;
-          }
-          toggleFileAndFollow(file, header);
+        toggleFileAndFollow(file, header);
+        return true;
+      }
+      case "diff.fold.all":
+      case "diff.level.files":
+      case "diff.level.all": {
+        const collapse =
+          command === "diff.level.files" ||
+          (command === "diff.fold.all" && navFiles.some((candidate) => !candidate.collapsed));
+        latest.current.setAllCollapsed?.(collapse);
+        rowsCache.current.clear();
+        apply(
+          collapse || !current ? { fileKey: file.fileKey, kind: "header" } : current,
+          null,
+          "nearest",
+        );
+        return true;
+      }
+      case "diff.view.top":
+      case "diff.view.center":
+      case "diff.view.bottom":
+        if (!current) apply(cursorAt(navFiles, from, wantSide.current, style), null, null);
+        pendingReveal.current =
+          command === "diff.view.top"
+            ? "top"
+            : command === "diff.view.center"
+              ? "center"
+              : "bottom";
+        flushReveal();
+        return true;
+      case "diff.context.more": {
+        const rendered = latest.current.viewer
+          ?.getInstance()
+          ?.getRenderedItems()
+          .find((item) => item.id === file.fileKey);
+        const expansions = moreContextExpansions(file.fileDiff);
+        if (rendered?.type !== "diff" || file.collapsed || expansions.length === 0) {
+          showModalFeedback("No hidden context in this file");
           return true;
         }
-        case "diff.fold.all":
-        case "diff.level.files":
-        case "diff.level.all": {
-          const collapse =
-            command === "diff.level.files" ||
-            (command === "diff.fold.all" && navFiles.some((candidate) => !candidate.collapsed));
-          latest.current.setAllCollapsed?.(collapse);
-          rowsCache.current.clear();
-          apply(
-            collapse || !current ? { fileKey: file.fileKey, kind: "header" } : current,
-            null,
-            "nearest",
+        for (const [hunk, direction] of expansions)
+          rendered.instance.expandHunk(hunk, direction, CONTEXT_STEP);
+        return true;
+      }
+      case "diff.visual":
+        if (currentAnchor) apply(current, null, null);
+        else if (lineCursor) apply(lineCursor, lineCursor, null);
+        else showModalFeedback("Move to a line to select");
+        return true;
+      case "diff.yank.selection": {
+        if (!currentAnchor || !lineCursor) return true;
+        const rows = file.rows();
+        const range = rangeBetween(rows, currentAnchor, lineCursor);
+        const first = stopOf(navFiles, {
+          fileKey: file.fileKey,
+          kind: "line",
+          side: range.side ?? "additions",
+          lineNumber: range.start,
+        });
+        const last = stopOf(navFiles, {
+          fileKey: file.fileKey,
+          kind: "line",
+          side: range.endSide ?? range.side ?? "additions",
+          lineNumber: range.end,
+        });
+        if (first && last) {
+          copy(
+            rowsText(file.fileDiff, rows.slice(first.row, last.row + 1)),
+            `${last.row - first.row + 1} lines`,
           );
-          return true;
         }
-        case "diff.view.top":
-        case "diff.view.center":
-        case "diff.view.bottom":
-          if (!current) apply(cursorAt(navFiles, from, wantSide.current, style), null, null);
-          pendingReveal.current =
-            command === "diff.view.top"
-              ? "top"
-              : command === "diff.view.center"
-                ? "center"
-                : "bottom";
-          flushReveal();
-          return true;
-        case "diff.context.more": {
-          const rendered = latest.current.viewer
-            ?.getInstance()
-            ?.getRenderedItems()
-            .find((item) => item.id === file.fileKey);
-          const expansions = moreContextExpansions(file.fileDiff);
-          if (rendered?.type !== "diff" || file.collapsed || expansions.length === 0) {
-            showModalFeedback("No hidden context in this file");
-            return true;
-          }
-          for (const [hunk, direction] of expansions)
-            rendered.instance.expandHunk(hunk, direction, CONTEXT_STEP);
-          return true;
-        }
-        case "diff.visual":
-          if (currentAnchor) apply(current, null, null);
-          else if (lineCursor) apply(lineCursor, lineCursor, null);
-          else showModalFeedback("Move to a line to select");
-          return true;
-        case "diff.yank.selection": {
-          if (!currentAnchor || !lineCursor) return true;
-          const rows = file.rows();
-          const range = rangeBetween(rows, currentAnchor, lineCursor);
-          const first = stopOf(navFiles, {
-            fileKey: file.fileKey,
-            kind: "line",
-            side: range.side ?? "additions",
-            lineNumber: range.start,
-          });
-          const last = stopOf(navFiles, {
-            fileKey: file.fileKey,
-            kind: "line",
-            side: range.endSide ?? range.side ?? "additions",
-            lineNumber: range.end,
-          });
-          if (first && last) {
-            copy(
-              rowsText(file.fileDiff, rows.slice(first.row, last.row + 1)),
-              `${last.row - first.row + 1} lines`,
-            );
-          }
-          apply(lineCursor, null, null);
-          return true;
-        }
-        case "diff.yank.line":
-          if (!row || !lineCursor) copy(file.filePath, "file path");
-          else {
-            const line = lineCursor.side === "additions" ? row.addition : row.deletion;
-            if (line) copy(rowText(file.fileDiff, line, lineCursor.side), "line");
-          }
-          return true;
-        case "diff.yank.section":
-          if (!row) copy(file.filePath, "file path");
-          else if (row.kind === "expanded") showModalFeedback("Not inside a hunk");
-          else copy(hunkText(file.fileDiff, row.hunk), "hunk");
-          return true;
-        case "diff.comment": {
-          if (latest.current.commentOpen) {
-            showModalFeedback("Finish the open comment first");
-            return true;
-          }
-          if (!lineCursor) {
-            showModalFeedback("Move to a line to comment");
-            return true;
-          }
-          const range = currentAnchor
-            ? rangeBetween(file.rows(), currentAnchor, lineCursor)
-            : {
-                start: lineCursor.lineNumber,
-                side: lineCursor.side,
-                end: lineCursor.lineNumber,
-                endSide: lineCursor.side,
-              };
-          setAnchor(null);
-          latest.current.beginComment(file.fileKey, range);
-          return true;
-        }
-        case "diff.search.next":
-        case "diff.search.previous": {
-          const search = lastSearch.current;
-          if (!search) {
-            showModalFeedback("No previous search");
-            return true;
-          }
-          const direction =
-            command === "diff.search.next" ? search.direction : (-search.direction as 1 | -1);
-          runSearch(search.query, direction, at);
-          return true;
-        }
-        case "diff.visit":
-          latest.current.openFile?.(file.filePath, row ? visitLine(file.rows(), from.row) : null);
-          return true;
-        default:
-          return false;
+        apply(lineCursor, null, null);
+        return true;
       }
-    },
-    [
-      apply,
-      copy,
-      firstStopOnScreen,
-      flushReveal,
-      moveTo,
-      onScreen,
-      runSearch,
-      scrollState,
-      toggleFileAndFollow,
-    ],
-  );
+      case "diff.yank.line":
+        if (!row || !lineCursor) copy(file.filePath, "file path");
+        else {
+          const line = lineCursor.side === "additions" ? row.addition : row.deletion;
+          if (line) copy(rowText(file.fileDiff, line, lineCursor.side), "line");
+        }
+        return true;
+      case "diff.yank.section":
+        if (!row) copy(file.filePath, "file path");
+        else if (row.kind === "expanded") showModalFeedback("Not inside a hunk");
+        else copy(hunkText(file.fileDiff, row.hunk), "hunk");
+        return true;
+      case "diff.comment": {
+        if (latest.current.commentOpen) {
+          showModalFeedback("Finish the open comment first");
+          return true;
+        }
+        if (!lineCursor) {
+          showModalFeedback("Move to a line to comment");
+          return true;
+        }
+        const range = currentAnchor
+          ? rangeBetween(file.rows(), currentAnchor, lineCursor)
+          : {
+              start: lineCursor.lineNumber,
+              side: lineCursor.side,
+              end: lineCursor.lineNumber,
+              endSide: lineCursor.side,
+            };
+        setAnchor(null);
+        latest.current.beginComment(file.fileKey, range);
+        return true;
+      }
+      case "diff.search.next":
+      case "diff.search.previous": {
+        const search = lastSearch.current;
+        if (!search) {
+          showModalFeedback("No previous search");
+          return true;
+        }
+        const direction =
+          command === "diff.search.next" ? search.direction : (-search.direction as 1 | -1);
+        runSearch(search.query, direction, at);
+        return true;
+      }
+      case "diff.visit":
+        latest.current.openFile?.(file.filePath, row ? visitLine(file.rows(), from.row) : null);
+        return true;
+      default:
+        return false;
+    }
+  };
 
   useEffect(() => {
     const root = input.root;
@@ -625,7 +589,7 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
   }, [enabled, input.root, run]);
 
   /** Pierre reports selections made with the pointer; the cursor follows them. */
-  const onPointerSelection = useCallback((selection: Selection | null) => {
+  const onPointerSelection = (selection: Selection | null) => {
     if (!selection) {
       setCursor(null);
       setAnchor(null);
@@ -639,39 +603,33 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
       lineNumber: range.end,
     });
     setAnchor(null);
-  }, []);
+  };
 
   /** After a comment closes, the cursor rests on the line it was written on. */
-  const settleAfterComment = useCallback(
-    (selection: Selection | null): Selection | null => {
-      if (!enabled || !selection) return null;
-      const { range } = selection;
-      const side = range.endSide ?? range.side ?? "additions";
-      const next: LineCursor = { fileKey: selection.id, kind: "line", side, lineNumber: range.end };
-      setCursor(next);
-      setAnchor(null);
-      // The draft's textarea is about to unmount; keep focus in the diff instead of losing it.
-      const root = latest.current.root;
-      const active = document.activeElement;
-      if (root && (!active || active === document.body || root.contains(active)))
-        root.focus({ preventScroll: true });
-      return { id: selection.id, range: { start: range.end, side, end: range.end, endSide: side } };
-    },
-    [enabled],
-  );
+  const settleAfterComment = (selection: Selection | null): Selection | null => {
+    if (!enabled || !selection) return null;
+    const { range } = selection;
+    const side = range.endSide ?? range.side ?? "additions";
+    const next: LineCursor = { fileKey: selection.id, kind: "line", side, lineNumber: range.end };
+    setCursor(next);
+    setAnchor(null);
+    // The draft's textarea is about to unmount; keep focus in the diff instead of losing it.
+    const root = latest.current.root;
+    const active = document.activeElement;
+    if (root && (!active || active === document.body || root.contains(active)))
+      root.focus({ preventScroll: true });
+    return { id: selection.id, range: { start: range.end, side, end: range.end, endSide: side } };
+  };
 
   /** Enter and Escape return to the diff; leaving by pointer or Tab goes where the reader went. */
-  const closeSearch = useCallback(
-    (query: string | null, refocus: boolean) => {
-      setSearchOpen(false);
-      if (refocus) latest.current.root?.focus({ preventScroll: true });
-      if (!query) return;
-      lastSearch.current = { query, direction: 1 };
-      const current = state.current.cursor;
-      runSearch(query, 1, current ? stopOf(filesRef.current, current) : null);
-    },
-    [runSearch],
-  );
+  const closeSearch = (query: string | null, refocus: boolean) => {
+    setSearchOpen(false);
+    if (refocus) latest.current.root?.focus({ preventScroll: true });
+    if (!query) return;
+    lastSearch.current = { query, direction: 1 };
+    const current = state.current.cursor;
+    runSearch(query, 1, current ? stopOf(filesRef.current, current) : null);
+  };
 
   return {
     enabled,
