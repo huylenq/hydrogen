@@ -1,3 +1,4 @@
+import * as SecretResolver from "@t3tools/secret-provider-core/server/SecretResolver";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import {
@@ -31,6 +32,12 @@ const testLayer = TestProviderHost.layer({ runBackgroundWork: false }).pipe(
     ),
   ),
   Layer.provideMerge(IdAllocator.layer),
+  Layer.provideMerge(
+    Layer.mock(SecretResolver.SecretResolver)({
+      read: (references) => Effect.succeed(references.map(() => undefined)),
+      invalidate: () => Effect.void,
+    }),
+  ),
 );
 
 describe("Hermes provider instances", () => {

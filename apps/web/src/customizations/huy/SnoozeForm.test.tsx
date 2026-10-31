@@ -1,3 +1,4 @@
+/* oxlint-disable t3code/require-disposable-render -- These fixtures reset synthetic globals and any mounted root together in teardown to exercise keyboard and focus lifetimes. */
 import { act, useLayoutEffect } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -30,7 +31,9 @@ describe("Huy snooze input", () => {
     });
     await act(() => form.setAmount("12345.5"));
     vi.setSystemTime(new Date("2026-09-27T04:00:00Z"));
-    expect(form.resolve()).toBe(new Date(Date.now() + 12345.5 * 60_000).toISOString());
+    expect(form.resolve()).toBe(
+      new Date(Date.parse("2026-09-27T04:00:00Z") + 12345.5 * 60_000).toISOString(),
+    );
   });
   it("rejects invalid duration without completing the form", async () => {
     await act(() => {
@@ -48,7 +51,9 @@ describe("Huy snooze input", () => {
     });
     expect(form.amount).toBe("");
     await act(() => form.setAmount("45s"));
-    expect(form.resolve()).toBe(new Date(Date.now() + 45_000).toISOString());
+    expect(form.resolve()).toBe(
+      new Date(Date.parse("2026-09-27T03:00:00Z") + 45_000).toISOString(),
+    );
   });
   it("keeps date and time scheduling available", async () => {
     await act(() => {

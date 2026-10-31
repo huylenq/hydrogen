@@ -1,6 +1,9 @@
 import * as NodeReadline from "node:readline";
 import * as NodeFS from "node:fs";
 
+if (process.env.HERMES_TEST_ARGV_LOG)
+  NodeFS.appendFileSync(process.env.HERMES_TEST_ARGV_LOG, `${process.argv.slice(2).join("\t")}\n`);
+
 const send = (value) => process.stdout.write(`${JSON.stringify({ jsonrpc: "2.0", ...value })}\n`);
 const reply = (id, result) => send({ id, result });
 const update = (sessionId, update) =>

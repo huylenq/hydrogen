@@ -22,11 +22,12 @@ import { useFlowStore } from "../flowStore";
 import { useEnvironments } from "../state/environments";
 import { useProject, useThreadVisibleTurnItems } from "../state/entities";
 import { environmentThreadDetails } from "../state/threads";
-import { getProviderInstanceEntry } from "../providerInstances";
+import { deriveProviderInstanceEntries } from "../providerInstances";
 import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
-import { ToolActivityIconCtx, type WorkEntryIconName } from "./chat/MessagesTimeline";
+import { ToolActivityIconCtx } from "./chat/timelineRowContext";
+import type { WorkEntryIconName } from "./chat/TimelineToolActivityIcon";
 import {
-  getTriggerDisplayModelLabel,
+  getTriggerDisplayModelName,
   stripIconRedundantModelPrefix,
 } from "./chat/providerIconUtils";
 import { buildThreadRouteParams } from "../threadRoutes";
@@ -142,12 +143,14 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
   const providers = useAtomValue(serverEnvironment.providersValueAtom(thread.environmentId));
   const instanceId = thread.runtime?.providerInstanceId ?? thread.modelSelection.instanceId;
   const providerEntry = (() =>
-    providers ? getProviderInstanceEntry(providers, instanceId) : undefined)();
+    providers
+      ? deriveProviderInstanceEntries(providers).find((entry) => entry.instanceId === instanceId)
+      : undefined)();
   const selectedModel = providerEntry?.models.find(
     (model) => model.slug === thread.modelSelection.model,
   );
   const rawModelLabel = selectedModel
-    ? getTriggerDisplayModelLabel(selectedModel)
+    ? getTriggerDisplayModelName(selectedModel, providerEntry?.driverKind)
     : thread.modelSelection.model;
   const modelLabel = providerEntry
     ? stripIconRedundantModelPrefix(rawModelLabel, providerEntry.driverKind)
@@ -215,6 +218,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
   }))();
   const scrollRef = useRef<HTMLDivElement>(null);
   const followLatest = useRef(true);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Scrolls the live reply viewport after its content changes, while preserving manual scroll position.
   useLayoutEffect(() => {
     if (followLatest.current && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;

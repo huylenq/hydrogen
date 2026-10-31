@@ -37,6 +37,7 @@ export function useCommitDialogRequest(
 ) {
   const open = useEffectEvent(openCommitDialog);
   const threadKey = ref ? scopedThreadKey(ref) : null;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Owns the pending commit-dialog request only while this thread card remains mounted.
   useEffect(() => {
     const request = pending;
     if (!request || request.threadKey !== threadKey) return;

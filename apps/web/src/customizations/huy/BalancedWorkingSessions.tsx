@@ -12,6 +12,7 @@ export function WorkingSessionGrid({ children }: { children: ReactElement[] }) {
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
   const [cardHeight, setCardHeight] = useState(FLOW_CARD_MIN_HEIGHT);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Observes the grid and viewport dimensions so card rows fit the visible area.
   useLayoutEffect(() => {
     const container = containerRef.current;
     // The viewport, not the grid's own wrapper: that grows with the rows and would ratchet.

@@ -1,16 +1,4 @@
-/**
- * Keyboard focus for right-panel content whose target mounts late: a lazily loaded surface, a
- * viewer that waits for data, or one that remounts. Surfaces register focus anchors; the deepest
- * anchor is the best target (a diff's viewer inside the diff panel).
- *
- * Two states keep focus where the reader asked for it:
- * - An entry intent (`w l`, `r`) lasts until an anchor in the entered content takes focus, the
- *   reader clicks, or focus moves out of that content.
- * - Once an anchor has focus its outermost anchor owns focus: if the focused element unmounts,
- *   focus returns to the best remaining anchor and moves on to a better one when it mounts.
- *
- * Only the modal keyboard enters panels, and surfaces register anchors only while it is on.
- */
+/** A panel entry intent survives lazy mounts until focus is fulfilled or the reader moves away. Focused anchors also reclaim focus after viewer remounts; the deepest live anchor wins. */
 const anchors = new Set<HTMLElement>();
 let pendingEntry: HTMLElement | null = null;
 let owner: HTMLElement | null = null;

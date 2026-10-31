@@ -187,7 +187,6 @@ function CrewMarkdown({ text, user = false }: { text: string; user?: boolean }) 
       codeBackgroundColor: codeBackground,
       codeBlockBackgroundColor: codeBackground,
       fileTextColor: code,
-      skillTextColor: code,
       quoteMarkerColor: quote,
       dividerColor: divider,
       fontFamily: regularFontFamily,

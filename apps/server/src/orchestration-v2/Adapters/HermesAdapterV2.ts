@@ -34,7 +34,7 @@ import {
   makeHermesAcpRuntime,
 } from "../../provider/acp/HermesAcpSupport.ts";
 
-export const HERMES_PROVIDER = ProviderDriverKind.make("hermes");
+const HERMES_PROVIDER = ProviderDriverKind.make("hermes");
 const isAcpRequestError = Schema.is(EffectAcpErrors.AcpRequestError);
 
 /** Plan mode, rollback, and delegation are documented as unavailable for Hermes. */
@@ -77,7 +77,7 @@ export interface HermesAdapterV2Options {
 }
 
 /** Hermes edit-approval modes; Auto asks like Supervised. */
-export function hermesSessionMode(
+function hermesSessionMode(
   runtimeMode: ProviderAdapter.ProviderAdapterV2RuntimePolicy["runtimeMode"],
 ) {
   return runtimeMode === "full-access"
@@ -147,7 +147,7 @@ const observeTurnResults = (
   },
 });
 
-export function makeHermesAcpAdapterFlavor(
+function makeHermesAcpAdapterFlavor(
   options: HermesAdapterV2Options & { readonly profile: string },
 ): AcpAdapterV2Flavor {
   const makeRuntime = (input: AcpAdapterV2RuntimeInput) => {
@@ -212,8 +212,12 @@ export const makeHermesAdapterV2 = Effect.fn("makeHermesAdapterV2")(function* (
   return ProviderAdapter.ProviderAdapterV2.of({
     instanceId: options.instanceId,
     driver: HERMES_PROVIDER,
-    getCapabilities: () => Effect.succeed(HermesProviderCapabilitiesV2),
-    planSelectionTransition: (input) => Effect.succeed(hermesSelectionTransition(input)),
+    getCapabilities: Effect.fn("HermesAdapterV2.getCapabilities")(() =>
+      Effect.succeed(HermesProviderCapabilitiesV2),
+    ),
+    planSelectionTransition: Effect.fn("HermesAdapterV2.planSelectionTransition")((input) =>
+      Effect.succeed(hermesSelectionTransition(input)),
+    ),
     openSession: Effect.fn("HermesAdapterV2.openSession")(function* (
       input: ProviderAdapter.ProviderAdapterV2OpenSessionInput,
     ) {

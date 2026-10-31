@@ -31,6 +31,7 @@ declare module "@tanstack/react-router" {
  * layout to keystrokes. Draft promotion is the send's own route replacement. */
 export function useFlowJumpCancellation() {
   const router = useRouter();
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Subscribes to router, draft, and document edits so user navigation cancels a pending Flow jump.
   useEffect(() => {
     const cancel = () => useFlowStore.getState().cancelPendingJump();
     let locationKey = router.state.location.state.__TSR_key ?? router.state.location.href;

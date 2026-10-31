@@ -1,3 +1,4 @@
+/* oxlint-disable t3code/require-disposable-render -- These fixtures reset synthetic globals and any mounted root together in teardown to exercise keyboard and focus lifetimes. */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";

@@ -4,13 +4,13 @@ import { cn } from "../../lib/utils";
 import { observeVisibleAnimation } from "../../lib/visibleAnimation";
 import { workEntryDisplayIndicatesToolFailure, type WorkLogEntry } from "../../session-logic";
 import {
-  ActivityShimmerOverlay,
   failedToolIconClassName,
   ToolActivityIconView,
   toolIconAcceptsTint,
-  workEntryIconName,
   type WorkEntryIconName,
-} from "../../components/chat/MessagesTimeline";
+} from "../../components/chat/TimelineToolActivityIcon";
+import { ActivityShimmerOverlay } from "../../components/chat/TimelineRowParts";
+import { workEntryIconName } from "../../components/chat/TimelineWorkEntryRow.logic";
 import { workEntryDisplayLabel } from "../../components/chat/MessagesTimeline.logic";
 
 // Flow preview rows draw icons through the chat's `ToolActivityIconView`, so a

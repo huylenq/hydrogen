@@ -113,273 +113,278 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
   metadata: { displayName: "Hermes", supportsMultipleInstances: true },
   configSchema: HermesSettings,
   defaultConfig: () => decodeSettings({}),
-  create: ({ instanceId, displayName, accentColor, environment, enabled, config }) =>
-    Effect.gen(function* () {
-      const crypto = yield* Crypto.Crypto;
-      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-      const host = yield* ProviderHost.ProviderHost;
-      const loggers = yield* ProviderEventLoggers.ProviderEventLoggers;
-      const processEnv = yield* mergeProviderInstanceEnvironment(environment);
-      const path = yield* Path.Path;
-      const userHome = processEnv.HOME || (yield* HostProcess.HomeDirectory);
-      const homePath = path.resolve(
-        expandHomePath(
-          config.homePath || processEnv.HERMES_HOME || path.join(userHome, ".hermes"),
-          userHome,
-        ),
+  create: Effect.fn("HermesDriver.create")(function* ({
+    instanceId,
+    displayName,
+    accentColor,
+    environment,
+    enabled,
+    config,
+  }: Parameters<ProviderDriver<HermesSettings, HermesDriverEnv>["create"]>[0]) {
+    const crypto = yield* Crypto.Crypto;
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const host = yield* ProviderHost.ProviderHost;
+    const loggers = yield* ProviderEventLoggers.ProviderEventLoggers;
+    const processEnv = yield* mergeProviderInstanceEnvironment(environment);
+    const path = yield* Path.Path;
+    const userHome = processEnv.HOME || (yield* HostProcess.HomeDirectory);
+    const homePath = path.resolve(
+      expandHomePath(
+        config.homePath || processEnv.HERMES_HOME || path.join(userHome, ".hermes"),
+        userHome,
+      ),
+    );
+    const settings = { ...config, enabled, homePath };
+    const fs = yield* FileSystem.FileSystem;
+    const discoverProfiles = discoverHermesProfiles(homePath).pipe(
+      Effect.provideService(FileSystem.FileSystem, fs),
+      Effect.provideService(Path.Path, path),
+    );
+    let profiles = yield* discoverProfiles;
+    const modelsWithProfiles = (models: ReadonlyArray<ServerProviderModel>) =>
+      withHermesProfiles(
+        providerModelsFromSettings(models, settings.customModels, capabilities),
+        profiles,
       );
-      const settings = { ...config, enabled, homePath };
-      const fs = yield* FileSystem.FileSystem;
-      const discoverProfiles = discoverHermesProfiles(homePath).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      );
-      let profiles = yield* discoverProfiles;
-      const modelsWithProfiles = (models: ReadonlyArray<ServerProviderModel>) =>
-        withHermesProfiles(
-          providerModelsFromSettings(models, settings.customModels, capabilities),
-          profiles,
-        );
-      const continuationIdentity = {
-        driverKind: DRIVER,
-        continuationKey: `hermes:home:${homePath}`,
-      };
-      const stamp = withInstanceIdentity({
-        instanceId,
-        driverKind: DRIVER,
-        displayName,
-        accentColor,
-        continuationGroupKey: continuationIdentity.continuationKey,
-      });
-      const maintenance = makeManualOnlyProviderMaintenanceCapabilities({
-        provider: DRIVER,
-        packageName: null,
-      });
-      const now = DateTime.formatIso(yield* DateTime.now);
-      const metadata = yield* SubscriptionRef.make(
-        stamp({
-          ...buildServerProvider({
-            enabled,
-            checkedAt: now,
-            presentation: {
-              displayName: "Hermes",
-              badgeLabel: "Early Access",
-              showInteractionModeToggle: false,
-              supportsConversationRollback: false,
-            },
-            models: modelsWithProfiles(defaultModels),
-            slashCommands: [HERMES_COMPACT_COMMAND],
-            probe: {
-              installed: false,
-              version: null,
-              status: "warning",
-              auth: { status: "unknown" },
-              message: "Hermes has not been checked yet.",
-            },
-          }),
-          supportsTextGeneration: false,
+    const continuationIdentity = {
+      driverKind: DRIVER,
+      continuationKey: `hermes:home:${homePath}`,
+    };
+    const stamp = withInstanceIdentity({
+      instanceId,
+      driverKind: DRIVER,
+      displayName,
+      accentColor,
+      continuationGroupKey: continuationIdentity.continuationKey,
+    });
+    const maintenance = makeManualOnlyProviderMaintenanceCapabilities({
+      provider: DRIVER,
+      packageName: null,
+    });
+    const now = DateTime.formatIso(yield* DateTime.now);
+    const metadata = yield* SubscriptionRef.make(
+      stamp({
+        ...buildServerProvider({
+          enabled,
+          checkedAt: now,
+          presentation: {
+            displayName: "Hermes",
+            badgeLabel: "Early Access",
+            showInteractionModeToggle: false,
+            supportsConversationRollback: false,
+          },
+          models: modelsWithProfiles(defaultModels),
+          slashCommands: [HERMES_COMPACT_COMMAND],
+          probe: {
+            installed: false,
+            version: null,
+            status: "warning",
+            auth: { status: "unknown" },
+            message: "Hermes has not been checked yet.",
+          },
         }),
+        supportsTextGeneration: false,
+      }),
+    );
+    const makeRuntime = (cwd: string) =>
+      makeHermesAcpRuntime({
+        hermesSettings: settings,
+        environment: processEnv,
+        cwd,
+        clientInfo: { name: "t3-code-provider-probe", version: "0.0.0" },
+      }).pipe(
+        Effect.provideService(Crypto.Crypto, crypto),
+        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
       );
-      const makeRuntime = (cwd: string) =>
-        makeHermesAcpRuntime({
-          hermesSettings: settings,
-          environment: processEnv,
-          cwd,
-          clientInfo: { name: "t3-code-provider-probe", version: "0.0.0" },
-        }).pipe(
-          Effect.provideService(Crypto.Crypto, crypto),
-          Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
-        );
-      let lastTurnFailed = false;
-      const configuredStatus = (
-        verified: boolean,
-      ): Pick<ServerProvider, "status" | "auth" | "message"> => ({
-        status: !enabled ? "disabled" : lastTurnFailed ? "warning" : "ready",
-        auth: { status: verified ? "authenticated" : "unknown" },
-        ...(lastTurnFailed
-          ? {
-              message:
-                "The last Hermes turn did not confirm backend access. Check the thread output, credentials, and backend availability before retrying.",
-            }
-          : {}),
+    let lastTurnFailed = false;
+    const configuredStatus = (
+      verified: boolean,
+    ): Pick<ServerProvider, "status" | "auth" | "message"> => ({
+      status: !enabled ? "disabled" : lastTurnFailed ? "warning" : "ready",
+      auth: { status: verified ? "authenticated" : "unknown" },
+      ...(lastTurnFailed
+        ? {
+            message:
+              "The last Hermes turn did not confirm backend access. Check the thread output, credentials, and backend availability before retrying.",
+          }
+        : {}),
+    });
+    const onSessionStarted = Effect.fn("HermesDriver.onSessionStarted")(function* (
+      started: AcpSessionRuntimeStartResult,
+    ) {
+      const checkedAt = DateTime.formatIso(yield* DateTime.now);
+      yield* SubscriptionRef.update(metadata, (snapshot): ServerProvider => {
+        const { message: _message, ...rest } = snapshot;
+        return {
+          ...rest,
+          installed: true,
+          ...configuredStatus(snapshot.auth.status === "authenticated"),
+          checkedAt,
+          version: started.initializeResult.agentInfo?.version ?? snapshot.version,
+          models: modelsWithProfiles(hermesModelsFromSession(started.sessionSetupResult)),
+        };
       });
-      const onSessionStarted = Effect.fn("HermesDriver.onSessionStarted")(function* (
-        started: AcpSessionRuntimeStartResult,
-      ) {
-        const checkedAt = DateTime.formatIso(yield* DateTime.now);
-        yield* SubscriptionRef.update(metadata, (snapshot): ServerProvider => {
-          const { message: _message, ...rest } = snapshot;
+    });
+    const onAvailableCommands = (commands: ReadonlyArray<EffectAcpSchema.AvailableCommand>) =>
+      SubscriptionRef.update(metadata, (snapshot) => ({
+        ...snapshot,
+        slashCommands: hermesSlashCommands(commands),
+      }));
+    const checkProvider = Effect.gen(function* () {
+      if (!enabled) return yield* SubscriptionRef.get(metadata);
+      profiles = yield* discoverProfiles;
+      yield* SubscriptionRef.update(metadata, (snapshot) => ({
+        ...snapshot,
+        models: withHermesProfiles(snapshot.models, profiles),
+      }));
+      const before = yield* SubscriptionRef.get(metadata);
+      const result = yield* Effect.gen(function* () {
+        const runtime = yield* makeRuntime(host.paths.stateDir);
+        const initialized = yield* runtime.initialize();
+        const auth = yield* hermesAuthMethod(initialized).pipe(Effect.option);
+        return { initialized, auth };
+      }).pipe(Effect.scoped, Effect.timeout("30 seconds"), Effect.result);
+      const checkedAt = DateTime.formatIso(yield* DateTime.now);
+      return yield* SubscriptionRef.updateAndGet(metadata, (snapshot): ServerProvider => {
+        if (snapshot !== before) return snapshot;
+        const { message: _message, ...rest } = snapshot;
+        if (result._tag === "Success") {
+          const configured = result.success.auth._tag === "Some";
+          const verified = configured && snapshot.auth.status === "authenticated";
           return {
             ...rest,
             installed: true,
-            ...configuredStatus(snapshot.auth.status === "authenticated"),
             checkedAt,
-            version: started.initializeResult.agentInfo?.version ?? snapshot.version,
-            models: modelsWithProfiles(hermesModelsFromSession(started.sessionSetupResult)),
+            version: result.success.initialized.agentInfo?.version ?? null,
+            ...(configured
+              ? configuredStatus(verified)
+              : {
+                  status: "warning",
+                  auth: { status: "unauthenticated" },
+                  message:
+                    "Run hermes model on this environment to configure credentials, then refresh.",
+                }),
           };
-        });
+        }
+        const error = result.failure;
+        const missing = error._tag === "AcpSpawnError" && isCommandMissingCause(error.cause);
+        return {
+          ...rest,
+          checkedAt,
+          installed: !missing,
+          status: "error",
+          auth: { status: "unknown" },
+          message: missing
+            ? "Hermes executable not found. Install Hermes with ACP support, or set its binary path."
+            : "Hermes ACP health check failed. Run hermes acp --check on this environment and verify the configured Hermes home.",
+        };
       });
-      const onAvailableCommands = (commands: ReadonlyArray<EffectAcpSchema.AvailableCommand>) =>
-        SubscriptionRef.update(metadata, (snapshot) => ({
-          ...snapshot,
-          slashCommands: hermesSlashCommands(commands),
-        }));
-      const checkProvider = Effect.gen(function* () {
-        if (!enabled) return yield* SubscriptionRef.get(metadata);
-        profiles = yield* discoverProfiles;
-        yield* SubscriptionRef.update(metadata, (snapshot) => ({
-          ...snapshot,
-          models: withHermesProfiles(snapshot.models, profiles),
-        }));
-        const before = yield* SubscriptionRef.get(metadata);
-        const result = yield* Effect.gen(function* () {
-          const runtime = yield* makeRuntime(host.paths.stateDir);
-          const initialized = yield* runtime.initialize();
-          const auth = yield* hermesAuthMethod(initialized).pipe(Effect.option);
-          return { initialized, auth };
-        }).pipe(Effect.scoped, Effect.timeout("30 seconds"), Effect.result);
-        const checkedAt = DateTime.formatIso(yield* DateTime.now);
-        return yield* SubscriptionRef.updateAndGet(metadata, (snapshot): ServerProvider => {
-          if (snapshot !== before) return snapshot;
+    });
+    const snapshot = yield* makeManagedServerProvider({
+      resolveMaintenance: () => Effect.succeed(maintenance),
+      getSettings: Effect.succeed(settings),
+      streamSettings: Stream.empty,
+      haveSettingsChanged: () => false,
+      initialSnapshot: () => SubscriptionRef.get(metadata),
+      checkProvider,
+      enrichSnapshot: ({ publishSnapshot }) =>
+        SubscriptionRef.changes(metadata).pipe(Stream.runForEach(publishSnapshot)),
+    }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new ProviderDriverError({
+            driver: DRIVER,
+            instanceId,
+            detail: "Could not prepare Hermes status.",
+            cause,
+          }),
+      ),
+    );
+    const makeNativeLogger = yield* makeAcpNativeLoggerFactory();
+    const orchestrationAdapter = yield* makeHermesAdapterV2({
+      instanceId,
+      settings,
+      environment: processEnv,
+      selfInvocation: yield* resolveSelfInvocation(),
+      continuationRequests: yield* ProviderContinuationRequests.ProviderContinuationRequests,
+      nativeLogging: (threadId) =>
+        makeNativeLogger({ nativeEventLogger: loggers.native, provider: DRIVER, threadId }),
+      onSessionStarted,
+      onAvailableCommands,
+      onTurnResult: (succeeded) =>
+        SubscriptionRef.update(metadata, (snapshot): ServerProvider => {
           const { message: _message, ...rest } = snapshot;
-          if (result._tag === "Success") {
-            const configured = result.success.auth._tag === "Some";
-            const verified = configured && snapshot.auth.status === "authenticated";
-            return {
-              ...rest,
-              installed: true,
-              checkedAt,
-              version: result.success.initialized.agentInfo?.version ?? null,
-              ...(configured
-                ? configuredStatus(verified)
-                : {
-                    status: "warning",
-                    auth: { status: "unauthenticated" },
-                    message:
-                      "Run hermes model on this environment to configure credentials, then refresh.",
-                  }),
-            };
-          }
-          const error = result.failure;
-          const missing = error._tag === "AcpSpawnError" && isCommandMissingCause(error.cause);
-          return {
-            ...rest,
-            checkedAt,
-            installed: !missing,
-            status: "error",
-            auth: { status: "unknown" },
-            message: missing
-              ? "Hermes executable not found. Install Hermes with ACP support, or set its binary path."
-              : "Hermes ACP health check failed. Run hermes acp --check on this environment and verify the configured Hermes home.",
-          };
-        });
-      });
-      const snapshot = yield* makeManagedServerProvider({
-        resolveMaintenance: () => Effect.succeed(maintenance),
-        getSettings: Effect.succeed(settings),
-        streamSettings: Stream.empty,
-        haveSettingsChanged: () => false,
-        initialSnapshot: () => SubscriptionRef.get(metadata),
-        checkProvider,
-        enrichSnapshot: ({ publishSnapshot }) =>
-          SubscriptionRef.changes(metadata).pipe(Stream.runForEach(publishSnapshot)),
-      }).pipe(
-        Effect.mapError(
-          (cause) =>
-            new ProviderDriverError({
-              driver: DRIVER,
-              instanceId,
-              detail: "Could not prepare Hermes status.",
-              cause,
-            }),
-        ),
+          lastTurnFailed = !succeeded;
+          return { ...rest, ...configuredStatus(succeeded) };
+        }),
+    });
+    const unavailable = (
+      operation:
+        | "generateCommitMessage"
+        | "generatePrContent"
+        | "generateBranchName"
+        | "generateThreadTitle"
+        | "generateReviewGuide",
+    ) =>
+      Effect.fail(
+        new TextGenerationError({
+          operation,
+          detail:
+            "Hermes does not support background text generation. Select another provider for this operation.",
+        }),
       );
-      const makeNativeLogger = yield* makeAcpNativeLoggerFactory();
-      const orchestrationAdapter = yield* makeHermesAdapterV2({
-        instanceId,
-        settings,
-        environment: processEnv,
-        selfInvocation: yield* resolveSelfInvocation(),
-        continuationRequests: yield* ProviderContinuationRequests.ProviderContinuationRequests,
-        nativeLogging: (threadId) =>
-          makeNativeLogger({ nativeEventLogger: loggers.native, provider: DRIVER, threadId }),
-        onSessionStarted,
-        onAvailableCommands,
-        onTurnResult: (succeeded) =>
-          SubscriptionRef.update(metadata, (snapshot): ServerProvider => {
-            const { message: _message, ...rest } = snapshot;
-            lastTurnFailed = !succeeded;
-            return { ...rest, ...configuredStatus(succeeded) };
-          }),
-      });
-      const unavailable = (
-        operation:
-          | "generateCommitMessage"
-          | "generatePrContent"
-          | "generateBranchName"
-          | "generateThreadTitle"
-          | "generateReviewGuide",
-      ) =>
-        Effect.fail(
-          new TextGenerationError({
-            operation,
-            detail:
-              "Hermes does not support background text generation. Select another provider for this operation.",
-          }),
+    const textGeneration: ProviderTextGeneration = {
+      generateCommitMessage: () => unavailable("generateCommitMessage"),
+      generatePrContent: () => unavailable("generatePrContent"),
+      generateBranchName: () => unavailable("generateBranchName"),
+      generateThreadTitle: () => unavailable("generateThreadTitle"),
+      generateReviewGuide: () => unavailable("generateReviewGuide"),
+    };
+    const refreshModels = Effect.fn("HermesDriver.refreshModels")(
+      function* () {
+        if (!enabled) return;
+        profiles = yield* discoverProfiles;
+        const runtime = yield* makeRuntime(host.paths.stateDir);
+        yield* runtime.handleRequestPermission(() =>
+          Effect.succeed({ outcome: { outcome: "cancelled" as const } }),
         );
-      const textGeneration: ProviderTextGeneration = {
-        generateCommitMessage: () => unavailable("generateCommitMessage"),
-        generatePrContent: () => unavailable("generatePrContent"),
-        generateBranchName: () => unavailable("generateBranchName"),
-        generateThreadTitle: () => unavailable("generateThreadTitle"),
-        generateReviewGuide: () => unavailable("generateReviewGuide"),
-      };
-      const refreshModels = () =>
-        Effect.gen(function* () {
-          if (!enabled) return;
-          profiles = yield* discoverProfiles;
-          const runtime = yield* makeRuntime(host.paths.stateDir);
-          yield* runtime.handleRequestPermission(() =>
-            Effect.succeed({ outcome: { outcome: "cancelled" as const } }),
-          );
-          const started = yield* runtime.start();
-          yield* onSessionStarted(started);
-          yield* runtime.getEvents().pipe(
-            Stream.runForEach((event) =>
-              event._tag === "EventStreamBarrier"
-                ? Deferred.succeed(event.acknowledge, undefined)
-                : event._tag === "AvailableCommandsUpdated"
-                  ? onAvailableCommands(event.availableCommands)
-                  : Effect.void,
-            ),
-            Effect.forkScoped,
-          );
-          yield* runtime.drainEvents;
-        }).pipe(
-          Effect.scoped,
-          Effect.timeout("90 seconds"),
-          Effect.mapError(
-            (cause) =>
-              new ProviderDriverError({
-                driver: DRIVER,
-                instanceId,
-                detail:
-                  "Could not refresh Hermes models. Verify Hermes credentials and ACP support.",
-                cause,
-              }),
+        const started = yield* runtime.start();
+        yield* onSessionStarted(started);
+        yield* runtime.getEvents().pipe(
+          Stream.runForEach((event) =>
+            event._tag === "EventStreamBarrier"
+              ? Deferred.succeed(event.acknowledge, undefined)
+              : event._tag === "AvailableCommandsUpdated"
+                ? onAvailableCommands(event.availableCommands)
+                : Effect.void,
           ),
+          Effect.forkScoped,
         );
-      return {
-        instanceId,
-        driverKind: DRIVER,
-        continuationIdentity,
-        displayName,
-        accentColor,
-        enabled,
-        snapshot,
-        orchestrationAdapter,
-        textGeneration,
-        refreshModels,
-      } satisfies ProviderInstance;
-    }),
+        yield* runtime.drainEvents;
+      },
+      Effect.scoped,
+      Effect.timeout("90 seconds"),
+      Effect.mapError(
+        (cause) =>
+          new ProviderDriverError({
+            driver: DRIVER,
+            instanceId,
+            detail: "Could not refresh Hermes models. Verify Hermes credentials and ACP support.",
+            cause,
+          }),
+      ),
+    );
+    return {
+      instanceId,
+      driverKind: DRIVER,
+      continuationIdentity,
+      displayName,
+      accentColor,
+      enabled,
+      snapshot,
+      orchestrationAdapter,
+      textGeneration,
+      refreshModels,
+    } satisfies ProviderInstance;
+  }),
 };

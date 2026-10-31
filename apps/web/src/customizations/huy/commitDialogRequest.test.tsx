@@ -1,3 +1,4 @@
+/* oxlint-disable t3code/require-disposable-render -- These fixtures reset synthetic globals and any mounted root together in teardown to exercise keyboard and focus lifetimes. */
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { type EnvironmentId, type ScopedThreadRef, ThreadId } from "@t3tools/contracts";
 import { act, StrictMode } from "react";

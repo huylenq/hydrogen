@@ -35,6 +35,7 @@ export function useHuyWorkspace({
     flowOpen &&
     typeof window.desktopBridge?.setWindowButtonVisibility === "function";
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps desktop window controls and workspace keyboard registrations synchronized with the mounted layout.
   useEffect(() => {
     if (!isMacosDesktop) return;
     const setVisible = window.desktopBridge?.setWindowButtonVisibility;
@@ -105,9 +106,11 @@ export function useHuyWorkspaceCommands(
 ) {
   const sidebar = useSidebar();
   const sidebarRef = useRef(sidebar);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps desktop window controls and workspace keyboard registrations synchronized with the mounted layout.
   useLayoutEffect(() => {
     sidebarRef.current = sidebar;
   });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps desktop window controls and workspace keyboard registrations synchronized with the mounted layout.
   useEffect(
     () =>
       registerAppCommands((command) => {
@@ -127,6 +130,7 @@ export function useHuyWorkspaceCommands(
       }),
     [flowAvailable],
   );
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps desktop window controls and workspace keyboard registrations synchronized with the mounted layout.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (

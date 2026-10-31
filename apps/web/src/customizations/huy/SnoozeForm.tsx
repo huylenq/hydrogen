@@ -1,3 +1,4 @@
+import { useNowMinute } from "../../hooks/useNowMinute";
 import { useId, useRef, useState } from "react";
 
 import {
@@ -84,6 +85,9 @@ export function useSnoozeForm(quickDuration: boolean) {
 }
 
 export function SnoozeFormFields({ form }: { form: ReturnType<typeof useSnoozeForm> }) {
+  const nowMinute = useNowMinute();
+  const today = new Date(`${nowMinute}Z`);
+  today.setHours(0, 0, 0, 0);
   const {
     durationRef,
     id,
@@ -166,7 +170,7 @@ export function SnoozeFormFields({ form }: { form: ReturnType<typeof useSnoozeFo
                         selected={date}
                         defaultMonth={date}
                         {...(weekStartsOn === undefined ? {} : { weekStartsOn })}
-                        disabled={{ before: new Date(new Date().setHours(0, 0, 0, 0)) }}
+                        disabled={{ before: today }}
                         onSelect={(selected) => {
                           setDate(selected);
                           setCalendarOpen(false);

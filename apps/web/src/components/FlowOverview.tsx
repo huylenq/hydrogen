@@ -59,6 +59,7 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
     : null;
   const targetEnvironmentId = target?.environmentId;
   const targetThreadId = target?.id;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Synchronizes the router and held Flow inspection with the eligible session view.
   useEffect(() => {
     if (!targetEnvironmentId || !targetThreadId) return;
     void navigate({
@@ -67,6 +68,7 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
       replace: true,
     });
   }, [navigate, targetEnvironmentId, targetThreadId]);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Synchronizes the router and held Flow inspection with the eligible session view.
   useEffect(() => {
     if (!shouldReleaseFlowInspection(model, currentKey, inspectedThreadKey)) return;
     useFlowStore.getState().inspectSession(null);

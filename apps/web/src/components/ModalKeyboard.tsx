@@ -124,17 +124,20 @@ export function ModalKeyboard({
     });
   };
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Owns modal keyboard DOM listeners, focus requests, and hint timers for the mounted app surface.
   useEffect(() => {
     if (!enabled) return;
     return installFlowGridWindowFocus();
   }, [enabled]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Owns modal keyboard DOM listeners, focus requests, and hint timers for the mounted app surface.
   useEffect(() => {
     if (!state.feedback) return;
     const timer = window.setTimeout(() => useModalKeyboardStore.setState({ feedback: null }), 3500);
     return () => window.clearTimeout(timer);
   }, [state.feedback]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Owns modal keyboard DOM listeners, focus requests, and hint timers for the mounted app surface.
   useLayoutEffect(() => {
     if (!enabled || !state.focusRequest || hasThread) return;
     const surface = state.focusRequest;
@@ -161,28 +164,33 @@ export function ModalKeyboard({
     state.focusRequest,
   ]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Owns modal keyboard DOM listeners, focus requests, and hint timers for the mounted app surface.
   useLayoutEffect(() => {
     clearModalSequence();
     if (enabled) requestModalFocus(pathname.startsWith("/settings") ? "sidebar" : "conversation");
     else closeModalHelp();
   }, [enabled, pathname]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Owns modal keyboard DOM listeners, focus requests, and hint timers for the mounted app surface.
   useEffect(() => {
     document.documentElement.toggleAttribute("data-modal-keyboard", enabled);
     return () => document.documentElement.removeAttribute("data-modal-keyboard");
   }, [enabled]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Owns modal keyboard DOM listeners, focus requests, and hint timers for the mounted app surface.
   useEffect(() => {
     if (!state.pending.length) return;
     const timer = window.setTimeout(() => setHintPrefix(state.pending), 250);
     return () => window.clearTimeout(timer);
   }, [state.pending]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Owns modal keyboard DOM listeners, focus requests, and hint timers for the mounted app surface.
   useEffect(() => {
     clearModalSequence();
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- A replacement keymap invalidates the pending sequence.
   }, [keybindings]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Owns modal keyboard DOM listeners, focus requests, and hint timers for the mounted app surface.
   useEffect(() => {
     const execute = (command: ModalCommand) => {
       const description = describe(command);

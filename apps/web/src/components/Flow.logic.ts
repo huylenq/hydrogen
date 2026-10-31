@@ -250,7 +250,7 @@ export function shouldControlFlowRoute({
   return open && bootstrapped && chatRoute && !draftRoute;
 }
 
-export const FLOW_BENCH_ROWS = 3;
+const FLOW_BENCH_ROWS = 3;
 export const FLOW_BENCH_COLUMN_WIDTH = 300;
 export const FLOW_BENCH_COLUMN_GAP = 4;
 

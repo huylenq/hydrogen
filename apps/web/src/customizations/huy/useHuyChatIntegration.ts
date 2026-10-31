@@ -149,6 +149,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
   const currentTimeline = useRef(timeline);
   const scheduleFollow = useRef(() => {});
   const resetReading = useRef(() => {});
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps the reading controller, DOM listeners, and modal command context bound to the committed conversation.
   useLayoutEffect(() => {
     // Another thread's cursor, landing, or direction must not act on this one.
     if (currentTimeline.current.threadKey !== timeline.threadKey) resetReading.current();
@@ -164,6 +165,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
     // A thread switch can replace the rows or the scroll node without scrolling.
     scheduleFollow.current();
   });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps the reading controller, DOM listeners, and modal command context bound to the committed conversation.
   useEffect(() => {
     // Scrolls ease toward a target. Landings re-read their target as rows measure, then snap
     // onto it.

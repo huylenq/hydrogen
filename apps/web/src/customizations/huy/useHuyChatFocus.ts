@@ -35,6 +35,7 @@ export function useHuyChatFocus({
   } = useSidebar();
   const flowOpen = useFlowStore((state) => state.open);
   // The thread view reveals panels before fulfilling focus, after their DOM commits.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Fulfills pending focus intent only after the requested panel and its focus anchor mount.
   useLayoutEffect(() => {
     if (!modalFocusRequest || !getClientSettings().modalKeyboardEnabled) return;
     if (modalFocusRequest !== "sidebar" && modalSidebarIsMobile && modalSidebarOpenMobile) {

@@ -17,6 +17,7 @@ export function useHuyWorkspaceGeometry() {
     width: number;
     rightInset: number;
   } | null>(null);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Observes the workspace DOM bounds and window size to keep the right panel usable beside Crew.
   useLayoutEffect(() => {
     if (!workspace) return;
     const measure = () => {

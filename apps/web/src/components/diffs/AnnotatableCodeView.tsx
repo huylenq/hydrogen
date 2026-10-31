@@ -15,7 +15,7 @@ import { DiffVimSearchBar } from "~/customizations/huy/DiffVimSearchBar";
 import { useDiffVim } from "~/customizations/huy/useDiffVim";
 
 import { type DraftId, useComposerDraftStore } from "~/composerDraftStore";
-import { fnv1a32, resolveFileDiffPath } from "~/lib/diffRendering";
+import { fnv1a32, resolveFileDiffPath, resolveFileDiffPreviousPath } from "~/lib/diffRendering";
 import {
   buildDiffReviewComment,
   restoreDiffReviewCommentRange,
@@ -84,6 +84,7 @@ interface AnnotatableCodeViewProps {
     fileVersion: number;
     collapsed: boolean;
   }>;
+  pendingFiles: ReadonlyArray<FileDiffMetadata>;
   sectionId: string;
   sectionTitle: string;
   composerDraftTarget: ScopedThreadRef | DraftId;
@@ -116,6 +117,7 @@ interface DiffSelectionContext {
 export function AnnotatableCodeView({
   codeViewKey,
   files,
+  pendingFiles,
   sectionId,
   sectionTitle,
   composerDraftTarget,
@@ -145,13 +147,29 @@ export function AnnotatableCodeView({
   } | null>(null);
   const [draft, setDraft] = useState<{
     fileKey: string;
+    filePath: string;
+    previousFilePath: string;
     annotation: DiffCommentLineAnnotation;
   } | null>(null);
   const [draftText, setDraftText] = useState("");
 
-  const filesByKey = (() => new Map(files.map((file) => [file.fileKey, file])))();
-  const items: CodeViewDiffItem<DiffCommentAnnotationGroup>[] = (() =>
-    files.map(({ fileDiff, filePath, fileKey, fileVersion, collapsed }) => {
+  const filesByKey = new Map(files.map((file) => [file.fileKey, file]));
+  if (
+    draft !== null &&
+    !filesByKey.has(draft.fileKey) &&
+    // Lazy placeholders have provisional change types, so match both paths instead.
+    !pendingFiles.some(
+      (file) =>
+        resolveFileDiffPath(file) === draft.filePath &&
+        resolveFileDiffPreviousPath(file) === draft.previousFilePath,
+    )
+  ) {
+    setDraft(null);
+    setDraftText("");
+    setSelectedLines(null);
+  }
+  const items: CodeViewDiffItem<DiffCommentAnnotationGroup>[] = files.map(
+    ({ fileDiff, filePath, fileKey, fileVersion, collapsed }) => {
       const persisted = reviewComments
         .filter(
           (comment) =>
@@ -187,7 +205,8 @@ export function AnnotatableCodeView({
             .join(":")}`,
         ),
       };
-    }))();
+    },
+  );
 
   const startDraft = (
     fileKey: string,
@@ -209,6 +228,8 @@ export function AnnotatableCodeView({
     setDraftText("");
     setDraft({
       fileKey,
+      filePath,
+      previousFilePath: resolveFileDiffPreviousPath(fileDiff),
       annotation: {
         side: annotationSide(range),
         lineNumber: range.end,
@@ -289,6 +310,7 @@ export function AnnotatableCodeView({
     setDraft(null);
     setDraftText("");
   };
+
   return (
     <div className="relative h-full min-h-0">
       <StyledDiffCodeView<DiffCommentAnnotationGroup>
@@ -338,7 +360,7 @@ export function AnnotatableCodeView({
             </>
           ) : null
         }
-        renderAnnotation={(annotation) => {
+        renderAnnotation={(...[annotation]) => {
           const hasDraft = annotation.metadata.entries.some((entry) => entry.kind === "draft");
           return (
             <div

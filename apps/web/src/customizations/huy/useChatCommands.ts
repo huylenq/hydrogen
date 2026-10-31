@@ -9,12 +9,14 @@ export function useChatCommands(
   focusReview: () => boolean,
 ) {
   const current = useRef({ execute, focusReview });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps long-lived registered keyboard handlers on the committed chat actions.
   useLayoutEffect(() => {
     current.current = { execute, focusReview };
   });
   const executeCurrent = useStableCallback((command: KeybindingCommand, repeat: boolean) =>
     current.current.execute(command, repeat),
   );
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps long-lived registered keyboard handlers on the committed chat actions.
   useEffect(
     () =>
       registerAppCommands((command) => {

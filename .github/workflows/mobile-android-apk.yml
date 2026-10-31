@@ -15,7 +15,7 @@ concurrency:
 jobs:
   mirror:
     name: Mirror beta APK
-    if: github.repository != 'huylenq/hydrogen'
+    if: github.repository == 'pingdotgg/t3code' && github.repository != 'huylenq/hydrogen'
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 10
     permissions:

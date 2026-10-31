@@ -15,14 +15,7 @@ interface DialogChangeDetails {
   readonly cancel: () => void;
 }
 
-/**
- * Drives the commit dialog's file list like magit's status buffer: a cursor over files (`j`/`k`),
- * Space includes or excludes the cursor's file, Enter opens it, and `i` edits the message.
- * Mod+Enter commits from anywhere in the dialog. In Vim mode the dialog opens on the list, and
- * Escape in the message returns to it before a second Escape closes the dialog. The list is a
- * multi-select listbox whose selected options are the files to commit, so assistive technology
- * follows the cursor (`aria-activedescendant`) and the inclusion state.
- */
+/** The cursor follows file paths across status refreshes, while selection means inclusion in the commit. Vim mode restores list focus before dismissing the dialog. */
 export function useCommitFileListKeys(input: CommitFileListKeysInput) {
   const vim = useClientSettings((settings) => settings.modalKeyboardEnabled);
   const listRef = useRef<HTMLDivElement>(null);

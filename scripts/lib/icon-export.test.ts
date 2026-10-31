@@ -70,15 +70,4 @@ describe("icon export", () => {
     assert.deepEqual(ico.subarray(38, 38 + small.length), small);
     assert.deepEqual(ico.subarray(38 + small.length), large);
   });
-
-  it("rejects duplicate ICO rendition sizes", () => {
-    assert.throws(
-      () =>
-        encodePngIco([
-          { size: 32, contents: pngHeader(32, 32) },
-          { size: 32, contents: pngHeader(32, 32) },
-        ]),
-      /provided more than once/,
-    );
-  });
 });

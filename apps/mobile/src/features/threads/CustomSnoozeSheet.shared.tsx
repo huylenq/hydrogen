@@ -1,4 +1,5 @@
 import { useSnoozeForm, SnoozeDurationFields } from "../../customizations/huy/SnoozeForm.shared";
+import { Button } from "../../components/ui/Button";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View } from "react-native";
@@ -92,25 +93,17 @@ export function CustomSnoozeSheet(props: {
             </AppText>
           )}
           <View className="flex-row justify-end gap-3">
-            <Pressable
-              accessibilityRole="button"
-              className="min-h-12 justify-center px-3"
-              onPress={props.onClose}
-            >
-              <AppText>Cancel</AppText>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              className="min-h-12 justify-center rounded-xl bg-subtle px-3"
+            <Button label="Cancel" tone="text" onPress={props.onClose} />
+            <Button
+              label="Snooze"
+              tone="secondary"
               onPress={() => {
                 const snoozedUntil = form.resolve();
                 if (snoozedUntil === null) return;
                 props.onSnooze(snoozedUntil);
                 props.onClose();
               }}
-            >
-              <AppText className="text-foreground">Snooze</AppText>
-            </Pressable>
+            />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

@@ -77,6 +77,7 @@ interface UseDiffVimInput<LAnnotation> {
  */
 export function useDiffVimScope(element: HTMLElement | null) {
   const enabled = useClientSettings((settings) => settings.modalKeyboardEnabled);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps registered diff keyboard and focus handlers aligned with the committed viewer and file layout.
   useLayoutEffect(() => {
     if (!enabled || !element) return;
     const unregisterScope = registerDiffVimScope(element);
@@ -130,6 +131,7 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
       rows: () => rowsFor(file, input.style),
     })))();
   const filesRef = useRef(files);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps registered diff keyboard and focus handlers aligned with the committed viewer and file layout.
   useLayoutEffect(() => {
     latest.current = input;
     state.current = { cursor, anchor };
@@ -265,6 +267,7 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
   };
 
   // Reveal after React commits, so collapses and remounts have laid out first.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps registered diff keyboard and focus handlers aligned with the committed viewer and file layout.
   useLayoutEffect(() => {
     flushReveal();
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Each of these changes layout or the cursor a pending reveal targets.
@@ -572,6 +575,7 @@ export function useDiffVim<LAnnotation>(input: UseDiffVimInput<LAnnotation>) {
     }
   };
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps registered diff keyboard and focus handlers aligned with the committed viewer and file layout.
   useEffect(() => {
     const root = input.root;
     if (!enabled || !root) return;

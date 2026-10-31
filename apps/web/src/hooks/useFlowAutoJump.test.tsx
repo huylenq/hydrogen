@@ -1,3 +1,4 @@
+/* oxlint-disable t3code/require-disposable-render -- These fixtures reset synthetic globals and any mounted root together in teardown to exercise keyboard and focus lifetimes. */
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import {
   scopeProjectRef,
@@ -118,6 +119,8 @@ beforeEach(() => {
       worktreePath: null,
       lineage: { relationshipToParent: null, parentThreadId: null, rootThreadId: nextId },
       forkedFrom: null,
+      linkOrigin: null,
+      delegatedFrom: null,
       activeProviderThreadId: null,
       latestRun: null,
       runtime: null,

@@ -24,6 +24,7 @@ export function useFlowBenchLayout(titles: readonly string[]) {
   } | null>(null);
   const key = JSON.stringify(titles);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Observes bench and chip measurements so the visible session capacity follows resizing.
   useLayoutEffect(() => {
     if (!benchElement || !measurementElement) return;
     const items = Array.from(measurementElement.children);

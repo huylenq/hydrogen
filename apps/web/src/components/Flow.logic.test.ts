@@ -40,6 +40,8 @@ function thread(
     worktreePath: null,
     lineage: { relationshipToParent: null, parentThreadId: null, rootThreadId: threadId },
     forkedFrom: null,
+    linkOrigin: null,
+    delegatedFrom: null,
     activeProviderThreadId: null,
     latestRun: null,
     runtime: null,

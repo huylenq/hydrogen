@@ -18,7 +18,7 @@ export type UserActionCompletion = {
 };
 
 /** Prepare before mutating; complete only after success. Background sends never claim navigation. */
-export function createUserActionLifecycle(prepare: ReturnType<typeof useFlowAutoJump>) {
+function createUserActionLifecycle(prepare: ReturnType<typeof useFlowAutoJump>) {
   return {
     prepare(context: UserActionContext): UserActionCompletion {
       const complete =

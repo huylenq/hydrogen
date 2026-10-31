@@ -50,8 +50,8 @@ export const writeHermesMockCli = Effect.fn("writeHermesMockCli")(function* (
   const binaryPath = writeFakeCli({
     directory,
     name: "hermes",
-    source: execScriptSource({ scriptPath: peer, argvLogPath: argvLog }),
-    env: { HERMES_TEST_LOG: log, ...environment },
+    source: execScriptSource({ scriptPath: peer }),
+    env: { HERMES_TEST_LOG: log, HERMES_TEST_ARGV_LOG: argvLog, ...environment },
   });
   return {
     directory,

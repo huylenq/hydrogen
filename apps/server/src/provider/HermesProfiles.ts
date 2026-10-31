@@ -20,13 +20,13 @@ export const discoverHermesProfiles = Effect.fn("discoverHermesProfiles")(functi
   const root =
     path.basename(path.dirname(home)) === "profiles" ? path.dirname(path.dirname(home)) : home;
   const directory = path.join(root, "profiles");
-  const names = yield* fs.readDirectory(directory).pipe(Effect.catch(() => Effect.succeed([])));
+  const names = yield* fs.readDirectory(directory).pipe(Effect.orElseSucceed(() => []));
   const profiles = yield* Effect.filter(names.filter(isHermesProfileName), (name) =>
     Effect.gen(function* () {
       const stat = yield* fs.stat(path.join(directory, name));
       const deleted = yield* fs.exists(path.join(directory, ".deleted", name));
       return stat.type === "Directory" && !deleted;
-    }).pipe(Effect.catch(() => Effect.succeed(false))),
+    }).pipe(Effect.orElseSucceed(() => false)),
   );
   return ["default", ...profiles.filter((name) => name !== "default").sort()];
 });

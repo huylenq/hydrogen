@@ -1,8 +1,7 @@
-import { Toolbar } from "../../components/ui/Toolbar";
+import { SheetHeader } from "../../components/ui/SheetHeader";
 import { SnoozeFormFields, useSnoozeForm } from "../../customizations/huy/SnoozeForm.ios";
 import { Host, Popover, RNHostView, Spacer, VStack } from "@expo/ui/swift-ui";
 import { accessibilityHidden, frame } from "@expo/ui/swift-ui/modifiers";
-
 import { type ReactNode } from "react";
 import { NavigationContainer, NavigationIndependentTree } from "@react-navigation/native";
 import { createV5StackNavigator as createNativeStackNavigator } from "../../native/createV5StackNavigator";
@@ -101,22 +100,12 @@ function SnoozePopoverNavigation(props: {
                 <SnoozeStack.Screen name="CustomSnooze">
                   {() => (
                     <>
-                      <Toolbar placement="left">
-                        <Toolbar.Button
-                          accessibilityLabel="Cancel custom snooze"
-                          icon="xmark"
-                          onPress={props.onClose}
-                        />
-                      </Toolbar>
-                      <Toolbar placement="right">
-                        <Toolbar.Button
-                          accessibilityLabel="Snooze"
-                          icon="checkmark"
-                          variant="prominent"
-                          tintColor={colors["--color-prominent-action"]}
-                          onPress={props.onSubmit}
-                        />
-                      </Toolbar>
+                      <SheetHeader
+                        title="Custom snooze"
+                        onCancel={props.onClose}
+                        accessibilityLabel="Cancel custom snooze"
+                        confirm={{ label: "Snooze", onPress: props.onSubmit }}
+                      />
                       <ScrollView
                         contentInsetAdjustmentBehavior="automatic"
                         showsVerticalScrollIndicator={false}

@@ -5,14 +5,7 @@ import * as Schema from "effect/Schema";
 
 import * as DesktopEnvironment from "./DesktopEnvironment.ts";
 
-/**
- * Hydrogen fork (HYDROGEN-SPECS.md, "Desktop app location"). Local tools such
- * as Lexicon find the running app through the control socket derived from the
- * state directory; this file beside it tells them which bundle to open when
- * the socket is down, wherever the app was built or installed. A development
- * bundle only works while its dev runner serves the renderer, so the file says
- * which kind it is and readers can ask for the runner instead of opening it.
- */
+/** Lexicon uses this file beside the control socket to find the installed bundle. Development bundles require their dev runner, so readers must distinguish them before launching. */
 export const DESKTOP_APP_LOCATION_FILE_NAME = "desktop-app.json";
 
 const DesktopAppLocation = Schema.Struct({

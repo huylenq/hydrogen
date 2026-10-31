@@ -1,13 +1,7 @@
 import type { LegendListRef } from "@legendapp/list/react";
 import type { MessagesTimelineRow } from "../../components/chat/MessagesTimeline.logic";
 
-/**
- * Vim reading motions move the reading cursor between stops: `j`/`k` visit every stop, `[[`/`]]` the section
- * starts, and `J`/`K` the user messages. An answer's stops are its top-level markdown blocks,
- * with list items counted separately, then its changed-files card's header and each visible folder
- * and file; an expanded tool group's stops are its tool calls; every other timeline row is a
- * single stop.
- */
+/** Stops keep stable block and path identities while virtualized rows unmount or recycle. */
 export interface ReadingStop {
   readonly key: string;
   readonly rowId: string;
@@ -240,15 +234,7 @@ const moveTo = (element: HTMLElement | null): ReadingTreeMotion => {
   return element && rowId ? { kind: "move", rowId, element } : { kind: "none" };
 };
 
-/**
- * Vim `h`/`l` on what folds, like a file tree. In a changed-files card `l` opens a file's diff or
- * the header's full diff, expands a folder, or steps into an expanded one; `h` collapses an
- * expanded folder or steps out to the enclosing folder, then the header. A turn fold ("Worked
- * for …") or tool group ("Ran 3 commands") expands with `l`, which then steps into what it
- * reveals, and collapses with `h`; a tool call opens and closes its output the same way, and `h`
- * on a closed one steps out to its group. `h` from anything an open turn fold reveals steps back
- * out to the fold. Null when `element` is in none of these.
- */
+/** Tree motions use file paths so nested and flat virtualized file cards behave alike. Tool and turn folds retain explicit parent identities. */
 export function readingTreeMotion(
   element: HTMLElement,
   motion: "in" | "out",
@@ -262,26 +248,31 @@ export function readingTreeMotion(
         const control = readingStopControl(element);
         return control ? { kind: "click", control } : { kind: "none" };
       }
-      return moveTo(
-        element.parentElement?.querySelector<HTMLElement>(
-          ":scope > div [data-changed-files-entry]",
-        ) ?? null,
+      const path = element.dataset.changedFilesPath;
+      const child = [...card.querySelectorAll<HTMLElement>("[data-changed-files-entry]")].find(
+        (entry) => path && entry.dataset.changedFilesPath?.startsWith(`${path}/`),
       );
+      return moveTo(child ?? null);
     }
     if (expanded) return { kind: "click", control: element };
-    // From the header, step out of the turn fold the answer sits in, if any.
     if (!element.matches("[data-changed-files-entry]"))
       return turnFoldExit(element) ?? { kind: "none" };
-    // A folder's own wrapper carries the folder marker, so look above it.
-    const parent = (folder ? element.parentElement : element)?.parentElement?.closest(
-      "[data-changed-files-folder]",
-    );
-    return moveTo(
-      parent
-        ? parent.querySelector<HTMLElement>(":scope > [data-changed-files-entry]")
-        : card.querySelector<HTMLElement>("[data-changed-files-header]"),
-    );
+    const path = element.dataset.changedFilesPath;
+    const parents = [
+      ...card.querySelectorAll<HTMLElement>('[data-changed-files-entry="directory"]'),
+    ]
+      .filter(
+        (entry) =>
+          entry !== element && path && path.startsWith(`${entry.dataset.changedFilesPath}/`),
+      )
+      .sort(
+        (left, right) =>
+          (right.dataset.changedFilesPath?.length ?? 0) -
+          (left.dataset.changedFilesPath?.length ?? 0),
+      );
+    return moveTo(parents[0] ?? card.querySelector<HTMLElement>("[data-changed-files-header]"));
   }
+
   const control = disclosureOf(element);
   const toolCall = element.matches("[data-work-entry-index]");
   if (control) {
@@ -517,19 +508,7 @@ export function readingJumpIndex(
   return null;
 }
 
-/**
- * The cursor lives in a band clear of both edges (see SCROLL_MARGIN_FRACTION), and the page stays
- * still while it moves within the band, so most steps do not scroll. A step that would leave the
- * band on the side it is heading scrolls toward where reading is going: stepping on down lands
- * the target's top on the band's top line, and stepping on up lands its bottom on the band's
- * bottom line, so the next several steps need no scroll. A step that reverses direction only
- * brings its target into the band, keeping the block just left in view. Jumps read on from their
- * target, so they land it like a step down. `j` pages half a screen through a block that runs
- * past the bottom edge. Without a cursor, `j`/`k` first show it where reading starts, except that
- * `j` starts an unread answer that has begun on screen or above it at the answer's beginning.
- *
- * A landing puts the target's `edge` at `line`, a scroll offset in the same view.
- */
+/** The reading band keeps several following stops visible. Continuing steps land on its leading edge; reversals keep the block just left visible. Oversized blocks page through their content. */
 export function resolveReadingStep(input: {
   stops: ReadonlyArray<Pick<ReadingStop, "top" | "bottom" | "section" | "turn">>;
   /** Index of the cursor's stop, or -1. */

@@ -153,6 +153,7 @@ export function useFlowOverviewTransition({
   const latest = useRef({ overview, sessionKey, routeKey });
   const releaseRouteWait = useRef<(() => void) | null>(null);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Coordinates the DOM view-transition resource with route completion and retires it on unmount.
   useLayoutEffect(() => {
     latest.current = { overview, sessionKey, routeKey };
     // Release once the route reaches the session wanted now (it may have changed since
@@ -160,8 +161,10 @@ export function useFlowOverviewTransition({
     if (overview || sessionKey === null || sessionKey === routeKey) releaseRouteWait.current?.();
   }, [overview, sessionKey, routeKey]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Coordinates the DOM view-transition resource with route completion and retires it on unmount.
   useLayoutEffect(() => retireFlowOverviewTransition, []);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Coordinates the DOM view-transition resource with route completion and retires it on unmount.
   useLayoutEffect(() => {
     if (shown === overview) return;
     const { sessionKey, routeKey } = latest.current;

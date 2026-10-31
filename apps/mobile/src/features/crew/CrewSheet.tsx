@@ -478,6 +478,7 @@ function Conversation(
       : "Linked to another task"
     : "Direct message";
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Loads persisted Crew intent for this thread and ignores reads after the sheet unmounts.
   useEffect(() => {
     let active = true;
     void readCrewIntent(scope)

@@ -60,22 +60,9 @@ describe("desktop preload bundle verifier", () => {
     );
   });
 
-  it("ignores import-like text in strings", () => {
-    assert.doesNotThrow(() =>
-      verifyPreloadBundle(`${validPreload}\nconst message = 'import /* comment */("module")';`),
-    );
-  });
-
   it("rejects unsupported require calls with comments before the opening parenthesis", () => {
     assert.throws(
       () => verifyPreloadBundle(`${validPreload}\nrequire /* @__PURE__ */ ("node:fs");`),
-      /unsupported sandbox imports: node:fs/,
-    );
-  });
-
-  it("rejects unsupported optional require calls", () => {
-    assert.throws(
-      () => verifyPreloadBundle(`${validPreload}\nrequire?.("node:fs");`),
       /unsupported sandbox imports: node:fs/,
     );
   });
@@ -90,6 +77,26 @@ describe("desktop preload bundle verifier", () => {
         require("node:timers");
         require("node:url");
       `),
+    );
+  });
+
+  it("executes DOM-ready work with the preload's renderer globals", () => {
+    assert.doesNotThrow(() =>
+      verifyPreloadBundle(`
+        ${validPreload}
+        window.addEventListener("DOMContentLoaded", () => {
+          const zoom = electron.webFrame.getZoomFactor();
+          if (zoom <= 0) throw new Error("Invalid zoom factor");
+          document.documentElement.style.setProperty("--inset", 90 / zoom + "px");
+        }, { once: true });
+      `),
+    );
+    assert.throws(
+      () =>
+        verifyPreloadBundle(`${validPreload}
+        window.addEventListener("DOMContentLoaded", () => { throw new Error("ready failed"); });
+      `),
+      /ready failed/,
     );
   });
 

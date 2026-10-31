@@ -31,6 +31,7 @@ export function ThreadRenameCommand({
 }) {
   const [request, setRequest] = useState<{ thread: RenameThread; title: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Registers the rename command while its current environment and thread are mounted.
   useEffect(
     () =>
       registerAppCommands((command) => {

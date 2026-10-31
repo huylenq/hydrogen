@@ -224,6 +224,7 @@ function AnimatedAvatarDrawing(props: { model: GrokBotAvatarModel; size: number 
   const bob = useSharedValue(0);
   const blink = useSharedValue(1);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps native app visibility, accessibility preferences, and animation resources synchronized while the avatar is mounted.
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {
       setAppIsActive(state === "active");
@@ -231,6 +232,7 @@ function AnimatedAvatarDrawing(props: { model: GrokBotAvatarModel; size: number 
     return () => subscription.remove();
   }, []);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps native app visibility, accessibility preferences, and animation resources synchronized while the avatar is mounted.
   useEffect(() => {
     let active = true;
     let receivedChange = false;
@@ -250,6 +252,7 @@ function AnimatedAvatarDrawing(props: { model: GrokBotAvatarModel; size: number 
     };
   }, []);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps native app visibility, accessibility preferences, and animation resources synchronized while the avatar is mounted.
   useEffect(() => {
     cancelAnimation(bob);
     cancelAnimation(blink);

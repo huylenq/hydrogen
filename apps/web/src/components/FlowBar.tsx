@@ -110,6 +110,7 @@ export function FlowBar() {
     });
   };
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps Flow navigation handlers and the DOM keyboard cursor on the selected session as cards reorder.
   useEffect(() => {
     const executeNavigation = (command: AppCommand) => {
       const direction = threadTraversalDirectionFromCommand(command);
@@ -143,6 +144,7 @@ export function FlowBar() {
     };
   }, [activeThreadKey, keybindings, model, navigateToThread]);
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps Flow navigation handlers and the DOM keyboard cursor on the selected session as cards reorder.
   useLayoutEffect(() => {
     const state = useModalKeyboardStore.getState();
     if (

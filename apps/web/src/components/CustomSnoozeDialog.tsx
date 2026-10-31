@@ -1,9 +1,10 @@
 import { SnoozeFormFields, useSnoozeForm } from "../customizations/huy/SnoozeForm";
 import { useEffect } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { create } from "zustand";
 
 import { Button } from "./ui/button";
-
+import { Settings2Icon } from "lucide-react";
 import {
   Dialog,
   DialogPopup,
@@ -34,12 +35,14 @@ function finish(choice: SnoozeChoice | null) {
 
 export function CustomSnoozeDialogHost() {
   const request = useRequest((state) => state.request);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- resolves any pending snooze request promise with null when the dialog host unmounts
   useEffect(() => () => finish(null), []);
   return request ? <CustomSnoozeDialog quickDuration={request.quickDuration} /> : null;
 }
 
 function CustomSnoozeDialog({ quickDuration }: { readonly quickDuration: boolean }) {
   const form = useSnoozeForm(quickDuration);
+  const navigate = useNavigate();
   return (
     <Dialog
       open
@@ -68,6 +71,21 @@ function CustomSnoozeDialog({ quickDuration }: { readonly quickDuration: boolean
             <SnoozeFormFields form={form} />
           </DialogPanel>
           <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost-muted"
+              className="sm:mr-auto"
+              onClick={() => {
+                finish(null);
+                void navigate({
+                  to: "/settings/threads",
+                  hash: "snooze-options",
+                });
+              }}
+            >
+              <Settings2Icon />
+              Edit snooze options
+            </Button>
             <Button type="button" variant="outline" onClick={() => finish(null)}>
               Cancel
             </Button>

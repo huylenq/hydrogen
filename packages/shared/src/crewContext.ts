@@ -1,7 +1,7 @@
 import type { CrewTaskContext } from "@t3tools/contracts";
 
-export const CREW_MESSAGE_MAX_LENGTH = 32000;
-export const CREW_DEFAULT_CONTEXT_TOKEN_BUDGET = 2000;
+const CREW_MESSAGE_MAX_LENGTH = 32000;
+const CREW_DEFAULT_CONTEXT_TOKEN_BUDGET = 2000;
 
 /** A size estimate only; Grok Bot's own context and processing are separate. */
 export const estimateCrewTokens = (text: string): number => Math.ceil(text.length / 4);
@@ -18,7 +18,7 @@ export function formatCrewMessage(input: {
   if (context?.constraints?.length)
     sections.push(`Constraints:\n${context.constraints.map((item) => `- ${item}`).join("\n")}`);
   for (const evidence of context?.evidence ?? [])
-    sections.push(`Evidence — ${evidence.label}:\n${evidence.text}`);
+    sections.push(`Evidence: ${evidence.label}:\n${evidence.text}`);
   if (context?.expectedResult?.trim()) sections.push(`Expected result:\n${context.expectedResult}`);
   if (input.replyMarker)
     sections.push(

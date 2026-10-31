@@ -687,6 +687,7 @@ function CrewConversationView({
   ];
   const nextCursor = olderCursor === undefined ? conversation?.nextBeforeSeq : olderCursor;
 
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps the Crew conversation scroll viewport at its current reading edge as entries arrive.
   useLayoutEffect(() => {
     if (!conversation?.entries && olderEntries.length === 0) return;
     const viewport = conversationScrollRef.current?.querySelector<HTMLElement>(
