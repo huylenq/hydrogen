@@ -1,14 +1,29 @@
-/* oxlint-disable t3code/require-disposable-render -- These fixtures reset synthetic globals and any mounted root together in teardown to exercise keyboard and focus lifetimes. */
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+
+class MemoryStorage {
+  private readonly entries = new Map<string, string>();
+  getItem(key: string): string | null {
+    return this.entries.get(key) ?? null;
+  }
+  setItem(key: string, value: string): void {
+    this.entries.set(key, value);
+  }
+  clear(): void {
+    this.entries.clear();
+  }
+}
 
 const STORAGE_KEY = "t3code:important-sessions:v1";
 
 beforeEach(() => {
-  localStorage.clear();
+  const storage = new MemoryStorage();
+  vi.stubGlobal("window", { localStorage: storage });
+  vi.stubGlobal("localStorage", storage);
   vi.resetModules();
 });
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 it("persists flags and their removal across reloads, separately for each environment", async () => {
@@ -47,10 +62,10 @@ it("keeps usable keys when some saved entries are invalid", async () => {
 });
 
 it("can flag and unflag when browser storage is unavailable", async () => {
-  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+  vi.spyOn(localStorage, "getItem").mockImplementation(() => {
     throw new Error("Storage unavailable");
   });
-  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+  vi.spyOn(localStorage, "setItem").mockImplementation(() => {
     throw new Error("Storage unavailable");
   });
   const { toggleSessionImportance } = await import("./sessionImportance");

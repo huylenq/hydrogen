@@ -12,9 +12,13 @@ import { ThreadRenameCommand } from "./ThreadRenameCommand";
 
 const { canOperate } = vi.hoisted(() => ({ canOperate: vi.fn(() => true) }));
 vi.mock("../../state/session", () => ({ readEnvironmentScope: canOperate }));
-vi.mock("@effect/atom-react", () => ({ useAtomValue: () => DEFAULT_RESOLVED_KEYBINDINGS }));
+vi.mock("@effect/atom-react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@effect/atom-react")>()),
+  useAtomValue: () => DEFAULT_RESOLVED_KEYBINDINGS,
+}));
 vi.mock("../../state/server", () => ({ primaryServerKeybindingsAtom: null }));
-vi.mock("@tanstack/react-router", () => ({
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-router")>()),
   useNavigate: () => vi.fn(),
   useLocation: () => "/env/open",
   useParams: () => ({ environmentId: "env", threadId: "open" }),

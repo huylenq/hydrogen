@@ -31,7 +31,7 @@ const CONTEXT: ModalThreadContext = {
 const VIEWPORT = 600;
 
 /**
- * One answer of 100px blocks, 110px apart, laid out by hand since jsdom has no layout. In a
+ * One answer of 100px blocks, 110px apart, with synthetic list geometry independent of browser layout. In a
  * 600px timeline the cursor's band runs from about 138px to 478px.
  */
 function fakeTimeline(
@@ -40,6 +40,7 @@ function fakeTimeline(
   reused?: { rows: unknown[] },
 ) {
   node.replaceChildren();
+  Object.defineProperty(node, "scrollTop", { configurable: true, writable: true, value: 0 });
   const rowId = `${threadKey}-answer`;
   const row = document.createElement("div");
   Object.assign(row.dataset, {
@@ -286,6 +287,7 @@ function toolGroupTimeline(calls: number, mounted: readonly number[]) {
   });
   const scroller = document.createElement("div");
   scroller.dataset.toolGroupScroll = "";
+  Object.defineProperty(scroller, "scrollTop", { configurable: true, writable: true, value: 0 });
   details.append(scroller);
   scroller.getBoundingClientRect = () => rect(130 - node.scrollTop, 100);
   const mountCall = (index: number) => {

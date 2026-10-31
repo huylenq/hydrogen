@@ -49,9 +49,10 @@ it("marks the cursor's block and its ancestors up to the row, and moves the mark
 it("draws the bar from the cursor row's frame, but not for a user message", () => {
   const byId = timeline();
   const root = byId("scroller");
+  byId("item").style.height = "32px";
   markReadingCursor(root, byId("item"), false);
   expect(byId("answer-frame").hasAttribute("data-reading-bar")).toBe(true);
-  expect(byId("answer-frame").style.getPropertyValue("--reading-bar-height")).toBe("0px");
+  expect(byId("answer-frame").style.getPropertyValue("--reading-bar-height")).toBe("32px");
 
   // A user message's highlighted bubble border marks the cursor instead.
   markReadingCursor(root, byId("user"), false);

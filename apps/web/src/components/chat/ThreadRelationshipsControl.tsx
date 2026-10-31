@@ -58,6 +58,7 @@ import { useRef, useState, type ReactNode } from "react";
 
 import { useArchivedThreadSnapshots } from "../../lib/archivedThreadsState";
 import { buildThreadRouteParams } from "../../threadRoutes";
+import { inspectFlowConversation } from "../../flowStore";
 import {
   useProjects,
   useQuietThreadShell,
@@ -251,14 +252,14 @@ function RemoteSubagentRow(props: {
               variant="ghost"
               part="row"
               disabled={environment === null}
-              onClick={() =>
+              onClick={() => {
+                const targetRef = scopeThreadRef(remoteChild.environmentId, remoteChild.threadId);
+                inspectFlowConversation(targetRef);
                 void navigate({
                   to: "/$environmentId/$threadId",
-                  params: buildThreadRouteParams(
-                    scopeThreadRef(remoteChild.environmentId, remoteChild.threadId),
-                  ),
-                })
-              }
+                  params: buildThreadRouteParams(targetRef),
+                });
+              }}
             />
           }
         >
@@ -317,12 +318,13 @@ function DelegatedFromRow(props: {
               variant="ghost"
               part="row"
               disabled={environment === null}
-              onClick={() =>
+              onClick={() => {
+                inspectFlowConversation(parentRef);
                 void navigate({
                   to: "/$environmentId/$threadId",
                   params: buildThreadRouteParams(parentRef),
-                })
-              }
+                });
+              }}
             />
           }
         >
@@ -486,9 +488,11 @@ export function ThreadRelationshipsPanel(props: {
   }
 
   const openThread = (threadId: ThreadId) => {
+    const targetRef = scopeThreadRef(props.environmentId, threadId);
+    inspectFlowConversation(targetRef);
     void navigate({
       to: "/$environmentId/$threadId",
-      params: buildThreadRouteParams(scopeThreadRef(props.environmentId, threadId)),
+      params: buildThreadRouteParams(targetRef),
     });
   };
 

@@ -18,7 +18,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { memo, useLayoutEffect, useRef } from "react";
 import { deriveTimelineEntriesFromVisibleTurnItems } from "../session-logic";
 import { useTheme } from "../hooks/useTheme";
-import { useFlowStore } from "../flowStore";
+import { inspectFlowConversation, useFlowStore } from "../flowStore";
 import { useEnvironments } from "../state/environments";
 import { useProject, useThreadVisibleTurnItems } from "../state/entities";
 import { environmentThreadDetails } from "../state/threads";
@@ -236,9 +236,11 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
     });
   };
   const openSubagent = (threadId: ThreadId) => {
+    const childRef = scopeThreadRef(thread.environmentId, threadId);
+    inspectFlowConversation(childRef);
     void navigate({
       to: "/$environmentId/$threadId",
-      params: buildThreadRouteParams(scopeThreadRef(thread.environmentId, threadId)),
+      params: buildThreadRouteParams(childRef),
     });
   };
 

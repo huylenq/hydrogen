@@ -1,3 +1,5 @@
+import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import type { ScopedThreadRef } from "@t3tools/contracts";
 import { create } from "zustand";
 
 const FLOW_MODE_STORAGE_KEY = "t3code:flow-mode:v1";
@@ -72,3 +74,8 @@ useFlowStore.subscribe((state, previous) => {
     // Storage failure must not make navigation unusable.
   }
 });
+
+export function inspectFlowConversation(ref: ScopedThreadRef): void {
+  const flow = useFlowStore.getState();
+  if (flow.open) flow.inspectSession(scopedThreadKey(ref));
+}
