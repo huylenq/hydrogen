@@ -5078,9 +5078,13 @@ export default function ChatView(props: ChatViewProps) {
   };
   const handleStopBackgroundWorkStable = useStableCallback(handleStopBackgroundWork);
   const onOpenRelatedThread = (threadId: ThreadId) => {
+    const ref = scopeThreadRef(environmentId, threadId);
+    if (useFlowStore.getState().open) {
+      useFlowStore.getState().inspectSession(scopedThreadKey(ref));
+    }
     void navigate({
       to: "/$environmentId/$threadId",
-      params: buildThreadRouteParams(scopeThreadRef(environmentId, threadId)),
+      params: buildThreadRouteParams(ref),
     });
   };
   const onOpenRelatedThreadStable = useStableCallback(onOpenRelatedThread);

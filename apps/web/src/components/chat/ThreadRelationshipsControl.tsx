@@ -52,6 +52,7 @@ import { useState, type ReactNode } from "react";
 
 import { useArchivedThreadSnapshots } from "../../lib/archivedThreadsState";
 import { buildThreadRouteParams } from "../../threadRoutes";
+import { useFlowStore } from "../../flowStore";
 import {
   useProjects,
   useThreadProjection,
@@ -311,9 +312,13 @@ export function ThreadRelationshipsPanel(props: {
   }
 
   const openThread = (threadId: ThreadId) => {
+    const targetRef = scopeThreadRef(props.environmentId, threadId);
+    if (useFlowStore.getState().open) {
+      useFlowStore.getState().inspectSession(scopedThreadKey(targetRef));
+    }
     void navigate({
       to: "/$environmentId/$threadId",
-      params: buildThreadRouteParams(scopeThreadRef(props.environmentId, threadId)),
+      params: buildThreadRouteParams(targetRef),
     });
   };
 

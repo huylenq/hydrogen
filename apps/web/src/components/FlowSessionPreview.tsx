@@ -232,9 +232,11 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
     });
   };
   const openSubagent = (threadId: ThreadId) => {
+    const childRef = scopeThreadRef(thread.environmentId, threadId);
+    useFlowStore.getState().inspectSession(scopedThreadKey(childRef));
     void navigate({
       to: "/$environmentId/$threadId",
-      params: buildThreadRouteParams(scopeThreadRef(thread.environmentId, threadId)),
+      params: buildThreadRouteParams(childRef),
     });
   };
 
