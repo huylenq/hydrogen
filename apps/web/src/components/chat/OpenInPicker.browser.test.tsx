@@ -95,6 +95,16 @@ async function setup() {
   const _openFavorite = { [Symbol.dispose]: registerOpenFavoriteEditorCommand() };
   stack.use(_openFavorite);
   const screen = stack.use(await renderUi(null));
+  stack.use(fakeTimers());
+  // Announcements outlive the picker, so drain their queue before restoring timers.
+  stack.use({
+    async [Symbol.asyncDispose]() {
+      await act(() => vi.runAllTimers());
+      for (const region of document.querySelectorAll('body > [aria-live="polite"]')) {
+        region.textContent = "";
+      }
+    },
+  });
   async function renderPicker(
     availableEditors: readonly EditorId[] = editors,
     panel = false,
@@ -208,7 +218,6 @@ describe("open in editor announcement", () => {
     const { screen, renderPicker, pressOpenFavorite, FavoriteEditorFallback } = fixture;
     state.allowed.add(selected);
     await renderPicker();
-    using _timers = fakeTimers();
     const regions = () => [...document.querySelectorAll('body > [aria-live="polite"]')];
     const spoken = async () => {
       await act(async () => vi.runAllTimers());

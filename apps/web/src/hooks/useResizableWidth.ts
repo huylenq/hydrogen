@@ -58,10 +58,6 @@ export function useResizableWidth(options: UseResizableWidthOptions): {
 
   const clampedWidth = clamp(widthState.width);
   const latestOptions = useRef({ clamp, storageKey, width: clampedWidth });
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps held-key resize handlers on the committed width and storage key.
-  useLayoutEffect(() => {
-    latestOptions.current = { clamp, storageKey, width: clampedWidth };
-  }, [clamp, clampedWidth, storageKey]);
   const persist = (key: string, width: number) => {
     try {
       setLocalStorageItem(key, width, WidthSchema);
@@ -92,8 +88,7 @@ export function useResizableWidth(options: UseResizableWidthOptions): {
     const host = event.currentTarget.parentElement;
     // Disable drag transitions through transition-property; the host renders transition-duration.
     host?.style.setProperty("transition-property", "none");
-    // The drag commits to the key and width it started from, even if the panel
-    // switches keys before the pointer is released.
+    // Capture the originating thread; switching storage keys cancels this drag.
     const startStorageKey = storageKey;
     const startWidth = clampedWidth;
     return {
@@ -109,14 +104,22 @@ export function useResizableWidth(options: UseResizableWidthOptions): {
       },
       cleanup(committed) {
         host?.style.removeProperty("transition-property");
-        if (!committed) host?.style.setProperty(RESIZABLE_WIDTH_PROPERTY, `${startWidth}px`);
+        if (!committed) {
+          host?.style.setProperty(RESIZABLE_WIDTH_PROPERTY, `${latestOptions.current.width}px`);
+        }
       },
     };
   });
 
   // Bounds can change mid-drag (sidebar opens, window narrows), and the render
   // that carries them rewrites the committed width, so re-apply the live pointer position.
-  const { refresh } = drag;
+  const { cancel, refresh } = drag;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Commits held-key options and abandons the old thread's drag using the new width before paint.
+  useLayoutEffect(() => {
+    const changedThread = latestOptions.current.storageKey !== storageKey;
+    latestOptions.current = { clamp, storageKey, width: clampedWidth };
+    if (changedThread) cancel();
+  }, [cancel, clamp, clampedWidth, storageKey]);
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- reapplies the live drag pointer position to the DOM before paint when the bounds change
   useLayoutEffect(() => refresh({ min: minWidth, max: maxWidth }), [refresh, minWidth, maxWidth]);
 

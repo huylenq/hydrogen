@@ -50,7 +50,7 @@ Opt-in modal keyboard profile for web and desktop (not native mobile). Full comm
 
 ## Shortcuts
 
-Flow and Grok Bot have no default modified shortcut; Vim Normal mode toggles it. `ctrl+alt+h`/`ctrl+alt+l` (`rightPanel.widen`/`rightPanel.narrow`, not in a terminal) move the divider between the chat and the inline right panel by 80px per press, held keys repeating, on the chat and Pull Requests pages; each page's key handler passes them straight to the panel's shell (`runAppCommandFromKey`), which answers only while its width is user-set (open, inline, not maximized), and the key is consumed only then. Custom defaults must not take over upstream defaults; when upstream adds defaults, check for conflicts across platforms (`mod` is Control off Mac).
+Flow and Grok Bot have no default modified shortcut; Vim Normal mode toggles it. `ctrl+alt+h`/`ctrl+alt+l` (`rightPanel.widen`/`rightPanel.narrow`, not in a terminal) move the divider between the chat and the inline right panel by 80px per press, held keys repeating, on the chat and Pull Requests pages; each page's key handler passes them straight to the panel's shell (`runAppCommandFromKey`), which answers only while its width is user-set (open, inline, not maximized), and the key is consumed only then. Switching threads abandons an unfinished panel drag without overwriting either thread's saved width; verification: [`useResizableWidth.browser.test.tsx`](apps/web/src/hooks/useResizableWidth.browser.test.tsx). Custom defaults must not take over upstream defaults; when upstream adds defaults, check for conflicts across platforms (`mod` is Control off Mac).
 
 ## Flow
 
