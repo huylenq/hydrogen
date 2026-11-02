@@ -565,7 +565,7 @@ const themeIconFileSystem = Layer.effect(
       path.replace(/com\.t3tools\.T3Code\.png$/, "com.t3tools.T3Code.upper-case.png");
     return FileSystem.FileSystem.of({
       ...fileSystem,
-      copyFile: (from, to, flags) => fileSystem.copyFile(physical(from), physical(to), flags),
+      copyFile: (from, to) => fileSystem.copyFile(physical(from), physical(to)),
       readFile: (path) => fileSystem.readFile(physical(path)),
       writeFile: (path, data, options) => fileSystem.writeFile(physical(path), data, options),
       stat: (path) => fileSystem.stat(physical(path)),
