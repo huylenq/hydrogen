@@ -335,7 +335,7 @@ describe("crew task context", () => {
       origin,
       () => "nonce-2",
     );
-    expect(crewDraftPreview(draft)).toBe("Review\n\nEvidence — Code:\nconst answer = 42;");
+    expect(crewDraftPreview(draft)).toBe("Review\n\nEvidence: Code:\nconst answer = 42;");
     const huge = updateCrewDraftOptions(
       draft,
       { context: { goal: "x".repeat(8100) } },

@@ -109,23 +109,26 @@ export function CrewSheet(props: CrewSheetProps) {
   async function changeConnection() {
     setBusy(true);
     setError(null);
-    try {
-      const result = connected
-        ? await disconnect({ environmentId: props.environmentId, input: undefined })
-        : await connect({
+    await (
+      connected
+        ? disconnect({ environmentId: props.environmentId, input: undefined })
+        : connect({
             environmentId: props.environmentId,
             input: account.trim() ? { accountScope: account.trim() } : {},
-          });
-      if (result._tag === "Failure") {
-        const failure = Cause.squash(result.cause);
-        setError(
-          failure instanceof Error ? failure.message : "Could not change the Grok Bot connection.",
-        );
-      } else if (connected) setBotId(null);
-      query.refresh();
-    } finally {
-      setBusy(false);
-    }
+          })
+    )
+      .then((result) => {
+        if (result._tag === "Failure") {
+          const failure = Cause.squash(result.cause);
+          setError(
+            failure instanceof Error
+              ? failure.message
+              : "Could not change the Grok Bot connection.",
+          );
+        } else if (connected) setBotId(null);
+        query.refresh();
+      })
+      .finally(() => setBusy(false));
   }
 
   return (
@@ -516,64 +519,66 @@ function Conversation(
       contextTokenBudget,
       ...(pendingOriginThreadId ? { originThreadId: pendingOriginThreadId } : {}),
     };
-    try {
-      await reserveCrewIntent(scope, input);
-      setIntent(input);
-      Keyboard.dismiss();
-      const result = await send({ environmentId: props.environmentId, input });
-      if (result._tag === "Failure") {
-        const error = Cause.squash(result.cause);
-        const failure = classifyCrewSendFailure(error);
-        if (failure.disposition === "rejected") {
-          try {
-            if (await releaseRejectedCrewIntent(scope, input.nonce, error)) {
-              setIntent(null);
-              setError(`${failure.message} Your draft is available to edit.`);
-            } else {
-              setError(`${failure.message} Reopen Grok Bot to review the saved message.`);
+    await reserveCrewIntent(scope, input)
+      .then(async () => {
+        setIntent(input);
+        Keyboard.dismiss();
+        const result = await send({ environmentId: props.environmentId, input });
+        if (result._tag === "Failure") {
+          const error = Cause.squash(result.cause);
+          const failure = classifyCrewSendFailure(error);
+          if (failure.disposition === "rejected") {
+            try {
+              if (await releaseRejectedCrewIntent(scope, input.nonce, error)) {
+                setIntent(null);
+                setError(`${failure.message} Your draft is available to edit.`);
+              } else {
+                setError(`${failure.message} Reopen Grok Bot to review the saved message.`);
+              }
+            } catch {
+              setError(
+                `${failure.message} Could not release the saved message. It remains locked to prevent another send.`,
+              );
             }
-          } catch {
+          } else {
             setError(
-              `${failure.message} Could not release the saved message. It remains locked to prevent another send.`,
+              `${failure.message} Delivery is uncertain. Refresh to inspect the handoff; this message will not be resent.`,
             );
           }
-        } else {
-          setError(
-            `${failure.message} Delivery is uncertain. Refresh to inspect the handoff; this message will not be resent.`,
-          );
         }
-      }
-      query.refresh();
-      props.refreshSnapshot();
-    } catch (failure) {
-      setError(
-        failure instanceof Error ? failure.message : "Could not save the message before sending.",
-      );
-    } finally {
-      setOperation(null);
-      sending.current = false;
-    }
+        query.refresh();
+        props.refreshSnapshot();
+      })
+      .catch((failure) => {
+        setError(
+          failure instanceof Error ? failure.message : "Could not save the message before sending.",
+        );
+      })
+      .finally(() => {
+        setOperation(null);
+        sending.current = false;
+      });
   }
 
   async function newMessage(nextOriginThreadId = pendingOriginThreadId) {
     if (!canStartNew || busy) return;
     setOperation("starting-new");
-    try {
-      await clearCrewIntent(scope);
-      setIntent(null);
-      setNonce(randomUUID());
-      setPendingOriginThreadId(nextOriginThreadId);
-      setText("");
-      setContext(undefined);
-      setAutomaticDelivery(false);
-      setContextTokenBudget(2000);
-      setError(null);
-      setReceiptOpen(false);
-    } catch {
-      setError("Could not clear the previous message.");
-    } finally {
-      setOperation(null);
-    }
+    await clearCrewIntent(scope)
+      .then(() => {
+        setIntent(null);
+        setNonce(randomUUID());
+        setPendingOriginThreadId(nextOriginThreadId);
+        setText("");
+        setContext(undefined);
+        setAutomaticDelivery(false);
+        setContextTokenBudget(2000);
+        setError(null);
+        setReceiptOpen(false);
+      })
+      .catch(() => {
+        setError("Could not clear the previous message.");
+      })
+      .finally(() => setOperation(null));
   }
 
   async function stopAutomaticDelivery(item: CrewHandoff) {

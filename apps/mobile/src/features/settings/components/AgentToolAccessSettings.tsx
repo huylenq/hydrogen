@@ -52,16 +52,17 @@ function EnvironmentAgentToolSettings(props: {
     saving.current = true;
     setBusy(true);
     setError(null);
-    try {
-      const result = await updateSettings({ environmentId: props.environmentId, input: { patch } });
-      if (result._tag === "Failure") {
-        const failure = squashAtomCommandFailure(result);
-        setError(failure instanceof Error ? failure.message : "Could not save agent access.");
-      }
-    } finally {
-      saving.current = false;
-      setBusy(false);
-    }
+    await updateSettings({ environmentId: props.environmentId, input: { patch } })
+      .then((result) => {
+        if (result._tag === "Failure") {
+          const failure = squashAtomCommandFailure(result);
+          setError(failure instanceof Error ? failure.message : "Could not save agent access.");
+        }
+      })
+      .finally(() => {
+        saving.current = false;
+        setBusy(false);
+      });
   }
 
   return (
