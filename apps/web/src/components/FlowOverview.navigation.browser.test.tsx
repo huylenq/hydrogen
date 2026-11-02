@@ -53,7 +53,7 @@ vi.mock("../state/environments", () => ({
   useEnvironmentProviders: () => new Map(),
 }));
 vi.mock("../state/server", () => ({
-  serverEnvironment: { providersValueAtom: () => "providers" },
+  serverEnvironment: { providersValueAtom: () => "providers", settingsValueAtom: () => "settings" },
 }));
 vi.mock("../state/threads", () => ({
   environmentThreadDetails: { threadAtom: () => "detail" },

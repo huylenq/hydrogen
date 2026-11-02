@@ -557,7 +557,35 @@ const themeIconFixture = (source: Uint8Array) =>
 const iconCacheRuns = (run: ThemeIconRun) =>
   run.commands.filter(({ command }) => command === "gtk-update-icon-cache").length;
 
-it.layer(NodeServices.layer)("DesktopLinuxUrlHandler theme icons", (it) => {
+// Linux treats these icon ids as distinct; macOS's default filesystem folds their case.
+const themeIconFileSystem = Layer.effect(
+  FileSystem.FileSystem,
+  Effect.map(FileSystem.FileSystem, (fileSystem) => {
+    const physical = (path: string) =>
+      path.replace(/com\.t3tools\.T3Code\.png$/, "com.t3tools.T3Code.upper-case.png");
+    return FileSystem.FileSystem.of({
+      ...fileSystem,
+      copyFile: (from, to, flags) => fileSystem.copyFile(physical(from), physical(to), flags),
+      readFile: (path) => fileSystem.readFile(physical(path)),
+      writeFile: (path, data, options) => fileSystem.writeFile(physical(path), data, options),
+      stat: (path) => fileSystem.stat(physical(path)),
+      utimes: (path, atime, mtime) => fileSystem.utimes(physical(path), atime, mtime),
+      exists: (path) => fileSystem.exists(physical(path)),
+      readDirectory: (path) =>
+        fileSystem
+          .readDirectory(path)
+          .pipe(
+            Effect.map((names) =>
+              names.map((name) =>
+                name === "com.t3tools.T3Code.upper-case.png" ? "com.t3tools.T3Code.png" : name,
+              ),
+            ),
+          ),
+    });
+  }),
+).pipe(Layer.provideMerge(NodeServices.layer));
+
+it.layer(themeIconFileSystem)("DesktopLinuxUrlHandler theme icons", (it) => {
   it.effect("installs both app id spellings without creating an icon cache", () =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
