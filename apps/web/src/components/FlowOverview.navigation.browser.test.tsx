@@ -133,6 +133,8 @@ function conversation() {
         <p>{`Conversation: ${state.params.threadId}`}</p>
         {state.params.threadId === "child" ? (
           <ThreadRelationshipsPanel
+            showLineage
+            showSideChats
             environmentId={EnvironmentId.make(state.params.environmentId)}
             threadId={ThreadId.make("child")}
           />
@@ -328,6 +330,8 @@ it.each([
     useFlowStore.setState({ open: flowOpen, overviewOpen: flowOpen });
     await using screen = await render(
       <ThreadRelationshipsPanel
+        showLineage
+        showSideChats
         environmentId={EnvironmentId.make("env")}
         threadId={ThreadId.make("child")}
       />,

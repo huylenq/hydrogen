@@ -372,11 +372,12 @@ describe("deriveFlow", () => {
     expect(model.bench).toHaveLength(0);
   });
 
-  it("omits subagent threads, which have no run of their own", () => {
+  it.each(["subagent", "side chat"] as const)("omits %s threads from the conveyor", (kind) => {
     const parent = thread("parent", runtime("running"));
-    const subagent = thread("subagent", {
+    const subagent = thread("hidden-child", {
       lineage: {
-        relationshipToParent: "subagent",
+        relationshipToParent: kind === "subagent" ? "subagent" : "fork",
+        ...(kind === "side chat" ? { sideChat: true } : {}),
         parentThreadId: parent.id,
         rootThreadId: parent.id,
       },

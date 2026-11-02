@@ -145,12 +145,17 @@ const TOOL_GROUP_EDGE = 24;
 const lampOn = () => useReadingLampStore.getState().on;
 
 /** The chat publishes capabilities and timeline access; modal policy stays outside ChatView. */
-export function useHuyChatIntegration(context: ModalThreadContext, timeline: TimelineHost) {
+export function useHuyChatIntegration(
+  context: ModalThreadContext,
+  timeline: TimelineHost,
+  active = true,
+) {
   const currentTimeline = useRef(timeline);
   const scheduleFollow = useRef(() => {});
   const resetReading = useRef(() => {});
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps the reading controller, DOM listeners, and modal command context bound to the committed conversation.
   useLayoutEffect(() => {
+    if (!active) return;
     // Another thread's cursor, landing, or direction must not act on this one.
     if (currentTimeline.current.threadKey !== timeline.threadKey) resetReading.current();
     currentTimeline.current = timeline;
@@ -167,6 +172,7 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
   });
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Keeps the reading controller, DOM listeners, and modal command context bound to the committed conversation.
   useEffect(() => {
+    if (!active) return;
     // Scrolls ease toward a target. Landings re-read their target as rows measure, then snap
     // onto it.
     // `target` is null once the landing's row is gone.
@@ -795,5 +801,5 @@ export function useHuyChatIntegration(context: ModalThreadContext, timeline: Tim
       stopGlide();
       useModalKeyboardStore.setState({ threadContext: null });
     };
-  }, []);
+  }, [active]);
 }

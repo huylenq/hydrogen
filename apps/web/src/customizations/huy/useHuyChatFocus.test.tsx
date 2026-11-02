@@ -32,12 +32,14 @@ let renderer: ReactTestRenderer | undefined;
 const thread = { environmentId: EnvironmentId.make("test"), threadId: ThreadId.make("thread") };
 const noop = () => {};
 function Chat({
+  active = true,
   open = false,
   present = false,
   sheet = false,
   maximized = false,
   reveal = noop,
 }: {
+  active?: boolean;
   open?: boolean;
   present?: boolean;
   sheet?: boolean;
@@ -45,6 +47,7 @@ function Chat({
   reveal?: () => void;
 }) {
   useHuyChatFocus({
+    active,
     activeThreadRef: thread,
     rightPanelOpen: open,
     rightPanelPresent: present,
@@ -105,11 +108,11 @@ describe("chat focus lifecycle", () => {
     await act(() => renderer?.update(<Chat open present reveal={reveal} />));
     expect(useModalKeyboardStore.getState().focusRequest).toBeNull();
   });
-  it("does not change focus when Vim navigation is disabled", async () => {
-    host.enabled = false;
+  it.each(["Vim disabled", "embedded side chat"])("does not change focus for %s", async (mode) => {
+    host.enabled = mode !== "Vim disabled";
     requestModalFocus("rightPanel");
     await act(() => {
-      renderer = create(<Chat />);
+      renderer = create(<Chat active={mode !== "embedded side chat"} />);
     });
     expect(host.show).not.toHaveBeenCalled();
     expect(host.focus).not.toHaveBeenCalled();

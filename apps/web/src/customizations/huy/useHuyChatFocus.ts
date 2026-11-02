@@ -8,6 +8,7 @@ import { focusModalSurface } from "../../modalKeyboardDom";
 import { useRightPanelStore } from "../../rightPanelStore";
 
 type ChatFocusHost = {
+  active?: boolean;
   activeThreadRef: ScopedThreadRef | null;
   rightPanelOpen: boolean;
   rightPanelPresent: boolean;
@@ -18,6 +19,7 @@ type ChatFocusHost = {
 
 /** Reveal the requested surface before focusing it, including sheets and mobile drawers. */
 export function useHuyChatFocus({
+  active = true,
   activeThreadRef,
   rightPanelOpen,
   rightPanelPresent,
@@ -37,7 +39,7 @@ export function useHuyChatFocus({
   // The thread view reveals panels before fulfilling focus, after their DOM commits.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- Fulfills pending focus intent only after the requested panel and its focus anchor mount.
   useLayoutEffect(() => {
-    if (!modalFocusRequest || !getClientSettings().modalKeyboardEnabled) return;
+    if (!active || !modalFocusRequest || !getClientSettings().modalKeyboardEnabled) return;
     if (modalFocusRequest !== "sidebar" && modalSidebarIsMobile && modalSidebarOpenMobile) {
       setModalSidebarOpenMobile(false);
       return;

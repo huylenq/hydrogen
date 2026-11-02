@@ -1,4 +1,5 @@
 import { type RuntimeRequestId, type ScopedThreadRef } from "@t3tools/contracts";
+import { markdownProseDirection, textDirection } from "~/textDirection";
 import { memo, use, useEffect, useEffectEvent, useRef, useState } from "react";
 import { BackgroundThreadContext } from "./backgroundThread";
 import { useStableCallback } from "~/hooks/useStableCallback";
@@ -16,6 +17,7 @@ import { Kbd } from "../ui/kbd";
 import { cn } from "~/lib/utils";
 import { useClientSettings } from "../../hooks/useSettings";
 import { modalEventIsEditable, modalEventIsEmbedded } from "../../modalKeyboardDom";
+import { isInSideChatPane } from "~/lib/sideChatPane";
 import { ComposerBanner } from "./ComposerBanner";
 import ChatMarkdown from "../ChatMarkdown";
 
@@ -172,6 +174,7 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
   useEffect(() => {
     if (!activeQuestion || responseDisabled || isCollapsed || backgroundThread) return;
     const handler = (event: globalThis.KeyboardEvent) => {
+      if (isInSideChatPane(event.target)) return;
       const optionIndex = pendingUserInputOptionIndex(event, {
         modalEnabled,
         questionFocused: questionPanelRef.current?.contains(document.activeElement) ?? false,
@@ -192,12 +195,24 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
     return null;
   }
 
+  const promptDirection = markdownProseDirection(
+    prompt.questions
+      .flatMap((question) => [
+        question.header,
+        question.question,
+        ...question.options.flatMap((option) => [option.label, option.description ?? ""]),
+      ])
+      .join(" "),
+  );
+  const questionTextAlign = promptDirection === "rtl" ? "text-right" : "text-left";
+
   return (
     <Collapsible
       ref={questionPanelRef}
       data-modal-surface="question"
       tabIndex={-1}
       data-modal-question-panel={!isCollapsed && !responseDisabled ? "active" : undefined}
+      dir={promptDirection}
       open={!isCollapsed}
       onOpenChange={(open) => {
         setCollapsedQuestionId(open ? null : activeQuestion.id);
@@ -214,13 +229,17 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
         <ComposerBanner.Content>
           <span
             className={cn("min-w-0 truncate text-muted-foreground", isCollapsed && "max-w-1/2")}
+            dir={textDirection(activeQuestion.header)}
           >
             {activeQuestion.header}
           </span>
           {isCollapsed ? (
             <>
               <ComposerBanner.Separator />
-              <span className="min-w-0 flex-1 truncate text-secondary-label">
+              <span
+                className={cn("min-w-0 flex-1 truncate text-secondary-label", questionTextAlign)}
+                dir={markdownProseDirection(activeQuestion.question)}
+              >
                 {activeQuestion.question}
               </span>
             </>
@@ -262,7 +281,7 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
               text={activeQuestion.question}
               cwd={cwd}
               threadRef={threadRef}
-              className="pt-2 text-foreground/85"
+              className={cn("pt-2 text-foreground/85", questionTextAlign)}
             />
             {modalEnabled ? (
               <p className="mt-1 text-secondary-label text-xs">
@@ -279,7 +298,8 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
                 const isSelected =
                   isOptimisticallySelected || draftSelectedOptions?.[index] === true;
                 const className = cn(
-                  "group flex w-full items-start gap-2.5 rounded-md bg-transparent py-1.5 ps-2 text-left sm:ps-1.5 outline-none transition-colors duration-150 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary/25",
+                  questionTextAlign,
+                  "group flex w-full items-start gap-2.5 rounded-md bg-transparent py-1.5 ps-2 sm:ps-1.5 outline-none transition-colors duration-150 focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary/25",
                   isSelected ? "text-foreground" : "text-foreground/70 hover:bg-muted/30",
                   (disabled || isResponding) && "opacity-50 cursor-not-allowed",
                   !disabled && !isResponding && "cursor-pointer",
@@ -295,9 +315,16 @@ const ComposerPendingUserInputCard = memo(function ComposerPendingUserInputCard(
                       )}
                     </span>
                     <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-                      <span className="text-sm font-medium">{option.label}</span>
+                      <span className="text-sm font-medium" dir={textDirection(option.label)}>
+                        {option.label}
+                      </span>
                       {option.description && option.description !== option.label ? (
-                        <span className="text-secondary-label text-2xs">{option.description}</span>
+                        <span
+                          className="text-secondary-label text-2xs"
+                          dir={textDirection(option.description)}
+                        >
+                          {option.description}
+                        </span>
                       ) : null}
                     </div>
                     {index < 9 ? (
