@@ -1,5 +1,5 @@
 import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMatches, useNavigate, useParams } from "@tanstack/react-router";
 import { isElectron } from "../env";
 import { useFlowStore } from "../flowStore";
@@ -29,6 +29,8 @@ import { useFlowOverviewTransition } from "../customizations/huy/flowOverviewTra
 /** Keep chat effects and editing shortcuts unmounted while watching the working bench. */
 export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  // State, not a ref: the region mounts after the grid, which must re-measure once it exists.
+  const [snoozedRegion, setSnoozedRegion] = useState<HTMLElement | null>(null);
   const routeParams = useParams({ strict: false });
   const routeTarget = resolveThreadRouteTarget(routeParams);
   const currentRef = resolveThreadRouteRef(routeParams);
@@ -106,7 +108,7 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
                 No sessions are working right now.
               </p>
             ) : (
-              <WorkingSessionGrid>
+              <WorkingSessionGrid reserveBelow={snoozedRegion}>
                 {entries.map((entry) => (
                   <FlowSessionPreview
                     key={scopedThreadKey(
@@ -118,7 +120,10 @@ export function FlowOverviewBoundary({ children }: { children: ReactNode }) {
               </WorkingSessionGrid>
             )}
           </div>
-          <FlowSnoozedRow threads={model.snoozed} />
+          {/* Always mounted so the grid can measure the snoozed lines it leaves room for. */}
+          <div ref={setSnoozedRegion} className="w-full empty:hidden">
+            <FlowSnoozedRow threads={model.snoozed} />
+          </div>
         </div>
       </main>
       {hostModalKeyboard ? <ModalKeyboard hasThread={false} workingSessionGrid /> : null}

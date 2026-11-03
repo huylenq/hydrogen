@@ -3,7 +3,12 @@ import {
   type EnvironmentThreadShell,
   threadRuntimeIsActive,
 } from "@t3tools/client-runtime/state/models";
-import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
+import {
+  scopeProjectRef,
+  scopeThreadRef,
+  scopedProjectKey,
+  scopedThreadKey,
+} from "@t3tools/client-runtime/environment";
 import type { EnvironmentId } from "@t3tools/contracts";
 
 export type FlowAttentionStatus = "Approval" | "Input" | "Failed" | "Plan ready" | "Review";
@@ -315,4 +320,31 @@ export function flowBenchCapacity(
     }
   }
   return { shown, hidden: count - shown };
+}
+
+export interface FlowSnoozedCluster {
+  readonly key: string;
+  readonly environmentId: EnvironmentThreadShell["environmentId"];
+  readonly projectId: EnvironmentThreadShell["projectId"];
+  readonly threads: ReadonlyArray<EnvironmentThreadShell>;
+}
+
+/** Groups wake-ordered snoozed threads by project; a cluster's place is its soonest wake. */
+export function clusterSnoozedByProject(
+  snoozed: ReadonlyArray<EnvironmentThreadShell>,
+): ReadonlyArray<FlowSnoozedCluster> {
+  const clusters = new Map<string, FlowSnoozedCluster & { threads: EnvironmentThreadShell[] }>();
+  for (const thread of snoozed) {
+    const key = scopedProjectKey(scopeProjectRef(thread.environmentId, thread.projectId));
+    const cluster = clusters.get(key);
+    if (cluster) cluster.threads.push(thread);
+    else
+      clusters.set(key, {
+        key,
+        environmentId: thread.environmentId,
+        projectId: thread.projectId,
+        threads: [thread],
+      });
+  }
+  return Array.from(clusters.values());
 }

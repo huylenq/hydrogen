@@ -3,11 +3,15 @@ import { useLayoutEffect, useRef, useState, type ReactElement } from "react";
 
 import { FLOW_CARD_MIN_HEIGHT, workingSessionRowSizes } from "./flowGridLayout";
 
-// Room below the grid for the overview's snoozed row and its gap.
-const SNOOZED_ROW_RESERVE = 56;
-
 /** Lays out cards inside a scrolling ancestor, whose visible height decides how many rows fit. */
-export function WorkingSessionGrid({ children }: { children: ReactElement[] }) {
+export function WorkingSessionGrid({
+  children,
+  reserveBelow,
+}: {
+  children: ReactElement[];
+  /** A sibling below the grid in the same flex column, such as the snoozed chips; its height and the column gap are left free. */
+  reserveBelow?: HTMLElement | null;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
@@ -25,7 +29,7 @@ export function WorkingSessionGrid({ children }: { children: ReactElement[] }) {
         viewport.clientHeight -
           parseFloat(style.paddingTop) -
           parseFloat(style.paddingBottom) -
-          SNOOZED_ROW_RESERVE,
+          reservedBelow(reserveBelow),
       );
       // Subagent lines grow a card past the base height. Card height doesn't depend on width, so
       // fitting rows to the tallest one can't oscillate.
@@ -38,8 +42,11 @@ export function WorkingSessionGrid({ children }: { children: ReactElement[] }) {
       );
     };
     measure();
-    return observeResize([container, viewport], measure);
-  }, []);
+    return observeResize(
+      reserveBelow ? [container, viewport, reserveBelow] : [container, viewport],
+      measure,
+    );
+  }, [reserveBelow]);
 
   const sizes = workingSessionRowSizes(children.length, width, height, cardHeight);
   const columns = sizes[0] ?? 1;
@@ -61,4 +68,12 @@ export function WorkingSessionGrid({ children }: { children: ReactElement[] }) {
       })}
     </div>
   );
+}
+
+/** A hidden (empty) sibling takes no room and no gap. */
+function reservedBelow(element: HTMLElement | null | undefined): number {
+  if (!element?.offsetHeight) return 0;
+  const column = element.parentElement;
+  const gap = column ? parseFloat(getComputedStyle(column).rowGap) || 0 : 0;
+  return element.offsetHeight + gap;
 }

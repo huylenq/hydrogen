@@ -3,6 +3,7 @@ import { EnvironmentId, ProjectId, ProviderInstanceId, RunId, ThreadId } from "@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  clusterSnoozedByProject,
   deriveFlow,
   flowBenchCapacity,
   flowBenchColumnWidths,
@@ -586,5 +587,31 @@ describe("flowBenchCapacity", () => {
 
   it("keeps one column even when the bench is squeezed below it", () => {
     expect(flowBenchCapacity(4, 40)).toEqual({ shown: 2, hidden: 2 });
+  });
+});
+
+describe("clusterSnoozedByProject", () => {
+  it("orders clusters by their soonest wake and keeps wake order inside each", () => {
+    const other = ProjectId.make("project-2");
+    const snooze = (id: string, until: string, projectId = PROJECT_ID) =>
+      thread(id, { projectId, snoozedAt: NOW, snoozedUntil: until });
+    const model = deriveFlow(
+      [
+        snooze("a-late", "2026-09-05T15:00:00.000Z"),
+        snooze("b-soon", "2026-09-05T12:00:00.000Z", other),
+        snooze("a-soon", "2026-09-05T13:00:00.000Z"),
+        snooze("b-late", "2026-09-05T16:00:00.000Z", other),
+      ],
+      { now: NOW },
+    );
+    expect(
+      clusterSnoozedByProject(model.snoozed).map((cluster) => [
+        cluster.projectId,
+        cluster.threads.map((snoozed) => snoozed.id),
+      ]),
+    ).toEqual([
+      [other, ["b-soon", "b-late"]],
+      [PROJECT_ID, ["a-soon", "a-late"]],
+    ]);
   });
 });
