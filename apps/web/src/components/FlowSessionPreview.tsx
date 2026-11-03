@@ -379,7 +379,7 @@ export const FlowSessionPreview = memo(function FlowSessionPreview({
           </div>
           {activities.length > 0 || liveStatus ? (
             <ToolActivityIconCtx value={iconContext}>
-              <ul className="mt-3 shrink-0 space-y-0.5 border-t border-border/50 pt-2">
+              <ul className="mt-3 shrink-0 border-t border-border/50 pt-2">
                 {activities.map((activity) => (
                   <li key={activity.id}>
                     <WorkEntryPreview

@@ -16,7 +16,8 @@ import { workEntryDisplayLabel } from "../../components/chat/MessagesTimeline.lo
 // Flow preview rows draw icons through the chat's `ToolActivityIconView`, so a
 // parent must provide `ToolActivityIconCtx`.
 
-const PREVIEW_ROW_CLASS = "flex min-w-0 items-center gap-1.5 py-0.5 text-xs leading-relaxed";
+const PREVIEW_ROW_CLASS =
+  "flex min-w-0 items-center gap-1.5 py-flow-activity text-xs leading-relaxed";
 
 function PreviewIcon({
   className,
