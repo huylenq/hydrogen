@@ -38,6 +38,8 @@ vi.mock("../hooks/useFlowModel", () => ({ useFlowModel: () => state.model }));
 vi.mock("../hooks/useTheme", () => ({ useTheme: () => ({ resolvedTheme: "dark" }) }));
 vi.mock("../state/entities", () => ({
   readThreadShells: () => [],
+  useAnyEnvironmentHiding: () => false,
+  useHiddenThreadKeys: () => new Set(),
   useQuietThreadShell: () => null,
   useAllEnvironmentShellsBootstrapped: () => true,
   useThreadVisibleTurnItems: () => [],
