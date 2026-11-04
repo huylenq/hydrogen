@@ -2,6 +2,7 @@ import {
   AntigravitySettings,
   ClaudeSettings,
   CodexSettings,
+  HermesSettings,
   defaultInstanceIdForDriver,
   disallowedProviderMessage,
   type ManagedProviderInstance,
@@ -19,6 +20,7 @@ import { acpRegistryClient } from "@t3tools/provider-acp-registry/client";
 import { cursorClient } from "@t3tools/provider-cursor/client";
 import { fxClient } from "@t3tools/provider-fx/client";
 import { grokClient } from "@t3tools/provider-grok/client";
+import { kiroClient } from "@t3tools/provider-kiro/client";
 import { museClient } from "@t3tools/provider-muse/client";
 import { openCodeClient } from "@t3tools/provider-opencode/client";
 import { piClient } from "@t3tools/provider-pi/client";
@@ -45,6 +47,7 @@ const PACKAGED_CLIENTS: ReadonlyArray<ProviderClientDefinition> = [
   cursorClient,
   grokClient,
   fxClient,
+  kiroClient,
   museClient,
   openCodeClient,
   piClient,
@@ -70,10 +73,15 @@ const KNOWN_DRIVERS: ReadonlyMap<ProviderDriverKind, KnownDriver> = new Map([
   known("codex", "Codex", CodexSettings),
   known("claudeAgent", "Claude", ClaudeSettings),
   known("antigravity", "Antigravity", AntigravitySettings),
+  known("hermes", "Hermes", HermesSettings),
   ...PACKAGED_CLIENTS.map((client) =>
     known(client.driverKind, client.label, client.settingsSchema, client.hasDefaultInstance),
   ),
 ]);
+
+/** Each driver a policy may name, with the label users see. */
+export const knownDriverLabels = () =>
+  Array.from(KNOWN_DRIVERS, ([driver, { label }]) => ({ driver, label }));
 
 const PINNED_CONFIG_FIELDS = ["binaryPath", "launchArgs"] as const;
 type PinnedConfigField = (typeof PINNED_CONFIG_FIELDS)[number];

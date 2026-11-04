@@ -28,7 +28,6 @@ import {
   modalSurfaceItems,
   moveModalArea,
   moveModalFocus,
-  rememberModalFocus,
 } from "../modalKeyboardDom";
 import {
   clearModalSequence,
@@ -482,7 +481,7 @@ export function ModalKeyboard({
         return;
       }
       if (event.target instanceof HTMLElement) {
-        rememberModalFocus(event.target);
+        captureModalReturnFocus(event.target);
         useModalKeyboardStore.setState({ mode: modalEventIsEditable(event) ? "insert" : "normal" });
       }
     };

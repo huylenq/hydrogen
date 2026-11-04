@@ -44,7 +44,7 @@ it("keeps route-based snoozing outside Flow, but never falls back to a hidden ro
   expect(resolveThreadSnoozeTarget(threads, key)).toBeNull();
 });
 
-it("wakes the snoozed session selected in Flow without opening a duration dialog", () => {
+it("wakes a Flow snoozed chip absent from the collapsed sidebar without opening a duration dialog", () => {
   const snoozed = {
     ...thread,
     snoozedAt: new Date("2026-10-14T02:59:00.000Z").toISOString(),
@@ -55,7 +55,7 @@ it("wakes the snoozed session selected in Flow without opening a duration dialog
   const wake = vi.fn();
   const snooze = vi.fn();
   const run = createThreadSnoozeCommand({
-    readTarget: () => resolveThreadSnoozeTarget(new Map([[key, snoozed]]), null),
+    readTarget: () => resolveThreadSnoozeTarget(new Map(), null, () => snoozed),
     supportsSnooze: () => true,
     snooze,
     unsnooze: wake,

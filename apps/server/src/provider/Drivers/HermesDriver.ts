@@ -12,7 +12,7 @@ import {
 import * as HostProcess from "@t3tools/shared/HostProcess";
 import { createModelCapabilities } from "@t3tools/shared/model";
 import { resolveSelfInvocation } from "@t3tools/shared/nodeRuntime";
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -100,7 +100,7 @@ export function hermesModelsFromSession(
 
 export type HermesDriverEnv =
   | ChildProcessSpawner.ChildProcessSpawner
-  | Crypto.Crypto
+  | SecureRandom.SecureRandom
   | FileSystem.FileSystem
   | IdAllocator.IdAllocatorV2
   | McpProviderSessions.McpProviderSessions
@@ -121,7 +121,7 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
     enabled,
     config,
   }: Parameters<ProviderDriver<HermesSettings, HermesDriverEnv>["create"]>[0]) {
-    const crypto = yield* Crypto.Crypto;
+    const random = yield* SecureRandom.SecureRandom;
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const host = yield* ProviderHost.ProviderHost;
     const loggers = yield* ProviderEventLoggers.ProviderEventLoggers;
@@ -193,7 +193,7 @@ export const HermesDriver: ProviderDriver<HermesSettings, HermesDriverEnv> = {
         cwd,
         clientInfo: { name: "t3-code-provider-probe", version: "0.0.0" },
       }).pipe(
-        Effect.provideService(Crypto.Crypto, crypto),
+        Effect.provideService(SecureRandom.SecureRandom, random),
         Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
       );
     let lastTurnFailed = false;

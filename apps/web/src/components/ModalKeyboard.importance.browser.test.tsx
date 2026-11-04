@@ -7,6 +7,7 @@ import { DEFAULT_RESOLVED_KEYBINDINGS } from "@t3tools/shared/keybindings";
 import { scopeThreadRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { useModalKeyboardStore } from "../modalKeyboardStore";
+import { captureModalReturnFocus, modalPickerFinalFocus } from "../modalKeyboardDom";
 import { useSessionImportanceStore } from "../customizations/huy/sessionImportance";
 import { ModalKeyboard } from "./ModalKeyboard";
 import { WorkingSessionGrid } from "../customizations/huy/BalancedWorkingSessions";
@@ -313,3 +314,38 @@ it("does not flag the open thread when the bench's more control has focus", asyn
 });
 
 let timers: ReturnType<typeof fakeTimers> | undefined;
+
+it("returns a pointer-opened model picker to the latest Normal-mode surface", async () => {
+  await act(() =>
+    root.render(
+      <>
+        <ModalKeyboard hasThread />
+        <button data-modal-surface="rightPanel" data-testid="previous">
+          Previous control
+        </button>
+        <main data-modal-surface="conversation" tabIndex={-1} />
+        <button data-chat-provider-model-picker="true">Model</button>
+      </>,
+    ),
+  );
+  const previous = host.querySelector<HTMLElement>('[data-testid="previous"]')!;
+  const conversation = host.querySelector<HTMLElement>("main")!;
+  const trigger = host.querySelector<HTMLElement>("[data-chat-provider-model-picker]")!;
+  await act(() => {
+    previous.focus();
+    captureModalReturnFocus(previous);
+    conversation.focus();
+    trigger.focus();
+  });
+  const popup = document.createElement("div");
+  popup.setAttribute("role", "dialog");
+  popup.innerHTML = '<input aria-label="Model search" />';
+  document.body.append(popup);
+  await act(() => popup.querySelector("input")!.focus());
+  await act(() => {
+    modalPickerFinalFocus(true);
+    popup.remove();
+  });
+  expect(document.activeElement).toBe(conversation);
+  expect(useModalKeyboardStore.getState().mode).toBe("normal");
+});

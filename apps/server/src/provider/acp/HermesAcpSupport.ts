@@ -3,7 +3,7 @@ import {
   type HermesSettings,
   type ProviderApprovalOption,
 } from "@t3tools/contracts";
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Scope from "effect/Scope";
@@ -118,7 +118,7 @@ export const makeHermesAcpRuntime = Effect.fn("makeHermesAcpRuntime")(function* 
 ): Effect.fn.Return<
   AcpSessionRuntime.AcpSessionRuntime["Service"],
   AcpErrors.AcpError,
-  ChildProcessSpawner.ChildProcessSpawner | Crypto.Crypto | Scope.Scope
+  ChildProcessSpawner.ChildProcessSpawner | SecureRandom.SecureRandom | Scope.Scope
 > {
   const context = yield* Layer.build(
     AcpSessionRuntime.layer({

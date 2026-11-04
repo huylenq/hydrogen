@@ -172,7 +172,8 @@ export const comparisonBase = Effect.fn("checkChanged.comparisonBase")(function*
   return closest;
 });
 
-const CODE = /\.[cm]?[jt]sx?$/;
+// CI's lint and knip also read Astro components' frontmatter.
+const CODE = /\.(?:[cm]?[jt]sx?|astro)$/;
 const TEST = /\.test\.[cm]?[jt]sx?$/;
 // CI runs the .github/scripts tests with `node --test`; vitest passes a failing node:test file.
 const NODE_TEST = /^\.github[/\\]scripts[/\\]/;
@@ -205,6 +206,10 @@ export const docReaderTests = (files: ReadonlyArray<string>) =>
   files.includes("docs/user/t3-connect-troubleshooting.md")
     ? ["apps/server/src/cloud/ConnectReachability.test.ts"]
     : [];
+
+// Vite excludes vendored references too; passing a refresh as CLI paths can exceed ARG_MAX.
+export const checkableFiles = (files: ReadonlyArray<string>) =>
+  files.filter((file) => !file.startsWith(".repos/"));
 
 const checkChanged = Effect.fn("checkChanged")(function* (input: {
   readonly ref: Option.Option<string>;
@@ -308,7 +313,7 @@ const checkChanged = Effect.fn("checkChanged")(function* (input: {
     return true;
   }
 
-  const present = yield* Effect.filter(files, (file) => fs.exists(inRoot(file)));
+  const present = yield* Effect.filter(checkableFiles(files), (file) => fs.exists(inRoot(file)));
   const code = present.filter((file) => CODE.test(file));
   const packages = readWorkspace();
   const { affected, outputs } = decide(files, packages, false);
@@ -469,7 +474,9 @@ const checkChanged = Effect.fn("checkChanged")(function* (input: {
     ...(present.length > 0
       ? [command("format", ["fmt", "--check", "--no-error-on-unmatched-pattern", ...present])]
       : []),
-    ...(code.length > 0 ? [command("lint", ["lint", ...code])] : []),
+    ...(code.length > 0
+      ? [command("lint", ["lint", "--no-error-on-unmatched-pattern", ...code])]
+      : []),
     ...(runKnip
       ? knipPasses.map((args, index) => command(`knip ${index + 1}/${knipPasses.length}`, args))
       : []),
@@ -479,7 +486,7 @@ const checkChanged = Effect.fn("checkChanged")(function* (input: {
     ...(affected.length > 0
       ? [
           {
-            // `tsc --noEmit` writes nothing another package reads, so dependency order
+            // `effect-tsgo tsrs --noEmit` writes nothing another package reads, so dependency order
             // only made dependents wait: --parallel cut a contracts change from 13 s to 9 s.
             ...command(`typecheck (${affected.length} packages)`, [
               "run",

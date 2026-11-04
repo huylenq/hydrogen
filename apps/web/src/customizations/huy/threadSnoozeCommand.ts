@@ -1,4 +1,4 @@
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { parseScopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/models";
 import {
   canSnooze,
@@ -17,12 +17,19 @@ type SnoozeThread = ThreadSnoozeShell &
 export function resolveThreadSnoozeTarget(
   threads: ReadonlyMap<string, SnoozeThread>,
   routeThreadKey: string | null,
+  loadThread?: (ref: ScopedThreadRef) => SnoozeThread | null,
 ) {
-  const routed = routeThreadKey ? threads.get(routeThreadKey) : null;
+  const lookup = (key: string) => {
+    const known = threads.get(key);
+    if (known) return known;
+    const ref = parseScopedThreadKey(key);
+    return ref ? (loadThread?.(ref) ?? null) : null;
+  };
+  const routed = routeThreadKey ? lookup(routeThreadKey) : null;
   const session = flowSessionActionTarget(
     routed && routeThreadKey ? { key: routeThreadKey, title: routed.title } : null,
   );
-  const thread = session ? threads.get(session.key) : null;
+  const thread = session ? lookup(session.key) : null;
   return thread ? { thread, ref: scopeThreadRef(thread.environmentId, thread.id) } : null;
 }
 

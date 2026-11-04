@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as SecretResolver from "@t3tools/secret-provider-core/server/SecretResolver";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -23,7 +24,7 @@ import { HermesDriver } from "./HermesDriver.ts";
 
 const driver = ProviderDriverKind.make("hermes");
 const testLayer = TestProviderHost.layer({ runBackgroundWork: false }).pipe(
-  Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
   Layer.provideMerge(McpProviderSessions.layer),
   Layer.provideMerge(
     Layer.succeed(

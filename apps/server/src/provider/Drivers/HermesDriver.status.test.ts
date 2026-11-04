@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { expect, it } from "@effect/vitest";
 import { ProviderInstanceId } from "@t3tools/contracts";
@@ -35,7 +36,7 @@ vi.mock("../acp/HermesAcpSupport.ts", async (importOriginal) => ({
 }));
 
 const testLayer = TestProviderHost.layer({ runBackgroundWork: false }).pipe(
-  Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
   Layer.provideMerge(McpProviderSessions.layer),
   Layer.provideMerge(
     Layer.succeed(
